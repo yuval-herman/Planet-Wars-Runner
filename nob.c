@@ -1,0 +1,79 @@
+#include <stdlib.h>
+#include <string.h>
+#define NOB_IMPLEMENTATION
+#include "nob.h"
+
+#define BUILD_DIR "build"
+#define RAYLIB_LIB BUILD_DIR "/libraylib.a"
+
+/**
+ * All functions returning bool return true on success.
+ */
+
+bool compile_raylib() {
+  Nob_Cmd cmd = {0};
+  Nob_Procs procs = {0};
+
+  const char *module_names[] = {"rcore", "rglfw",   "rshapes", "rtextures",
+                                "rtext", "rmodels", "raudio"};
+
+  for (int i = 0; i < NOB_ARRAY_LEN(module_names); i++) {
+    size_t mark = nob_temp_save();
+    nob_cmd_append(&cmd, "gcc");
+
+    nob_cmd_append(&cmd, "-c");
+    nob_cmd_append(&cmd,
+                   nob_temp_sprintf("external/raylib/%s.c", module_names[i]));
+    nob_cmd_append(&cmd, "-o",
+                   nob_temp_sprintf(BUILD_DIR "/%s.o", module_names[i]));
+
+    nob_cmd_append(&cmd, "-D_GNU_SOURCE");
+    if (strcmp(module_names[i], "rglfw") == 0)
+      nob_cmd_append(&cmd, "-U_GNU_SOURCE");
+    nob_cmd_append(&cmd, "-DPLATFORM_DESKTOP_GLFW");
+    nob_cmd_append(&cmd, "-DGRAPHICS_API_OPENGL_33");
+    nob_cmd_append(&cmd, "-D_GLFW_X11");
+
+    nob_cmd_append(&cmd, "-fno-strict-aliasing");
+    nob_cmd_append(&cmd, "-std=c99");
+    nob_cmd_append(&cmd, "-fPIC");
+    nob_cmd_append(&cmd, "-O2");
+
+    nob_cmd_append(&cmd, "-Iexternal/raylib");
+    nob_cmd_append(&cmd, "-Iexternal/raylib/external/glfw/include");
+
+    if (!nob_cmd_run(&cmd, .async = &procs))
+      return false;
+
+    nob_temp_rewind(mark);
+  }
+
+  if (!nob_procs_flush(&procs))
+    return false;
+  nob_cmd_append(&cmd, "ar", "rcs", RAYLIB_LIB);
+  for (int i = 0; i < NOB_ARRAY_LEN(module_names); i++) {
+    nob_cmd_append(&cmd, nob_temp_sprintf(BUILD_DIR "/%s.o", module_names[i]));
+  }
+
+  return nob_cmd_run(&cmd);
+}
+
+int main(int argc, char **argv) {
+  NOB_GO_REBUILD_URSELF(argc, argv);
+
+  nob_mkdir_if_not_exists(BUILD_DIR);
+
+  if (!nob_file_exists(RAYLIB_LIB))
+    compile_raylib();
+
+  Nob_Cmd cmd = {0};
+  nob_cc(&cmd);
+  nob_cc_flags(&cmd);
+  nob_cc_inputs(&cmd, "src/main.c", RAYLIB_LIB);
+  nob_cmd_append(&cmd, "-Iexternal/raylib", "-lm", "-lX11");
+  nob_cc_output(&cmd, "main");
+
+  if (!nob_cmd_run(&cmd))
+    return 1;
+  return 0;
+}
