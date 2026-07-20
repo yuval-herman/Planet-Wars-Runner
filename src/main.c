@@ -1,6 +1,8 @@
+#define NOB_IMPLEMENTATION
 #include "../nob.h"
 #include "raylib.h"
 #include "raymath.h"
+#include "subprocess.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -46,10 +48,17 @@ typedef struct {
   size_t capacity;
 } FleetsDA;
 
+typedef struct {
+  struct subprocess_s *items;
+  size_t count;
+  size_t capacity;
+} BotProcesses;
+
 const Color planet_colors[] = {GRAY, RED, GREEN, BLUE, YELLOW};
 
 PlanetDA planets = {0};
 FleetsDA fleets = {0};
+BotProcesses bot_processes = {0};
 unsigned int turn = 0;
 GameSpace game_space = {.min_coords = {INFINITY, INFINITY},
                         .max_coords = {-INFINITY, -INFINITY}};
@@ -209,21 +218,58 @@ void ComputeAttack(Fleet fleet) {
   }
 }
 
+bool StartBots(char **commands) {
+  Nob_Cmd command = {0};
+  Nob_String_View view = {0};
+  // TODO start as many bots as the user provides, assuming the map has the
+  // required amount of user owned planets.
+  for (int i = 0; i < 2; i++) {
+    view = nob_sv_from_cstr(commands[i]);
+
+    while (view.count > 0) {
+      nob_cmd_append(&command,
+                     nob_temp_sv_to_cstr(nob_sv_chop_by_delim(&view, ' ')));
+    }
+
+    nob_cmd_append(&command, NULL);
+
+    struct subprocess_s process;
+    int result = subprocess_create(command.items,
+                                   subprocess_option_search_user_path |
+                                       subprocess_option_enable_async,
+                                   &process);
+
+    if (0 != result) {
+      Nob_String_Builder sb = {0};
+      nob_cmd_render(command, &sb);
+      nob_sb_append_null(&sb);
+      fprintf(stderr, "ERROR: Failed to launch bot number %d: %s\n%s\n", 2,
+              sb.items, strerror(errno));
+      return false;
+    }
+
+    nob_da_append(&bot_processes, process);
+  }
+  return true;
+}
+
 int main(int argc, char *argv[]) {
   // Initialization
   //--------------------------------------------------------------------------------------
   const int screenWidth = 800;
   const int screenHeight = 450;
 
-  if (argc < 2) {
-    fprintf(stderr, "ERROR: No <map_file> provided.\n");
-    fprintf(stderr, "Usage: %s <map_file>\n", argv[0]);
+  if (argc < 4) {
+    fprintf(stderr, "ERROR: Missing arguments.\n");
+    fprintf(stderr, "Usage: %s <map_file> <bot1> <bot2>...\n", argv[0]);
     return 1;
   }
 
   printf("Loading map file from %s.\n", argv[1]);
   if (!ParseMapFile(argv[1], &planets))
     return 1;
+
+  StartBots(argv + 2);
 
   CalculateGameSpace();
 
