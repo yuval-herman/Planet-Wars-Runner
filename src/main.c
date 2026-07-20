@@ -11,7 +11,7 @@
 #define MAP_MARGIN 50
 #define SHIP_FONT_SIZE 20
 // The lower the number the faster the game, 0 for realtime
-#define GAME_SPEED 10
+#define GAME_SPEED 5
 
 const Color planet_colors[] = {GRAY, RED, GREEN, BLUE, YELLOW};
 
@@ -241,15 +241,19 @@ int main(int argc, char *argv[]) {
   //--------------------------------------------------------------------------------------
 
   unsigned int tick = 0;
+  bool game_running = true;
   // Main game loop
   while (!WindowShouldClose()) // Detect window close button or ESC key
   {
     tick++;
-    if (tick % GAME_SPEED == 0) {
+    if (game_running && tick % GAME_SPEED == 0) {
       turn += 1;
+      bool player_map[NOB_ARRAY_LEN(planet_colors)] = {0};
       nob_da_foreach(Planet, planet, &planets) {
-        if (planet->owner != 0)
+        if (planet->owner != 0) {
           planet->ships += planet->growth;
+          player_map[planet->owner] = true;
+        }
       }
 
       for (size_t i = 0; i < fleets.count; i++) {
@@ -262,6 +266,15 @@ int main(int argc, char *argv[]) {
           // so we need to run the loop again on the same index.
           i--;
         }
+      }
+
+      int player_count = 0;
+      for (size_t i = 0; i < NOB_ARRAY_LEN(player_map); i++) {
+        if (player_map[i])
+          player_count++;
+      }
+      if (player_count <= 1) {
+        game_running = false;
       }
     }
     // Draw
