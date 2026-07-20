@@ -4,6 +4,8 @@
 #include "raymath.h"
 #include "subprocess.h"
 
+#include "planet_wars.h"
+
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -19,34 +21,6 @@ typedef struct {
   Vector2 min_coords;
   Vector2 max_coords;
 } GameSpace;
-
-typedef struct {
-  Vector2 coords;
-  int owner;
-  int ships;
-  int growth;
-} Planet;
-
-typedef struct {
-  int owner;
-  int ships;
-  int src_id;
-  int dst_id;
-  int total;
-  int remaining;
-} Fleet;
-
-typedef struct {
-  Planet *items;
-  size_t count;
-  size_t capacity;
-} PlanetDA;
-
-typedef struct {
-  Fleet *items;
-  size_t count;
-  size_t capacity;
-} FleetsDA;
 
 typedef struct {
   struct subprocess_s *items;
@@ -74,11 +48,6 @@ void CalculateGameSpace() {
     game_space.min_coords = Vector2Min(planet->coords, game_space.min_coords);
     game_space.max_coords = Vector2Max(planet->coords, game_space.max_coords);
   }
-}
-
-void PrintPlanet(Planet planet) {
-  printf("P %f %f %d %d %d\n", planet.coords.x, planet.coords.y, planet.owner,
-         planet.ships, planet.growth);
 }
 
 Vector2 Game2ScreenCoords(Vector2 coords) {
@@ -129,31 +98,6 @@ void DrawFleet(Fleet fleet) {
              planet_colors[fleet.owner]);
 }
 
-// Parses a float, advances s to the end of the parsed string, sets out to the
-// parsed value. Returns true on success false otherwise.
-bool parse_float(char **s, float *out) {
-  char *end;
-  errno = 0;
-  float v = strtof(*s, &end);
-  if (end == *s || errno == ERANGE || !isfinite(v))
-    return false;
-  *s = end;
-  *out = v;
-  return true;
-}
-
-// Parses a int, advances s to the end of the parsed string, sets out to the
-// parsed value. Returns true on success false otherwise.
-bool parse_int(char **s, int *out) {
-  char *end;
-  long v = strtol(*s, &end, 10);
-  if (end == *s || v < INT_MIN || v > INT_MAX)
-    return false;
-  *s = end;
-  *out = (int)v;
-  return true;
-}
-
 bool ParseMapFile(const char *map_path, PlanetDA *planets) {
   FILE *map_file = fopen(map_path, "r");
   if (!map_file) {
@@ -163,7 +107,6 @@ bool ParseMapFile(const char *map_path, PlanetDA *planets) {
 
   char buf[256];
   size_t file_line = 0;
-
   while (fgets(buf, sizeof buf, map_file)) {
     file_line += 1;
     size_t len = strlen(buf);
@@ -172,30 +115,18 @@ bool ParseMapFile(const char *map_path, PlanetDA *planets) {
                       "cannot be read.\n");
       return false;
     }
-    // TODO support pre-existing fleet lines
-    if (buf[0] != 'P')
-      continue;
 
-    char *s_idx = buf + 1;
+    // TODO support pre-existing fleets
+    if (buf[0] != 'P') 
+     continue;
+    
+
     Planet planet;
-    if (!(parse_float(&s_idx, &planet.coords.x) &&
-          parse_float(&s_idx, &planet.coords.y) &&
-          parse_int(&s_idx, &planet.owner) &&
-          parse_int(&s_idx, &planet.ships) &&
-          parse_int(&s_idx, &planet.growth))) {
+    if (!ParsePlanetLine(buf, &planet)) {
       fprintf(stderr, "Invalid map file.\nSyntax error at line %zu.\n",
               file_line);
       return false;
     }
-
-    // TODO support arbitrary amount of players, or a reasonably large number
-    if (planet.owner < 0 ||
-        (size_t)planet.owner >= NOB_ARRAY_LEN(planet_colors)) {
-      fprintf(stderr, "Invalid number of player owned planets. The must be "
-                      "between 1 to 4 players.\n");
-      return false;
-    }
-
     nob_da_append(planets, planet);
   }
 
@@ -236,7 +167,8 @@ bool StartBots(char **commands) {
     struct subprocess_s process;
     int result = subprocess_create(command.items,
                                    subprocess_option_search_user_path |
-                                       subprocess_option_enable_async,
+                                       subprocess_option_enable_async |
+                                       subprocess_option_enable_async_no_wait,
                                    &process);
 
     if (0 != result) {
@@ -286,6 +218,66 @@ int main(int argc, char *argv[]) {
   {
     tick++;
     if (game_running && tick % GAME_SPEED == 0) {
+      int bot_num = 0;
+      nob_da_foreach(struct subprocess_s, process, &bot_processes) {
+        bot_num++;
+        FILE *bot_stdin = subprocess_stdin(process);
+        nob_da_foreach(Planet, planet, &planets) {
+          PrintPlanet(bot_stdin, *planet);
+        }
+        nob_da_foreach(Fleet, fleet, &fleets) { PrintFleet(bot_stdin, *fleet); }
+        fputs("go", bot_stdin);
+
+        char buf[256];
+        while (subprocess_read_stdout(process, buf, sizeof buf)) {
+          size_t len = strlen(buf);
+          printf("bot %d sent: |%s|\n", bot_num, buf);
+          if (len == sizeof(buf) - 1 && buf[len - 1] != '\n') {
+            fprintf(stderr,
+                    "Bot message is longer then the 256 characters limit.\n");
+            // TODO handle bot disqualification
+            return 1;
+          }
+
+          char *s_idx = buf;
+          Fleet fleet;
+          fleet.owner = bot_num;
+          if (!(parse_int(&s_idx, &fleet.src_id) &&
+                parse_int(&s_idx, &fleet.dst_id) &&
+                parse_int(&s_idx, &fleet.ships))) {
+            fprintf(stderr, "Invalid bot command.\n");
+            // TODO handle bot disqualification
+            return 1;
+          }
+
+          if (fleet.src_id < 0 || (size_t)fleet.src_id > planets.count) {
+            fprintf(stderr,
+                    "Bot tried sending fleet from nonexistent planet.\n");
+            // TODO handle bot disqualification
+            return 1;
+          }
+          Planet src = planets.items[fleet.src_id];
+          if (src.owner != fleet.owner) {
+            fprintf(stderr,
+                    "Bot tried sending fleet from a planet it does not own.\n");
+            // TODO handle bot disqualification
+            return 1;
+          }
+          if (fleet.dst_id < 0 || (size_t)fleet.dst_id > planets.count) {
+            fprintf(stderr, "Bot tried sending fleet to nonexistent planet.\n");
+            // TODO handle bot disqualification
+            return 1;
+          }
+          Planet dst = planets.items[fleet.dst_id];
+
+          fleet.total = ceilf(sqrtf(powf((src.coords.x - dst.coords.x), 2) +
+                                    powf((src.coords.y - dst.coords.y), 2)));
+          fleet.remaining = fleet.total;
+
+          nob_da_append(&fleets, fleet);
+        }
+      }
+
       turn += 1;
       bool player_map[NOB_ARRAY_LEN(planet_colors)] = {0};
       nob_da_foreach(Planet, planet, &planets) {
@@ -299,12 +291,12 @@ int main(int argc, char *argv[]) {
         Fleet *fleet = &fleets.items[i];
         fleet->remaining--;
         if (fleet->remaining == 0) {
-          // TODO attack computations should happen simultanously for all fleets
-          // attacking a planet. In a situation where a player attempts to
-          // defend his planet while an enemy attacks and both fleets arrive at
-          // the same time, if the enemy the player have the same amount of
-          // ships overall (including the player owned planet) the planet stays
-          // owned by the player.
+          // TODO attack computations should happen simultanously for all
+          // fleets attacking a planet. In a situation where a player attempts
+          // to defend his planet while an enemy attacks and both fleets
+          // arrive at the same time, if the enemy the player have the same
+          // amount of ships overall (including the player owned planet) the
+          // planet stays owned by the player.
           ComputeAttack(*fleet);
           nob_da_remove_unordered(&fleets, i);
           // Remove unordered replaces the current fleet with the last one,
