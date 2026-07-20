@@ -1,3 +1,4 @@
+#include <string.h>
 #define NOB_IMPLEMENTATION
 #include "../nob.h"
 #include "raylib.h"
@@ -43,7 +44,7 @@ bool game_running = true;
 
 // Calculates the minimum and maximum coordinates of all planets, used to space
 // planets across the entire screen.
-void CalculateGameSpace() {
+void ComputeGameSpace() {
   nob_da_foreach(Planet, planet, &planets) {
     game_space.min_coords = Vector2Min(planet->coords, game_space.min_coords);
     game_space.max_coords = Vector2Max(planet->coords, game_space.max_coords);
@@ -117,9 +118,8 @@ bool ParseMapFile(const char *map_path, PlanetDA *planets) {
     }
 
     // TODO support pre-existing fleets
-    if (buf[0] != 'P') 
-     continue;
-    
+    if (buf[0] != 'P')
+      continue;
 
     Planet planet;
     if (!ParsePlanetLine(buf, &planet)) {
@@ -167,8 +167,7 @@ bool StartBots(char **commands) {
     struct subprocess_s process;
     int result = subprocess_create(command.items,
                                    subprocess_option_search_user_path |
-                                       subprocess_option_enable_async |
-                                       subprocess_option_enable_async_no_wait,
+                                       subprocess_option_enable_async,
                                    &process);
 
     if (0 != result) {
@@ -183,6 +182,18 @@ bool StartBots(char **commands) {
     nob_da_append(&bot_processes, process);
   }
   return true;
+}
+
+void sendMapToBot(size_t bot_idx) {
+  if (bot_idx > bot_processes.count) {
+    fprintf(stderr, "ERROR: Attempting access to non-existent bot process");
+    exit(1);
+  }
+  FILE *bot_stdin = subprocess_stdin(&bot_processes.items[bot_idx]);
+  nob_da_foreach(Planet, planet, &planets) { PrintPlanet(bot_stdin, *planet); }
+  nob_da_foreach(Fleet, fleet, &fleets) { PrintFleet(bot_stdin, *fleet); }
+  fprintf(bot_stdin, "go\n");
+  fflush(bot_stdin);
 }
 
 int main(int argc, char *argv[]) {
@@ -203,7 +214,7 @@ int main(int argc, char *argv[]) {
 
   StartBots(argv + 2);
 
-  CalculateGameSpace();
+  ComputeGameSpace();
 
   SetTraceLogLevel(LOG_WARNING);
   SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_MSAA_4X_HINT);
@@ -217,38 +228,52 @@ int main(int argc, char *argv[]) {
   while (!WindowShouldClose()) // Detect window close button or ESC key
   {
     tick++;
+    printf("tick: %d\n", tick);
     if (game_running && tick % GAME_SPEED == 0) {
       int bot_num = 0;
       nob_da_foreach(struct subprocess_s, process, &bot_processes) {
-        bot_num++;
-        FILE *bot_stdin = subprocess_stdin(process);
-        nob_da_foreach(Planet, planet, &planets) {
-          PrintPlanet(bot_stdin, *planet);
+        printf("sending map to bot %d\n", bot_num);
+        sendMapToBot(bot_num);
+
+        char buf[4096];
+        // TODO use the no_wait flag for subprocess so we can kill bots taking too long
+        subprocess_read_stdout(process, buf, sizeof buf);
+
+        Nob_String_View sv = nob_sv_from_cstr(buf);
+        printf("bot %d sent: |%s|\n", bot_num, buf);
+        if (sv.count == sizeof(buf) - 1 && buf[sv.count - 1] != '\n') {
+          fprintf(stderr,
+                  "Bot message is longer then the 4096 characters limit.\n");
+          // TODO handle bot disqualification
+          return 1;
         }
-        nob_da_foreach(Fleet, fleet, &fleets) { PrintFleet(bot_stdin, *fleet); }
-        fputs("go", bot_stdin);
 
-        char buf[256];
-        while (subprocess_read_stdout(process, buf, sizeof buf)) {
-          size_t len = strlen(buf);
-          printf("bot %d sent: |%s|\n", bot_num, buf);
-          if (len == sizeof(buf) - 1 && buf[len - 1] != '\n') {
-            fprintf(stderr,
-                    "Bot message is longer then the 256 characters limit.\n");
-            // TODO handle bot disqualification
-            return 1;
-          }
+        if (sv.count < 2) {
+          fprintf(stderr, "Bot message is too short, to do nothing a bot "
+                          "must send 'go' and nothing else.\n");
+          // TODO handle bot disqualification
+          return 1;
 
-          char *s_idx = buf;
+        }
+        // sv.count < 4 because this allows crlf as well as simple new line.
+        else if (sv.count < 4 && buf[0] == 'g' && buf[1] == 'o') {
+          continue;
+        }
+
+        while (sv.data[0] != 'g' && sv.data[1] != 'o') {
+          printf("parsing bot %d fleets\n", bot_num);
           Fleet fleet;
-          fleet.owner = bot_num;
-          if (!(parse_int(&s_idx, &fleet.src_id) &&
-                parse_int(&s_idx, &fleet.dst_id) &&
-                parse_int(&s_idx, &fleet.ships))) {
+          fleet.owner = bot_num + 1;
+          const char *start = sv.data;
+          if (!(parse_int(&sv.data, &fleet.src_id) &&
+                parse_int(&sv.data, &fleet.dst_id) &&
+                parse_int(&sv.data, &fleet.ships))) {
             fprintf(stderr, "Invalid bot command.\n");
             // TODO handle bot disqualification
             return 1;
           }
+          sv.count -= start - sv.data;
+          sv = nob_sv_trim_left(sv);
 
           if (fleet.src_id < 0 || (size_t)fleet.src_id > planets.count) {
             fprintf(stderr,
@@ -276,6 +301,10 @@ int main(int argc, char *argv[]) {
 
           nob_da_append(&fleets, fleet);
         }
+        printf("done parsing bot %d fleets\n", bot_num);
+
+        printf("done with bot %d, advancing to bot %d\n", bot_num, bot_num + 1);
+        bot_num++;
       }
 
       turn += 1;
