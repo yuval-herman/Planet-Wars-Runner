@@ -1,0 +1,101 @@
+#ifndef PLANET_WARS_H
+#define PLANET_WARS_H
+#include "raymath.h"
+#include <errno.h>
+#include <limits.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+typedef struct {
+  Vector2 coords;
+  int owner;
+  int ships;
+  int growth;
+} Planet;
+
+typedef struct {
+  int owner;
+  int ships;
+  int src_id;
+  int dst_id;
+  int total;
+  int remaining;
+} Fleet;
+
+typedef struct {
+  Planet *items;
+  size_t count;
+  size_t capacity;
+} PlanetDA;
+
+typedef struct {
+  Fleet *items;
+  size_t count;
+  size_t capacity;
+} FleetsDA;
+
+static inline void PrintPlanet(FILE *file, Planet planet) {
+  fprintf(file, "P %f %f %d %d %d\n", planet.coords.x, planet.coords.y,
+          planet.owner, planet.ships, planet.growth);
+}
+
+static inline void PrintFleet(FILE *file, Fleet fleet) {
+  fprintf(file, "F %d %d %d %d %d %d\n", fleet.owner, fleet.ships, fleet.src_id,
+          fleet.dst_id, fleet.total, fleet.remaining);
+}
+
+// Parses a float, advances s to the end of the parsed string, sets out to the
+// parsed value. Returns true on success false otherwise.
+bool parse_float(char **s, float *out) {
+  char *end;
+  errno = 0;
+  float v = strtof(*s, &end);
+  if (end == *s || errno == ERANGE || !isfinite(v))
+    return false;
+  *s = end;
+  *out = v;
+  return true;
+}
+
+// Parses a int, advances s to the end of the parsed string, sets out to the
+// parsed value. Returns true on success false otherwise.
+bool parse_int(char **s, int *out) {
+  char *end;
+  long v = strtol(*s, &end, 10);
+  if (end == *s || v < INT_MIN || v > INT_MAX)
+    return false;
+  *s = end;
+  *out = (int)v;
+  return true;
+}
+
+static bool ParsePlanetLine(char *line, Planet *planet) {
+  if (line[0] != 'P')
+    return false;
+
+  char *s_idx = line + 1;
+  Vector2 coords;
+  int owner;
+  int ships;
+  int growth;
+  if (!(parse_float(&s_idx, &coords.x) && parse_float(&s_idx, &coords.y) &&
+        parse_int(&s_idx, &owner) && parse_int(&s_idx, &ships) &&
+        parse_int(&s_idx, &growth))) {
+    return false;
+  }
+
+  // TODO support arbitrary amount of players, or a reasonably large number
+  if (owner < 0 || (size_t)owner >= 5) {
+    fprintf(stderr, "Invalid number of player owned planets. The must be "
+                    "between 1 to 4 players.\n");
+    return false;
+  }
+
+  planet->coords = coords;
+  planet->owner = owner;
+  planet->ships = ships;
+  planet->growth = growth;
+  return true;
+}
+#endif // PLANET_WARS_H
