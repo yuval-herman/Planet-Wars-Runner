@@ -2,11 +2,15 @@
 #include "raylib.h"
 #include "raymath.h"
 
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 
-#define BASE_PLANET_RADIUS 10
-#define PLANET_COLOR_NEUTRAL GRAY
+#define BASE_PLANET_RADIUS 10.0f
+#define PLANET_RADIUS_GROWTH_CURVE 20.0f
+#define MAP_MARGIN 50
+
+const Color planet_colors[] = {GRAY, RED, GREEN, BLUE, YELLOW};
 
 typedef struct {
   Vector2 coords;
@@ -43,17 +47,32 @@ void PrintPlanet(Planet planet) {
          planet.ships, planet.growth);
 }
 
-void DrawPlanet(Planet planet) {
-  DrawCircleV(planet.coords, BASE_PLANET_RADIUS * planet.growth, GRAY);
+// Draws a Planet on the screen.
+// `min_coords` and `max_corrds` are the smallest and largest (x, y) coordinates
+// on the map. This values are used to make sure planets are spaced out to fill
+// the entire screen.
+void DrawPlanet(Planet planet, Vector2 min_coords, Vector2 max_coords) {
+  Vector2 draw_coords = {
+      .x = Remap(planet.coords.x, min_coords.x, max_coords.x, MAP_MARGIN,
+                 GetScreenWidth() - MAP_MARGIN),
+      .y =
+          GetScreenHeight() - Remap(planet.coords.y, min_coords.y, max_coords.y,
+                                    MAP_MARGIN, GetScreenHeight() - MAP_MARGIN),
+  };
 
-  const float font_size = 10 * planet.growth;
+  const float draw_radius = BASE_PLANET_RADIUS + PLANET_RADIUS_GROWTH_CURVE -
+                            PLANET_RADIUS_GROWTH_CURVE / planet.growth;
+
+  DrawCircleV(draw_coords, draw_radius, planet_colors[planet.owner]);
+
+  const float font_size = draw_radius;
   const float spacing = 1;
   const char *ships_text = TextFormat("%d", planet.ships);
 
   const Vector2 text_measurements =
       MeasureTextEx(font, ships_text, font_size, spacing);
   const Vector2 text_coords =
-      Vector2Subtract(planet.coords, Vector2Scale(text_measurements, 0.5));
+      Vector2Subtract(draw_coords, Vector2Scale(text_measurements, 0.5));
 
   DrawTextEx(font, ships_text, text_coords, font_size, spacing, BLACK);
 }
@@ -116,6 +135,14 @@ bool ParseMapFile(const char *map_path, PlanetDA *planets) {
               file_line);
       return false;
     }
+
+    // TODO support arbitrary amount of players, or a reasonably large number
+    if (planet.owner < 0 || planet.owner > NOB_ARRAY_LEN(planet_colors)) {
+      fprintf(stderr, "Invalid number of player owned planets. The must be "
+                      "between 1 to 4 players.\n");
+      return false;
+    }
+
     nob_da_append(planets, planet);
   }
 
@@ -130,6 +157,8 @@ int main(int argc, char *argv[]) {
   const int screenHeight = 450;
 
   PlanetDA planets = {0};
+  Vector2 min_coords = {INFINITY, INFINITY},
+          max_coords = {-INFINITY, -INFINITY};
 
   if (argc < 2) {
     fprintf(stderr, "ERROR: No <map_file> provided.\n");
@@ -141,7 +170,14 @@ int main(int argc, char *argv[]) {
   if (!ParseMapFile(argv[1], &planets))
     return 1;
 
+  nob_da_foreach(Planet, planet, &planets) {
+    const Vector2 coords = planet->coords;
+    min_coords = Vector2Min(planet->coords, min_coords);
+    max_coords = Vector2Max(planet->coords, max_coords);
+  }
+
   SetTraceLogLevel(LOG_WARNING);
+  SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_MSAA_4X_HINT);
   InitWindow(screenWidth, screenHeight, "raylib [core] example - basic window");
   font = GetFontDefault();
 
@@ -157,7 +193,9 @@ int main(int argc, char *argv[]) {
 
     ClearBackground(RAYWHITE);
 
-    nob_da_foreach(Planet, planet, &planets) { DrawPlanet(*planet); }
+    nob_da_foreach(Planet, planet, &planets) {
+      DrawPlanet(*planet, min_coords, max_coords);
+    }
 
     EndDrawing();
     //----------------------------------------------------------------------------------
