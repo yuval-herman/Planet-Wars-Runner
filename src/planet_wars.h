@@ -47,7 +47,7 @@ static inline void PrintFleet(FILE *file, Fleet fleet) {
 
 // Parses a float, advances s to the end of the parsed string, sets out to the
 // parsed value. Returns true on success false otherwise.
-bool parse_float(char **s, float *out) {
+bool parse_float(const char **s, float *out) {
   char *end;
   errno = 0;
   float v = strtof(*s, &end);
@@ -60,7 +60,7 @@ bool parse_float(char **s, float *out) {
 
 // Parses a int, advances s to the end of the parsed string, sets out to the
 // parsed value. Returns true on success false otherwise.
-bool parse_int(char **s, int *out) {
+bool parse_int(const char **s, int *out) {
   char *end;
   long v = strtol(*s, &end, 10);
   if (end == *s || v < INT_MIN || v > INT_MAX)
@@ -74,7 +74,7 @@ static bool ParsePlanetLine(char *line, Planet *planet) {
   if (line[0] != 'P')
     return false;
 
-  char *s_idx = line + 1;
+  const char *s_idx = line + 1;
   Vector2 coords;
   int owner;
   int ships;
