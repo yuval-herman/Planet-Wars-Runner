@@ -10,6 +10,8 @@
 #define PLANET_RADIUS_GROWTH_CURVE 20.0f
 #define MAP_MARGIN 50
 #define SHIP_FONT_SIZE 20
+// The lower the number the faster the game, 0 for realtime
+#define GAME_SPEED 10
 
 const Color planet_colors[] = {GRAY, RED, GREEN, BLUE, YELLOW};
 
@@ -177,6 +179,21 @@ bool ParseMapFile(const char *map_path, PlanetDA *planets) {
   return true;
 }
 
+void ComputeAttack(Fleet fleet) {
+  if (fleet.remaining > 0)
+    return;
+  Planet *planet = fleet.dst;
+
+  if (planet->owner == fleet.owner)
+    planet->ships += fleet.ships;
+  else if (planet->ships <= fleet.ships) {
+    planet->owner = fleet.owner;
+    planet->ships = fleet.ships - planet->ships;
+  } else {
+    planet->ships -= fleet.ships;
+  }
+}
+
 int main(int argc, char *argv[]) {
   // Initialization
   //--------------------------------------------------------------------------------------
@@ -185,6 +202,7 @@ int main(int argc, char *argv[]) {
 
   PlanetDA planets = {0};
   FleetsDA fleets = {0};
+  unsigned int turn = 0;
   GameSpace game_space = {.min_coords = {INFINITY, INFINITY},
                           .max_coords = {-INFINITY, -INFINITY}};
 
@@ -205,11 +223,11 @@ int main(int argc, char *argv[]) {
 
   nob_da_append(&fleets, ((Fleet){
                              .owner = 1,
-                             .ships = 23,
+                             .ships = 230,
                              .src_id = 1,
                              .dst_id = 2,
                              .total = 20,
-                             .remaining = 7,
+                             .remaining = 20,
                              .src = &planets.items[1],
                              .dst = &planets.items[2],
                          }));
@@ -222,9 +240,30 @@ int main(int argc, char *argv[]) {
   SetTargetFPS(60); // Set our game to run at 60 frames-per-second
   //--------------------------------------------------------------------------------------
 
+  unsigned int tick = 0;
   // Main game loop
   while (!WindowShouldClose()) // Detect window close button or ESC key
   {
+    tick++;
+    if (tick % GAME_SPEED == 0) {
+      turn += 1;
+      nob_da_foreach(Planet, planet, &planets) {
+        if (planet->owner != 0)
+          planet->ships += planet->growth;
+      }
+
+      for (size_t i = 0; i < fleets.count; i++) {
+        Fleet *fleet = &fleets.items[i];
+        fleet->remaining--;
+        if (fleet->remaining == 0) {
+          ComputeAttack(*fleet);
+          nob_da_remove_unordered(&fleets, i);
+          // Remove unordered replaces the current fleet with the last one,
+          // so we need to run the loop again on the same index.
+          i--;
+        }
+      }
+    }
     // Draw
     //----------------------------------------------------------------------------------
     BeginDrawing();
