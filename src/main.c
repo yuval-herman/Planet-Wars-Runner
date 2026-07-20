@@ -71,8 +71,9 @@ Vector2 Game2ScreenCoords(Vector2 coords, GameSpace space) {
 void DrawPlanet(Planet planet, GameSpace space) {
   Vector2 draw_coords = Game2ScreenCoords(planet.coords, space);
 
-  const float draw_radius = BASE_PLANET_RADIUS + PLANET_RADIUS_GROWTH_CURVE -
-                            PLANET_RADIUS_GROWTH_CURVE / planet.growth;
+  const float draw_radius =
+      BASE_PLANET_RADIUS + PLANET_RADIUS_GROWTH_CURVE -
+      PLANET_RADIUS_GROWTH_CURVE / fmaxf(planet.growth, 1);
 
   DrawCircleV(draw_coords, draw_radius, planet_colors[planet.owner]);
 
