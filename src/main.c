@@ -143,7 +143,7 @@ bool ParseMapFile(const char *map_path, PlanetDA *planets) {
   while (fgets(buf, sizeof buf, map_file)) {
     file_line += 1;
     size_t len = strlen(buf);
-    if (buf[len - 1] != '\n') {
+    if (len == sizeof(buf) - 1 && buf[len - 1] != '\n') {
       fprintf(stderr, "Map file contains lines longer then 256 characters and "
                       "cannot be read.\n");
       return false;
@@ -166,7 +166,7 @@ bool ParseMapFile(const char *map_path, PlanetDA *planets) {
 
     // TODO support arbitrary amount of players, or a reasonably large number
     if (planet.owner < 0 ||
-        (size_t)planet.owner > NOB_ARRAY_LEN(planet_colors)) {
+        (size_t)planet.owner >= NOB_ARRAY_LEN(planet_colors)) {
       fprintf(stderr, "Invalid number of player owned planets. The must be "
                       "between 1 to 4 players.\n");
       return false;
