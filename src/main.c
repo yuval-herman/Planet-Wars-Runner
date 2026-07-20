@@ -46,30 +46,44 @@ typedef struct {
   size_t capacity;
 } FleetsDA;
 
-Font font;
-
 const Color planet_colors[] = {GRAY, RED, GREEN, BLUE, YELLOW};
 
 PlanetDA planets = {0};
 FleetsDA fleets = {0};
 unsigned int turn = 0;
+GameSpace game_space = {.min_coords = {INFINITY, INFINITY},
+                        .max_coords = {-INFINITY, -INFINITY}};
+
+Font font;
+unsigned int tick = 0;
+bool game_running = true;
+
+// Calculates the minimum and maximum coordinates of all planets, used to space
+// planets across the entire screen.
+void CalculateGameSpace() {
+  nob_da_foreach(Planet, planet, &planets) {
+    game_space.min_coords = Vector2Min(planet->coords, game_space.min_coords);
+    game_space.max_coords = Vector2Max(planet->coords, game_space.max_coords);
+  }
+}
 
 void PrintPlanet(Planet planet) {
   printf("P %f %f %d %d %d\n", planet.coords.x, planet.coords.y, planet.owner,
          planet.ships, planet.growth);
 }
 
-Vector2 Game2ScreenCoords(Vector2 coords, GameSpace space) {
-  return (Vector2){.x = Remap(coords.x, space.min_coords.x, space.max_coords.x,
-                              MAP_MARGIN, GetScreenWidth() - MAP_MARGIN),
-                   .y = GetScreenHeight() -
-                        Remap(coords.y, space.min_coords.y, space.max_coords.y,
-                              MAP_MARGIN, GetScreenHeight() - MAP_MARGIN)};
+Vector2 Game2ScreenCoords(Vector2 coords) {
+  return (Vector2){
+      .x = Remap(coords.x, game_space.min_coords.x, game_space.max_coords.x,
+                 MAP_MARGIN, GetScreenWidth() - MAP_MARGIN),
+      .y = GetScreenHeight() - Remap(coords.y, game_space.min_coords.y,
+                                     game_space.max_coords.y, MAP_MARGIN,
+                                     GetScreenHeight() - MAP_MARGIN)};
 }
 
 // Draws a Planet on the screen.
-void DrawPlanet(Planet planet, GameSpace space) {
-  Vector2 draw_coords = Game2ScreenCoords(planet.coords, space);
+void DrawPlanet(Planet planet) {
+  Vector2 draw_coords = Game2ScreenCoords(planet.coords);
 
   const float draw_radius =
       BASE_PLANET_RADIUS + PLANET_RADIUS_GROWTH_CURVE -
@@ -89,12 +103,10 @@ void DrawPlanet(Planet planet, GameSpace space) {
   DrawTextEx(font, ships_text, text_coords, font_size, spacing, BLACK);
 }
 
-void DrawFleet(Fleet fleet, GameSpace space) {
-  Vector2 draw_coords =
-      Game2ScreenCoords(Vector2Lerp(planets.items[fleet.src_id].coords,
-                                    planets.items[fleet.dst_id].coords,
-                                    1 - (float)fleet.remaining / fleet.total),
-                        space);
+void DrawFleet(Fleet fleet) {
+  Vector2 draw_coords = Game2ScreenCoords(Vector2Lerp(
+      planets.items[fleet.src_id].coords, planets.items[fleet.dst_id].coords,
+      1 - (float)fleet.remaining / fleet.total));
 
   const char *ships_text = TextFormat("%d", fleet.ships);
   const float font_size = SHIP_FONT_SIZE;
@@ -203,9 +215,6 @@ int main(int argc, char *argv[]) {
   const int screenWidth = 800;
   const int screenHeight = 450;
 
-  GameSpace game_space = {.min_coords = {INFINITY, INFINITY},
-                          .max_coords = {-INFINITY, -INFINITY}};
-
   if (argc < 2) {
     fprintf(stderr, "ERROR: No <map_file> provided.\n");
     fprintf(stderr, "Usage: %s <map_file>\n", argv[0]);
@@ -216,19 +225,7 @@ int main(int argc, char *argv[]) {
   if (!ParseMapFile(argv[1], &planets))
     return 1;
 
-  nob_da_foreach(Planet, planet, &planets) {
-    game_space.min_coords = Vector2Min(planet->coords, game_space.min_coords);
-    game_space.max_coords = Vector2Max(planet->coords, game_space.max_coords);
-  }
-
-  nob_da_append(&fleets, ((Fleet){
-                             .owner = 1,
-                             .ships = 230,
-                             .src_id = 1,
-                             .dst_id = 2,
-                             .total = 20,
-                             .remaining = 20,
-                         }));
+  CalculateGameSpace();
 
   SetTraceLogLevel(LOG_WARNING);
   SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_MSAA_4X_HINT);
@@ -238,8 +235,6 @@ int main(int argc, char *argv[]) {
   SetTargetFPS(60); // Set our game to run at 60 frames-per-second
   //--------------------------------------------------------------------------------------
 
-  unsigned int tick = 0;
-  bool game_running = true;
   // Main game loop
   while (!WindowShouldClose()) // Detect window close button or ESC key
   {
@@ -289,11 +284,9 @@ int main(int argc, char *argv[]) {
 
     ClearBackground(RAYWHITE);
 
-    nob_da_foreach(Planet, planet, &planets) {
-      DrawPlanet(*planet, game_space);
-    }
+    nob_da_foreach(Planet, planet, &planets) { DrawPlanet(*planet); }
 
-    nob_da_foreach(Fleet, fleet, &fleets) { DrawFleet(*fleet, game_space); }
+    nob_da_foreach(Fleet, fleet, &fleets) { DrawFleet(*fleet); }
 
     EndDrawing();
     //----------------------------------------------------------------------------------
