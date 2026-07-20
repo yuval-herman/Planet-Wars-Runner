@@ -1,4 +1,4 @@
-#include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #define NOB_IMPLEMENTATION
 #include "nob.h"
@@ -17,7 +17,7 @@ bool compile_raylib() {
   const char *module_names[] = {"rcore", "rglfw",   "rshapes", "rtextures",
                                 "rtext", "rmodels", "raudio"};
 
-  for (int i = 0; i < NOB_ARRAY_LEN(module_names); i++) {
+  for (size_t i = 0; i < NOB_ARRAY_LEN(module_names); i++) {
     size_t mark = nob_temp_save();
     nob_cmd_append(&cmd, "gcc");
 
@@ -51,7 +51,7 @@ bool compile_raylib() {
   if (!nob_procs_flush(&procs))
     return false;
   nob_cmd_append(&cmd, "ar", "rcs", RAYLIB_LIB);
-  for (int i = 0; i < NOB_ARRAY_LEN(module_names); i++) {
+  for (size_t i = 0; i < NOB_ARRAY_LEN(module_names); i++) {
     nob_cmd_append(&cmd, nob_temp_sprintf(BUILD_DIR "/%s.o", module_names[i]));
   }
 
@@ -70,8 +70,21 @@ int main(int argc, char **argv) {
   nob_cc(&cmd);
   nob_cc_flags(&cmd);
   nob_cc_inputs(&cmd, "src/main.c", RAYLIB_LIB);
-  nob_cmd_append(&cmd, "-Iexternal/raylib", "-lm", "-lX11");
+  nob_cmd_append(&cmd, "-Iexternal/raylib");
+  nob_cmd_append(&cmd, "-Iexternal");
+  nob_cmd_append(&cmd, "-lm", "-lX11");
   nob_cc_output(&cmd, "main");
+
+  FILE *compile_flags_file = fopen("compile_flags.txt", "w");
+  if (!compile_flags_file) {
+    nob_log(NOB_WARNING, "Failed creating compile_flags.txt file: %s",
+            strerror(errno));
+  } else {
+    nob_da_foreach(const char *, line, &cmd) {
+      fprintf(compile_flags_file, "%s\n", *line);
+    }
+    fclose(compile_flags_file);
+  }
 
   if (!nob_cmd_run(&cmd))
     return 1;
