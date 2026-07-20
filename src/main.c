@@ -258,11 +258,19 @@ int main(int argc, char *argv[]) {
         Fleet *fleet = &fleets.items[i];
         fleet->remaining--;
         if (fleet->remaining == 0) {
+          // TODO attack computations should happen simultanously for all fleets
+          // attacking a planet. In a situation where a player attempts to
+          // defend his planet while an enemy attacks and both fleets arrive at
+          // the same time, if the enemy the player have the same amount of
+          // ships overall (including the player owned planet) the planet stays
+          // owned by the player.
           ComputeAttack(*fleet);
           nob_da_remove_unordered(&fleets, i);
           // Remove unordered replaces the current fleet with the last one,
           // so we need to run the loop again on the same index.
           i--;
+        } else {
+          player_map[fleet->owner] = true;
         }
       }
 
