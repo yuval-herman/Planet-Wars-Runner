@@ -13,8 +13,6 @@
 // The lower the number the faster the game, 0 for realtime
 #define GAME_SPEED 5
 
-const Color planet_colors[] = {GRAY, RED, GREEN, BLUE, YELLOW};
-
 typedef struct {
   Vector2 min_coords;
   Vector2 max_coords;
@@ -34,9 +32,6 @@ typedef struct {
   int dst_id;
   int total;
   int remaining;
-  // For convenience
-  Planet *src;
-  Planet *dst;
 } Fleet;
 
 typedef struct {
@@ -52,6 +47,12 @@ typedef struct {
 } FleetsDA;
 
 Font font;
+
+const Color planet_colors[] = {GRAY, RED, GREEN, BLUE, YELLOW};
+
+PlanetDA planets = {0};
+FleetsDA fleets = {0};
+unsigned int turn = 0;
 
 void PrintPlanet(Planet planet) {
   printf("P %f %f %d %d %d\n", planet.coords.x, planet.coords.y, planet.owner,
@@ -89,7 +90,8 @@ void DrawPlanet(Planet planet, GameSpace space) {
 
 void DrawFleet(Fleet fleet, GameSpace space) {
   Vector2 draw_coords =
-      Game2ScreenCoords(Vector2Lerp(fleet.src->coords, fleet.dst->coords,
+      Game2ScreenCoords(Vector2Lerp(planets.items[fleet.src_id].coords,
+                                    planets.items[fleet.dst_id].coords,
                                     1 - (float)fleet.remaining / fleet.total),
                         space);
 
@@ -182,7 +184,7 @@ bool ParseMapFile(const char *map_path, PlanetDA *planets) {
 void ComputeAttack(Fleet fleet) {
   if (fleet.remaining > 0)
     return;
-  Planet *planet = fleet.dst;
+  Planet *planet = &planets.items[fleet.dst_id];
 
   if (planet->owner == fleet.owner)
     planet->ships += fleet.ships;
@@ -200,9 +202,6 @@ int main(int argc, char *argv[]) {
   const int screenWidth = 800;
   const int screenHeight = 450;
 
-  PlanetDA planets = {0};
-  FleetsDA fleets = {0};
-  unsigned int turn = 0;
   GameSpace game_space = {.min_coords = {INFINITY, INFINITY},
                           .max_coords = {-INFINITY, -INFINITY}};
 
@@ -228,8 +227,6 @@ int main(int argc, char *argv[]) {
                              .dst_id = 2,
                              .total = 20,
                              .remaining = 20,
-                             .src = &planets.items[1],
-                             .dst = &planets.items[2],
                          }));
 
   SetTraceLogLevel(LOG_WARNING);
