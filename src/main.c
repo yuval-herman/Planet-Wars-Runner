@@ -255,32 +255,37 @@ int main(int argc, char *argv[]) {
         sendMapToBot(bot_num);
 
         char buf[4096];
-        // TODO use the no_wait flag for subprocess so we can kill bots taking
-        // too long
-        subprocess_read_stdout(process, buf, sizeof buf);
+        bool message_ended = false;
+        Nob_String_View sv = {.data = buf, .count = 1};
+        while (!message_ended) {
+          // TODO use the no_wait flag for subprocess so we can kill bots taking
+          // too long
+          unsigned int received = subprocess_read_stdout(
+              process,
+              // count - 1 to overwrite previous null terminator
+              buf + sv.count - 1, sizeof buf - sv.count);
 
-        Nob_String_View sv = nob_sv_from_cstr(buf);
-        printf("bot %d sent: |%s|\n", bot_num, buf);
-        for (size_t i = 0; i < sv.count; i++) {
-          printf("%d ", sv.data[i]);
-        }
-        printf("\n");
-        if (sv.count == sizeof(buf) - 1 && buf[sv.count - 1] != '\n') {
-          fprintf(stderr,
-                  "Bot message is longer then the 4096 characters limit.\n");
-          // TODO handle bot disqualification
-          return 1;
-        }
-
-        if (sv.count < 2) {
-          fprintf(stderr, "Bot message is too short, to do nothing a bot "
-                          "must send 'go' and nothing else.\n");
-          // TODO handle bot disqualification
-          return 1;
-
+          sv.count += received;
+          printf("bot %d sent: |%s|\n", bot_num, buf);
+          for (size_t i = 0; i < sv.count; i++) {
+            printf("%d ", sv.data[i]);
+          }
+          printf("\n");
+          if (sv.count == sizeof(buf) - 1 && buf[sv.count - 1] != '\n') {
+            fprintf(stderr,
+                    "Bot message is longer then the 4096 characters limit.\n");
+            // TODO handle bot disqualification
+            return 1;
+          }
+          // We need to check sv.count is at least 4 to make sure memcmp does
+          // not access OOB memory
+          if (sv.count >= 4 && memcmp(sv.data + sv.count - 4, "go\n", 4) == 0) {
+            message_ended = true;
+            printf("bot %d message ended\n", bot_num);
+          }
         }
         // sv.count < 4 because this allows crlf as well as simple new line.
-        else if (sv.count < 4 && buf[0] == 'g' && buf[1] == 'o') {
+        if (sv.count < 4 && buf[0] == 'g' && buf[1] == 'o') {
           continue;
         }
 
