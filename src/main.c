@@ -191,7 +191,7 @@ bool StartBots(char **commands) {
 }
 
 void sendMapToBot(size_t bot_idx) {
-  if (bot_idx > bot_processes.count) {
+  if (bot_idx >= bot_processes.count) {
     fprintf(stderr, "ERROR: Attempting access to non-existent bot process");
     exit(1);
   }
