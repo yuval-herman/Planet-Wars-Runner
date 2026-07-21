@@ -200,14 +200,15 @@ void sendMapToBot(size_t bot_idx) {
 #define MoveOwner(Type, entity)                                                \
   Type moved_##entity = *entity;                                               \
   if (bot_idx > 0 && moved_##entity.owner != 0) {                              \
-    unsigned int owner =                                                       \
-        moved_##entity.owner - bot_idx % bot_processes.count + 1;              \
-    moved_##entity.owner = owner;                                              \
+    moved_##entity.owner =                                                     \
+        (moved_##entity.owner - bot_idx - 1) % bot_processes.count + 1;        \
   }
 
   nob_da_foreach(Planet, planet, &planets) {
     // Each bot should see itself as bot number 1.
     MoveOwner(Planet, planet) PrintPlanet(bot_stdin, moved_planet);
+    printf("Sending plant %ld as owned by player %d to bot %zu\n",
+           planet - planets.items, moved_planet.owner, bot_idx);
   }
   nob_da_foreach(Fleet, fleet, &fleets) {
     MoveOwner(Fleet, fleet) PrintFleet(bot_stdin, moved_fleet);
