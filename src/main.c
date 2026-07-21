@@ -1,4 +1,3 @@
-#include <string.h>
 #define NOB_IMPLEMENTATION
 #include "../nob.h"
 #include "raylib.h"
@@ -152,9 +151,12 @@ void ComputeAttack(Fleet fleet) {
 bool StartBots(char **commands) {
   Nob_Cmd command = {0};
   Nob_String_View view = {0};
+  Nob_String_Builder sb = {0};
   // TODO start as many bots as the user provides, assuming the map has the
   // required amount of user owned planets.
   for (int i = 0; i < 2; i++) {
+    sb.count = 0;
+    command.count = 0;
     view = nob_sv_from_cstr(commands[i]);
 
     while (view.count > 0) {
@@ -170,17 +172,21 @@ bool StartBots(char **commands) {
                                        subprocess_option_enable_async,
                                    &process);
 
+    nob_cmd_render(command, &sb);
+    nob_sb_append_null(&sb);
     if (0 != result) {
-      Nob_String_Builder sb = {0};
-      nob_cmd_render(command, &sb);
-      nob_sb_append_null(&sb);
       fprintf(stderr, "ERROR: Failed to launch bot number %d: %s\n%s\n", 2,
               sb.items, strerror(errno));
       return false;
+    } else {
+      printf("Started bot %d: %s\n", i, sb.items);
     }
 
     nob_da_append(&bot_processes, process);
   }
+
+  nob_cmd_free(command);
+  nob_sb_free(sb);
   return true;
 }
 
