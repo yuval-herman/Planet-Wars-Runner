@@ -311,22 +311,27 @@ int main(int argc, char *argv[]) {
             // TODO handle bot disqualification
             return 1;
           }
-          Planet src = planets.items[fleet.src_id];
-          if (src.owner != fleet.owner) {
+          Planet *src = &planets.items[fleet.src_id];
+          if (src->owner != fleet.owner) {
             fprintf(stderr,
                     "Bot tried sending fleet from a planet it does not own.\n");
             // TODO handle bot disqualification
             return 1;
-          }
-          if (fleet.dst_id < 0 || (size_t)fleet.dst_id > planets.count) {
+          } else if (fleet.dst_id < 0 || (size_t)fleet.dst_id > planets.count) {
             fprintf(stderr, "Bot tried sending fleet to nonexistent planet.\n");
             // TODO handle bot disqualification
             return 1;
+          } else if (src->ships < fleet.ships) {
+            fprintf(stderr,
+                    "Bot tried sending more ships then the planet has.\n");
+            // TODO handle bot disqualification
+            return 1;
           }
+          src->ships -= fleet.ships;
           Planet dst = planets.items[fleet.dst_id];
 
-          fleet.total = ceilf(sqrtf(powf((src.coords.x - dst.coords.x), 2) +
-                                    powf((src.coords.y - dst.coords.y), 2)));
+          fleet.total = ceilf(sqrtf(powf((src->coords.x - dst.coords.x), 2) +
+                                    powf((src->coords.y - dst.coords.y), 2)));
           fleet.remaining = fleet.total;
 
           nob_da_append(&fleets, fleet);
