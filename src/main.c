@@ -196,8 +196,22 @@ void sendMapToBot(size_t bot_idx) {
     exit(1);
   }
   FILE *bot_stdin = subprocess_stdin(&bot_processes.items[bot_idx]);
-  nob_da_foreach(Planet, planet, &planets) { PrintPlanet(bot_stdin, *planet); }
-  nob_da_foreach(Fleet, fleet, &fleets) { PrintFleet(bot_stdin, *fleet); }
+
+#define MoveOwner(Type, entity)                                                \
+  Type moved_##entity = *entity;                                               \
+  if (bot_idx > 0 && moved_##entity.owner != 0) {                              \
+    unsigned int owner =                                                       \
+        moved_##entity.owner - bot_idx % bot_processes.count + 1;              \
+    moved_##entity.owner = owner;                                              \
+  }
+
+  nob_da_foreach(Planet, planet, &planets) {
+    // Each bot should see itself as bot number 1.
+    MoveOwner(Planet, planet) PrintPlanet(bot_stdin, moved_planet);
+  }
+  nob_da_foreach(Fleet, fleet, &fleets) {
+    MoveOwner(Fleet, fleet) PrintFleet(bot_stdin, moved_fleet);
+  }
   fprintf(bot_stdin, "go\n");
   fflush(bot_stdin);
 }
@@ -234,7 +248,6 @@ int main(int argc, char *argv[]) {
   while (!WindowShouldClose()) // Detect window close button or ESC key
   {
     tick++;
-    printf("tick: %d\n", tick);
     if (game_running && tick % GAME_SPEED == 0) {
       int bot_num = 0;
       nob_da_foreach(struct subprocess_s, process, &bot_processes) {
@@ -242,11 +255,16 @@ int main(int argc, char *argv[]) {
         sendMapToBot(bot_num);
 
         char buf[4096];
-        // TODO use the no_wait flag for subprocess so we can kill bots taking too long
+        // TODO use the no_wait flag for subprocess so we can kill bots taking
+        // too long
         subprocess_read_stdout(process, buf, sizeof buf);
 
         Nob_String_View sv = nob_sv_from_cstr(buf);
         printf("bot %d sent: |%s|\n", bot_num, buf);
+        for (size_t i = 0; i < sv.count; i++) {
+          printf("%d ", sv.data[i]);
+        }
+        printf("\n");
         if (sv.count == sizeof(buf) - 1 && buf[sv.count - 1] != '\n') {
           fprintf(stderr,
                   "Bot message is longer then the 4096 characters limit.\n");
@@ -311,6 +329,9 @@ int main(int argc, char *argv[]) {
 
         printf("done with bot %d, advancing to bot %d\n", bot_num, bot_num + 1);
         bot_num++;
+        // TODO remove this line, or add a debug flag to it, as it is only
+        // relevant for debugging when printing the contents of bot messages.
+        memset(buf, 0, NOB_ARRAY_LEN(buf));
       }
 
       turn += 1;
