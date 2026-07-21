@@ -296,7 +296,7 @@ int main(int argc, char *argv[]) {
             // TODO handle bot disqualification
             return 1;
           }
-          sv.count -= start - sv.data;
+          sv.count -= sv.data - start;
           sv = nob_sv_trim_left(sv);
 
           if (fleet.src_id < 0 || (size_t)fleet.src_id > planets.count) {
