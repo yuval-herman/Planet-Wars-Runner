@@ -17,7 +17,12 @@
 // The lower the number the faster the game, 0 for realtime
 #define GAME_SPEED 5
 
-#define MAX_BOT_AMOUNT 32
+#define SetBit(bitset, index)                                                  \
+  do {                                                                         \
+    bitset |= 1u << index;                                                     \
+  } while (0)
+#define TestBit(bitset, index) (bitset & 1u << index)
+
 typedef uint32_t BotBitset;
 _Static_assert(MAX_BOT_AMOUNT <= sizeof(BotBitset) * CHAR_BIT,
                "BotBitset is not wide enough to hold max amount of bots");
@@ -107,22 +112,26 @@ void DrawFleet(Fleet fleet) {
              GetOwnerColor(fleet));
 }
 
-bool ParseMapFile(const char *map_path, PlanetDA *planets) {
+// Parse map file and return the amount of different planet owners it has
+int ParseMapFile(const char *map_path, PlanetDA *planets) {
   FILE *map_file = fopen(map_path, "r");
   if (!map_file) {
     perror("Failed loading map file");
-    return false;
+    exit(1);
   }
 
   char buf[256];
   size_t file_line = 0;
+  int bot_count = 0;
+  BotBitset bot_bit_set = 0;
+
   while (fgets(buf, sizeof buf, map_file)) {
     file_line += 1;
     size_t len = strlen(buf);
     if (len == sizeof(buf) - 1 && buf[len - 1] != '\n') {
       fprintf(stderr, "Map file contains lines longer then 256 characters and "
                       "cannot be read.\n");
-      return false;
+      exit(1);
     }
 
     if (buf[0] != 'P')
@@ -132,13 +141,26 @@ bool ParseMapFile(const char *map_path, PlanetDA *planets) {
     if (!ParsePlanetLine(buf, &planet)) {
       fprintf(stderr, "Invalid map file.\nSyntax error at line %zu.\n",
               file_line);
-      return false;
+      exit(1);
     }
+    if (planet.owner > MAX_BOT_AMOUNT) {
+      fprintf(stderr,
+              "Map containes more owners then the max bot count. Encountered "
+              "in line: %zu\nOwner found: %d\nMax bot count: %d\n",
+              file_line, planet.owner, MAX_BOT_AMOUNT);
+      exit(1);
+    }
+
+    if (planet.owner != 0 && !TestBit(bot_bit_set, planet.owner)) {
+      bot_count++;
+      SetBit(bot_bit_set, planet.owner);
+    }
+
     nob_da_append(planets, planet);
   }
 
   fclose(map_file);
-  return true;
+  return bot_count;
 }
 
 void ComputeAttack(Fleet fleet) {
@@ -339,9 +361,9 @@ int RunTurn() {
     if (planet->owner != 0) {
       planet->ships += planet->growth;
       // If the player wasn't counted yet
-      if (!(bot_bit_set & planet->owner)) {
+      if (!TestBit(bot_bit_set, planet->owner)) {
         bot_count++;
-        bot_bit_set |= planet->owner;
+        SetBit(bot_bit_set, planet->owner);
       }
     }
   }
@@ -363,9 +385,9 @@ int RunTurn() {
       i--;
     } else {
       // If the player wasn't counted yet
-      if (!(bot_bit_set & fleet->owner)) {
+      if (!TestBit(bot_bit_set, fleet->owner)) {
         bot_count++;
-        bot_bit_set |= fleet->owner;
+        SetBit(bot_bit_set, fleet->owner);
       }
     }
   }
@@ -384,12 +406,17 @@ int main(int argc, char *argv[]) {
   }
 
   printf("Loading map file from %s.\n", argv[1]);
-  if (!ParseMapFile(argv[1], &planets))
+  int bot_count = argc - 2;
+  int owner_count = ParseMapFile(argv[1], &planets);
+  if (owner_count != bot_count) {
+    fprintf(stderr,
+            "Provided map requires %d player, yet %d bots were given as "
+            "arguments.\n",
+            owner_count, bot_count);
     return 1;
+  }
 
-  // TODO verify there are as much bots as there are different planet types on
-  // the map
-  StartBots(argv + 2, argc - 2);
+  StartBots(argv + 2, bot_count);
 
   ComputeGameSpace();
 
