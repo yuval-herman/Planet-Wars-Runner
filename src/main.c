@@ -346,6 +346,8 @@ int main(int argc, char *argv[]) {
   while (!WindowShouldClose()) {
     tick++;
     if (game_running && tick % GAME_SPEED == 0) {
+
+      // Bot communication
       size_t bot_num = 0;
       nob_da_foreach(struct subprocess_s, process, &bot_processes) {
         printf("sending map to bot %zu\n", bot_num);
@@ -360,12 +362,19 @@ int main(int argc, char *argv[]) {
         bot_num++;
       }
 
+      // Game logic
       turn += 1;
-      bool player_map[NOB_ARRAY_LEN(planet_colors)] = {0};
+
+      uint32_t bot_bit_set;
+      if (bot_processes.count == 32)
+        bot_bit_set = ~UINT32_C(0);
+      else
+        bot_bit_set = (UINT32_C(1) << bot_processes.count) - 1;
+
       nob_da_foreach(Planet, planet, &planets) {
         if (planet->owner != 0) {
           planet->ships += planet->growth;
-          player_map[planet->owner] = true;
+          bot_bit_set &= ~planet->owner;
         }
       }
 
@@ -385,16 +394,12 @@ int main(int argc, char *argv[]) {
           // so we need to run the loop again on the same index.
           i--;
         } else {
-          player_map[fleet->owner] = true;
+          bot_bit_set &= ~fleet->owner;
         }
       }
 
-      int player_count = 0;
-      for (size_t i = 0; i < NOB_ARRAY_LEN(player_map); i++) {
-        if (player_map[i])
-          player_count++;
-      }
-      if (player_count <= 1) {
+      if (bot_bit_set != 0) {
+        printf("Game ended!\n");
         game_running = false;
       }
     }
