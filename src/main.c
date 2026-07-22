@@ -209,14 +209,46 @@ void sendMapToBot(size_t bot_idx) {
   nob_da_foreach(Planet, planet, &planets) {
     // Each bot should see itself as bot number 1.
     MoveOwner(Planet, planet) PrintPlanet(bot_stdin, moved_planet);
-    printf("Sending plant %ld as owned by player %d to bot %zu\n",
-           planet - planets.items, moved_planet.owner, bot_idx);
   }
   nob_da_foreach(Fleet, fleet, &fleets) {
     MoveOwner(Fleet, fleet) PrintFleet(bot_stdin, moved_fleet);
   }
   fprintf(bot_stdin, "go\n");
   fflush(bot_stdin);
+}
+
+void GetBotMessage(Nob_String_Builder *sb, size_t bot_idx) {
+  if (bot_idx >= bot_processes.count) {
+    fprintf(stderr, "Tried accessing a bot OOB.\n");
+    exit(1);
+  }
+
+  const size_t max_chunk_length = 512;
+  sb->count = 0;
+  bool message_ended = false;
+
+  while (!message_ended) {
+    nob_da_reserve(sb, sb->count + max_chunk_length);
+    // Remove null terminator if it exists
+    if (sb->count > 0 && nob_da_last(sb) == '\0') {
+      printf("removed null terminator\n");
+      sb->count--;
+    }
+    // TODO use the no_wait flag for subprocess so we can kill bots taking
+    // too long
+    unsigned int received =
+        subprocess_read_stdout(&bot_processes.items[bot_idx],
+                               sb->items + sb->count, sb->capacity - sb->count);
+    sb->count += received;
+
+    printf("bot %zu sent: |%.*s|\n", bot_idx, (unsigned)sb->count, sb->items);
+    // We need to check sb.count is at least 3 to make sure memcmp does
+    // not access OOB memory
+    if (sb->count >= 3 && memcmp(sb->items + sb->count - 3, "go\n", 3) == 0) {
+      message_ended = true;
+      printf("bot %zu message ended\n", bot_idx);
+    }
+  }
 }
 
 int main(int argc, char *argv[]) {
@@ -247,6 +279,9 @@ int main(int argc, char *argv[]) {
   SetTargetFPS(60); // Set our game to run at 60 frames-per-second
   //--------------------------------------------------------------------------------------
 
+  // Reusable string builder to hold bot messages
+  Nob_String_Builder bot_message = {0};
+
   // Main game loop
   while (!WindowShouldClose()) // Detect window close button or ESC key
   {
@@ -257,42 +292,14 @@ int main(int argc, char *argv[]) {
         printf("sending map to bot %d\n", bot_num);
         sendMapToBot(bot_num);
 
-        char buf[4096];
-        bool message_ended = false;
-        Nob_String_View sv = {.data = buf, .count = 1};
-        while (!message_ended) {
-          // TODO use the no_wait flag for subprocess so we can kill bots taking
-          // too long
-          unsigned int received = subprocess_read_stdout(
-              process,
-              // count - 1 to overwrite previous null terminator
-              buf + (sv.count ? sv.count - 1 : 0), sizeof buf - sv.count);
-
-          sv.count += received;
-          printf("bot %d sent: |%.4096s|\n", bot_num, buf);
-          for (size_t i = 0; i < sv.count; i++) {
-            printf("%d ", sv.data[i]);
-          }
-          printf("\n");
-          if (sv.count == sizeof(buf) - 1 && buf[sv.count - 1] != '\n') {
-            fprintf(stderr,
-                    "Bot message is longer then the 4096 characters limit.\n");
-            // TODO handle bot disqualification
-            return 1;
-          }
-          // We need to check sv.count is at least 4 to make sure memcmp does
-          // not access OOB memory
-          if (sv.count >= 4 && memcmp(sv.data + sv.count - 4, "go\n", 4) == 0) {
-            message_ended = true;
-            printf("bot %d message ended\n", bot_num);
-          }
-        }
-        // sv.count < 4 because this allows crlf as well as simple new line.
-        if (sv.count < 4 && buf[0] == 'g' && buf[1] == 'o') {
+        GetBotMessage(&bot_message, bot_num);
+        Nob_String_View sv = {bot_message.count, bot_message.items};
+        if (sv.count < 2 && bot_message.items[0] == 'g' &&
+            bot_message.items[1] == 'o') {
           continue;
         }
 
-        while (sv.data[0] != 'g' && sv.data[1] != 'o') {
+        while (sv.count > 0 && sv.data[0] != 'g' && sv.data[1] != 'o') {
           printf("parsing bot %d fleets\n", bot_num);
           Fleet fleet;
           fleet.owner = bot_num + 1;
@@ -352,9 +359,6 @@ int main(int argc, char *argv[]) {
 
         printf("done with bot %d, advancing to bot %d\n", bot_num, bot_num + 1);
         bot_num++;
-        // TODO remove this line, or add a debug flag to it, as it is only
-        // relevant for debugging when printing the contents of bot messages.
-        memset(buf, 0, NOB_ARRAY_LEN(buf));
       }
 
       turn += 1;
