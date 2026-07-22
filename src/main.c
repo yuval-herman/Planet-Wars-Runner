@@ -16,6 +16,14 @@
 #define SHIP_FONT_SIZE 20
 // The lower the number the faster the game, 0 for realtime
 #define GAME_SPEED 5
+#define LOG_FILE "log.txt"
+
+// ## won't work in MSVC, we will cross that bridge when we get there.
+#define LogToFile(fmt, ...)                                                    \
+  do {                                                                         \
+    if (log_file)                                                              \
+      fprintf(log_file, fmt, ##__VA_ARGS__);                                   \
+  } while (0)
 
 #define SetBit(bitset, index)                                                  \
   do {                                                                         \
@@ -45,6 +53,7 @@ GameSpace game_space = {.min_coords = {INFINITY, INFINITY},
                         .max_coords = {-INFINITY, -INFINITY}};
 
 Font font;
+FILE *log_file;
 unsigned int tick = 0;
 bool game_running = true;
 
@@ -233,6 +242,8 @@ void sendMapToBot(size_t bot_idx) {
   }
   FILE *bot_stdin = subprocess_stdin(&bot_processes.items[bot_idx]);
 
+  LogToFile("engine > player%zu: ", bot_idx + 1);
+
 #define MoveOwner(Type, entity)                                                \
   Type moved_##entity = *entity;                                               \
   if (bot_idx > 0 && moved_##entity.owner != 0) {                              \
@@ -244,15 +255,22 @@ void sendMapToBot(size_t bot_idx) {
 
   nob_da_foreach(Planet, planet, &planets) {
     // Each bot should see itself as bot number 1.
-    MoveOwner(Planet, planet) PrintPlanet(bot_stdin, moved_planet);
+    MoveOwner(Planet, planet);
+    PrintPlanet(bot_stdin, moved_planet);
+    if (log_file)
+      PrintPlanet(log_file, moved_planet);
   }
   nob_da_foreach(Fleet, fleet, &fleets) {
-    MoveOwner(Fleet, fleet) PrintFleet(bot_stdin, moved_fleet);
+    MoveOwner(Fleet, fleet);
+    PrintFleet(bot_stdin, moved_fleet);
+    if (log_file)
+      PrintFleet(log_file, moved_fleet);
   }
 
 #undef MoveOwner
 
   fprintf(bot_stdin, "go\n");
+  LogToFile("go\n\n");
   fflush(bot_stdin);
 }
 
@@ -288,6 +306,13 @@ void GetBotMessage(Nob_String_Builder *sb, size_t bot_idx) {
       message_ended = true;
       nob_log(NOB_INFO, "bot %zu message ended", bot_idx);
     }
+  }
+
+  Nob_String_View sv = {sb->count, sb->items};
+  while (sv.count > 0) {
+    Nob_String_View line = nob_sv_chop_by_delim(&sv, '\n');
+    LogToFile("player%zu > engine: %.*s\n", bot_idx + 1, (int)line.count,
+              line.data);
   }
 }
 
@@ -409,6 +434,12 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
+  log_file = fopen(LOG_FILE, "w");
+  if (!log_file) {
+    nob_log(NOB_WARNING, "Failed to open log file: %s", strerror(errno));
+  }
+  LogToFile("initializing\n");
+
   nob_log(NOB_INFO, "Loading map file from %s.", argv[1]);
   int bot_count = argc - 2;
   int owner_count = ParseMapFile(argv[1], &planets);
@@ -444,6 +475,11 @@ int main(int argc, char *argv[]) {
         nob_log(NOB_INFO, "sending map to bot %zu", bot_num);
 
         sendMapToBot(bot_num);
+        bot_num++;
+      }
+
+      bot_num = 0;
+      nob_da_foreach(struct subprocess_s, process, &bot_processes) {
         GetBotMessage(&bot_message, bot_num);
         ParseBotFleets(nob_sv_from_parts(bot_message.items, bot_message.count),
                        bot_num);
@@ -472,6 +508,7 @@ int main(int argc, char *argv[]) {
   }
 
   CloseWindow();
+  fclose(log_file);
 
   return 0;
 }
