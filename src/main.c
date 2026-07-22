@@ -129,8 +129,9 @@ int ParseMapFile(const char *map_path, PlanetDA *planets) {
     file_line += 1;
     size_t len = strlen(buf);
     if (len == sizeof(buf) - 1 && buf[len - 1] != '\n') {
-      fprintf(stderr, "Map file contains lines longer then 256 characters and "
-                      "cannot be read.\n");
+      nob_log(NOB_ERROR,
+              "Map file contains lines longer then 256 characters and "
+              "cannot be read.");
       exit(1);
     }
 
@@ -139,14 +140,14 @@ int ParseMapFile(const char *map_path, PlanetDA *planets) {
 
     Planet planet;
     if (!ParsePlanetLine(buf, &planet)) {
-      fprintf(stderr, "Invalid map file.\nSyntax error at line %zu.\n",
+      nob_log(NOB_ERROR, "Invalid map file.\nSyntax error at line %zu.",
               file_line);
       exit(1);
     }
     if (planet.owner > MAX_BOT_AMOUNT) {
-      fprintf(stderr,
+      nob_log(NOB_ERROR,
               "Map containes more owners then the max bot count. Encountered "
-              "in line: %zu\nOwner found: %d\nMax bot count: %d\n",
+              "in line: %zu\nOwner found: %d\nMax bot count: %d",
               file_line, planet.owner, MAX_BOT_AMOUNT);
       exit(1);
     }
@@ -178,13 +179,13 @@ void ComputeAttack(Fleet fleet) {
   }
 }
 
-bool StartBots(char **commands, int command_amount) {
+void StartBots(char **commands, int command_amount) {
   if (command_amount > MAX_BOT_AMOUNT) {
-    fprintf(stderr,
+    nob_log(NOB_ERROR,
             "Provided more then %d bots, which is the maximum supprted number "
-            "allowed\n",
+            "allowed",
             MAX_BOT_AMOUNT);
-    return false;
+    exit(1);
   }
 
   Nob_Cmd command = {0};
@@ -211,11 +212,11 @@ bool StartBots(char **commands, int command_amount) {
     nob_cmd_render(command, &sb);
     nob_sb_append_null(&sb);
     if (0 != result) {
-      fprintf(stderr, "ERROR: Failed to launch bot number %d: %s\n%s\n", 2,
+      nob_log(NOB_ERROR, "ERROR: Failed to launch bot number %d: %s\n%s", 2,
               sb.items, strerror(errno));
-      return false;
+      exit(1);
     } else {
-      printf("Started bot %d: %s\n", i, sb.items);
+      nob_log(NOB_INFO, "Started bot %d: %s", i, sb.items);
     }
 
     nob_da_append(&bot_processes, process);
@@ -223,12 +224,11 @@ bool StartBots(char **commands, int command_amount) {
 
   nob_cmd_free(command);
   nob_sb_free(sb);
-  return true;
 }
 
 void sendMapToBot(size_t bot_idx) {
   if (bot_idx >= bot_processes.count) {
-    fprintf(stderr, "ERROR: Attempting access to non-existent bot process");
+    nob_log(NOB_ERROR, "ERROR: Attempting access to non-existent bot process");
     exit(1);
   }
   FILE *bot_stdin = subprocess_stdin(&bot_processes.items[bot_idx]);
@@ -255,7 +255,7 @@ void sendMapToBot(size_t bot_idx) {
 
 void GetBotMessage(Nob_String_Builder *sb, size_t bot_idx) {
   if (bot_idx >= bot_processes.count) {
-    fprintf(stderr, "Tried accessing a bot OOB.\n");
+    nob_log(NOB_ERROR, "Tried accessing a bot OOB.");
     exit(1);
   }
 
@@ -267,7 +267,7 @@ void GetBotMessage(Nob_String_Builder *sb, size_t bot_idx) {
     nob_da_reserve(sb, sb->count + max_chunk_length);
     // Remove null terminator if it exists
     if (sb->count > 0 && nob_da_last(sb) == '\0') {
-      printf("removed null terminator\n");
+      nob_log(NOB_INFO, "removed null terminator");
       sb->count--;
     }
     // TODO use the no_wait flag for subprocess so we can kill bots taking
@@ -277,12 +277,13 @@ void GetBotMessage(Nob_String_Builder *sb, size_t bot_idx) {
                                sb->items + sb->count, sb->capacity - sb->count);
     sb->count += received;
 
-    printf("bot %zu sent: |%.*s|\n", bot_idx, (unsigned)sb->count, sb->items);
+    nob_log(NOB_INFO, "bot %zu sent: |%.*s|", bot_idx, (unsigned)sb->count,
+            sb->items);
     // We need to check sb.count is at least 3 to make sure memcmp does
     // not access OOB memory
     if (sb->count >= 3 && memcmp(sb->items + sb->count - 3, "go\n", 3) == 0) {
       message_ended = true;
-      printf("bot %zu message ended\n", bot_idx);
+      nob_log(NOB_INFO, "bot %zu message ended", bot_idx);
     }
   }
 }
@@ -295,14 +296,14 @@ void ParseBotFleets(Nob_String_View bot_message, size_t bot_idx) {
 
   while (bot_message.count > 0 && bot_message.data[0] != 'g' &&
          bot_message.data[1] != 'o') {
-    printf("parsing bot %zu fleets\n", bot_idx);
+    nob_log(NOB_INFO, "parsing bot %zu fleets", bot_idx);
     Fleet fleet;
     fleet.owner = bot_idx + 1;
     const char *start = bot_message.data;
     if (!(parse_int(&bot_message.data, &fleet.src_id) &&
           parse_int(&bot_message.data, &fleet.dst_id) &&
           parse_int(&bot_message.data, &fleet.ships))) {
-      fprintf(stderr, "Invalid bot command.\n");
+      nob_log(NOB_ERROR, "Invalid bot command.");
       // TODO handle bot disqualification
       exit(1);
     }
@@ -310,32 +311,32 @@ void ParseBotFleets(Nob_String_View bot_message, size_t bot_idx) {
     bot_message = nob_sv_trim_left(bot_message);
 
     if (fleet.src_id < 0 || (size_t)fleet.src_id >= planets.count) {
-      fprintf(stderr, "Bot tried sending fleet from nonexistent planet.\n");
+      nob_log(NOB_ERROR, "Bot tried sending fleet from nonexistent planet.");
       // TODO handle bot disqualification
       exit(1);
     }
     Planet *src = &planets.items[fleet.src_id];
     if (fleet.ships < 1) {
-      fprintf(stderr, "Bot tried sending invalid amount of ships.\n");
+      nob_log(NOB_ERROR, "Bot tried sending invalid amount of ships.");
       // TODO handle bot disqualification
       exit(1);
 
     } else if (fleet.src_id == fleet.dst_id) {
-      fprintf(stderr, "Bot tried sending fleet from a planet itself.\n");
+      nob_log(NOB_ERROR, "Bot tried sending fleet from a planet itself.");
       // TODO handle bot disqualification
       exit(1);
 
     } else if (src->owner != fleet.owner) {
-      fprintf(stderr,
-              "Bot tried sending fleet from a planet it does not own.\n");
+      nob_log(NOB_ERROR,
+              "Bot tried sending fleet from a planet it does not own.");
       // TODO handle bot disqualification
       exit(1);
     } else if (fleet.dst_id < 0 || (size_t)fleet.dst_id > planets.count) {
-      fprintf(stderr, "Bot tried sending fleet to nonexistent planet.\n");
+      nob_log(NOB_ERROR, "Bot tried sending fleet to nonexistent planet.");
       // TODO handle bot disqualification
       exit(1);
     } else if (src->ships < fleet.ships) {
-      fprintf(stderr, "Bot tried sending more ships then the planet has.\n");
+      nob_log(NOB_ERROR, "Bot tried sending more ships then the planet has.");
       // TODO handle bot disqualification
       exit(1);
     }
@@ -348,7 +349,7 @@ void ParseBotFleets(Nob_String_View bot_message, size_t bot_idx) {
 
     nob_da_append(&fleets, fleet);
   }
-  printf("done parsing bot %zu fleets\n", bot_idx);
+  nob_log(NOB_INFO, "done parsing bot %zu fleets", bot_idx);
 }
 
 // Runs one game turn using the planets and fleets saved.
@@ -400,18 +401,18 @@ int main(int argc, char *argv[]) {
   const int screenHeight = 450;
 
   if (argc < 4) {
-    fprintf(stderr, "ERROR: Missing arguments.\n");
-    fprintf(stderr, "Usage: %s <map_file> <bot1> <bot2>...\n", argv[0]);
+    nob_log(NOB_ERROR, "Missing arguments.");
+    nob_log(NOB_ERROR, "Usage: %s <map_file> <bot1> <bot2>...", argv[0]);
     return 1;
   }
 
-  printf("Loading map file from %s.\n", argv[1]);
+  nob_log(NOB_INFO, "Loading map file from %s.", argv[1]);
   int bot_count = argc - 2;
   int owner_count = ParseMapFile(argv[1], &planets);
   if (owner_count != bot_count) {
-    fprintf(stderr,
+    nob_log(NOB_ERROR,
             "Provided map requires %d player, yet %d bots were given as "
-            "arguments.\n",
+            "arguments.",
             owner_count, bot_count);
     return 1;
   }
@@ -437,22 +438,22 @@ int main(int argc, char *argv[]) {
       // Bot communication
       size_t bot_num = 0;
       nob_da_foreach(struct subprocess_s, process, &bot_processes) {
-        printf("sending map to bot %zu\n", bot_num);
+        nob_log(NOB_INFO, "sending map to bot %zu", bot_num);
 
         sendMapToBot(bot_num);
         GetBotMessage(&bot_message, bot_num);
         ParseBotFleets(nob_sv_from_parts(bot_message.items, bot_message.count),
                        bot_num);
 
-        printf("done with bot %zu, advancing to bot %zu\n", bot_num,
-               bot_num + 1);
+        nob_log(NOB_INFO, "done with bot %zu, advancing to bot %zu", bot_num,
+                bot_num + 1);
         bot_num++;
       }
 
       // Game logic
       int remaining_bots = RunTurn();
       if (remaining_bots <= 1) {
-        printf("Game ended!\n");
+        nob_log(NOB_INFO, "Game ended!");
         game_running = false;
       }
     }
