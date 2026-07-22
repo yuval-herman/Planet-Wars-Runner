@@ -371,8 +371,7 @@ void ParseBotFleets(Nob_String_View bot_message, size_t bot_idx) {
     src->ships -= fleet.ships;
     Planet dst = planets.items[fleet.dst_id];
 
-    fleet.total = ceilf(sqrtf(powf((src->coords.x - dst.coords.x), 2) +
-                              powf((src->coords.y - dst.coords.y), 2)));
+    fleet.total = ceilf(Vector2Distance(src->coords, dst.coords));
     fleet.remaining = fleet.total;
 
     nob_da_append(&fleets, fleet);
