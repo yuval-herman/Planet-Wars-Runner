@@ -33,7 +33,6 @@ const Color planet_colors[] = {GRAY, RED, GREEN, BLUE, YELLOW};
 PlanetDA planets = {0};
 FleetsDA fleets = {0};
 BotProcesses bot_processes = {0};
-unsigned int turn = 0;
 GameSpace game_space = {.min_coords = {INFINITY, INFINITY},
                         .max_coords = {-INFINITY, -INFINITY}};
 
@@ -315,6 +314,50 @@ void ParseBotFleets(Nob_String_View bot_message, size_t bot_idx) {
   printf("done parsing bot %zu fleets\n", bot_idx);
 }
 
+// Runs one game turn using the planets and fleets saved.
+// Returns the amount of bots still in the game.
+int RunTurn() {
+  int bot_count = 0;
+  uint32_t bot_bit_set = 0;
+
+  nob_da_foreach(Planet, planet, &planets) {
+    if (planet->owner != 0) {
+      planet->ships += planet->growth;
+      // If the player wasn't counted yet
+      if (!(bot_bit_set & planet->owner)) {
+        bot_count++;
+        bot_bit_set |= planet->owner;
+      }
+    }
+  }
+
+  for (size_t i = 0; i < fleets.count; i++) {
+    Fleet *fleet = &fleets.items[i];
+    fleet->remaining--;
+    if (fleet->remaining == 0) {
+      // TODO attack computations should happen simultanously for all
+      // fleets attacking a planet. In a situation where a player attempts
+      // to defend his planet while an enemy attacks and both fleets
+      // arrive at the same time, if the enemy the player have the same
+      // amount of ships overall (including the player owned planet) the
+      // planet stays owned by the player.
+      ComputeAttack(*fleet);
+      nob_da_remove_unordered(&fleets, i);
+      // Remove unordered replaces the current fleet with the last one,
+      // so we need to run the loop again on the same index.
+      i--;
+    } else {
+      // If the player wasn't counted yet
+      if (!(bot_bit_set & fleet->owner)) {
+        bot_count++;
+        bot_bit_set |= fleet->owner;
+      }
+    }
+  }
+
+  return bot_count;
+}
+
 int main(int argc, char *argv[]) {
   const int screenWidth = 800;
   const int screenHeight = 450;
@@ -363,42 +406,8 @@ int main(int argc, char *argv[]) {
       }
 
       // Game logic
-      turn += 1;
-
-      uint32_t bot_bit_set;
-      if (bot_processes.count == 32)
-        bot_bit_set = ~UINT32_C(0);
-      else
-        bot_bit_set = (UINT32_C(1) << bot_processes.count) - 1;
-
-      nob_da_foreach(Planet, planet, &planets) {
-        if (planet->owner != 0) {
-          planet->ships += planet->growth;
-          bot_bit_set &= ~planet->owner;
-        }
-      }
-
-      for (size_t i = 0; i < fleets.count; i++) {
-        Fleet *fleet = &fleets.items[i];
-        fleet->remaining--;
-        if (fleet->remaining == 0) {
-          // TODO attack computations should happen simultanously for all
-          // fleets attacking a planet. In a situation where a player attempts
-          // to defend his planet while an enemy attacks and both fleets
-          // arrive at the same time, if the enemy the player have the same
-          // amount of ships overall (including the player owned planet) the
-          // planet stays owned by the player.
-          ComputeAttack(*fleet);
-          nob_da_remove_unordered(&fleets, i);
-          // Remove unordered replaces the current fleet with the last one,
-          // so we need to run the loop again on the same index.
-          i--;
-        } else {
-          bot_bit_set &= ~fleet->owner;
-        }
-      }
-
-      if (bot_bit_set != 0) {
+      int remaining_bots = RunTurn();
+      if (remaining_bots <= 1) {
         printf("Game ended!\n");
         game_running = false;
       }
