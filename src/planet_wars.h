@@ -38,7 +38,7 @@ typedef struct {
 } FleetsDA;
 
 static inline void PrintPlanet(FILE *file, Planet planet) {
-  fprintf(file, "P %f %f %d %d %d\n", planet.coords.x, planet.coords.y,
+  fprintf(file, "P %.11f %.11f %d %d %d\n", planet.coords.x, planet.coords.y,
           planet.owner, planet.ships, planet.growth);
 }
 
