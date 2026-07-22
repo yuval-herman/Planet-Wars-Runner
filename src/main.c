@@ -17,6 +17,11 @@
 // The lower the number the faster the game, 0 for realtime
 #define GAME_SPEED 5
 
+#define MAX_BOT_AMOUNT 32
+typedef uint32_t BotBitset;
+_Static_assert(MAX_BOT_AMOUNT <= sizeof(BotBitset) * CHAR_BIT,
+               "BotBitset is not wide enough to hold max amount of bots");
+
 typedef struct {
   Vector2 min_coords;
   Vector2 max_coords;
@@ -27,8 +32,6 @@ typedef struct {
   size_t count;
   size_t capacity;
 } BotProcesses;
-
-const Color planet_colors[] = {GRAY, RED, GREEN, BLUE, YELLOW};
 
 PlanetDA planets = {0};
 FleetsDA fleets = {0};
@@ -58,6 +61,13 @@ Vector2 Game2ScreenCoords(Vector2 coords) {
                                      GetScreenHeight() - MAP_MARGIN)};
 }
 
+#define GetOwnerColor(entity)                                                  \
+  (entity.owner == 0                                                           \
+       ? GRAY                                                                  \
+       : ColorFromHSV((((entity.owner - 1) * 7) % MAX_BOT_AMOUNT) * 360.0f /   \
+                          MAX_BOT_AMOUNT,                                      \
+                      1.0f, 1.0f))
+
 // Draws a Planet on the screen.
 void DrawPlanet(Planet planet) {
   Vector2 draw_coords = Game2ScreenCoords(planet.coords);
@@ -66,7 +76,7 @@ void DrawPlanet(Planet planet) {
       BASE_PLANET_RADIUS + PLANET_RADIUS_GROWTH_CURVE -
       PLANET_RADIUS_GROWTH_CURVE / fmaxf(planet.growth, 1);
 
-  DrawCircleV(draw_coords, draw_radius, planet_colors[planet.owner]);
+  DrawCircleV(draw_coords, draw_radius, GetOwnerColor(planet));
 
   const float font_size = draw_radius;
   const float spacing = 1;
@@ -94,7 +104,7 @@ void DrawFleet(Fleet fleet) {
   const Vector2 text_coords =
       Vector2Subtract(draw_coords, Vector2Scale(text_measurements, 0.5));
   DrawTextEx(font, ships_text, text_coords, font_size, spacing,
-             planet_colors[fleet.owner]);
+             GetOwnerColor(fleet));
 }
 
 bool ParseMapFile(const char *map_path, PlanetDA *planets) {
@@ -146,13 +156,19 @@ void ComputeAttack(Fleet fleet) {
   }
 }
 
-bool StartBots(char **commands) {
+bool StartBots(char **commands, int command_amount) {
+  if (command_amount > MAX_BOT_AMOUNT) {
+    fprintf(stderr,
+            "Provided more then %d bots, which is the maximum supprted number "
+            "allowed\n",
+            MAX_BOT_AMOUNT);
+    return false;
+  }
+
   Nob_Cmd command = {0};
   Nob_String_View view = {0};
   Nob_String_Builder sb = {0};
-  // TODO start as many bots as the user provides, assuming the map has the
-  // required amount of user owned planets.
-  for (int i = 0; i < 2; i++) {
+  for (int i = 0; i < command_amount; i++) {
     sb.count = 0;
     command.count = 0;
     view = nob_sv_from_cstr(commands[i]);
@@ -317,7 +333,7 @@ void ParseBotFleets(Nob_String_View bot_message, size_t bot_idx) {
 // Returns the amount of bots still in the game.
 int RunTurn() {
   int bot_count = 0;
-  uint32_t bot_bit_set = 0;
+  BotBitset bot_bit_set = 0;
 
   nob_da_foreach(Planet, planet, &planets) {
     if (planet->owner != 0) {
@@ -371,7 +387,9 @@ int main(int argc, char *argv[]) {
   if (!ParseMapFile(argv[1], &planets))
     return 1;
 
-  StartBots(argv + 2);
+  // TODO verify there are as much bots as there are different planet types on
+  // the map
+  StartBots(argv + 2, argc - 2);
 
   ComputeGameSpace();
 
@@ -413,7 +431,7 @@ int main(int argc, char *argv[]) {
     }
     BeginDrawing();
 
-    ClearBackground(RAYWHITE);
+    ClearBackground(BLACK);
 
     nob_da_foreach(Planet, planet, &planets) { DrawPlanet(*planet); }
 
