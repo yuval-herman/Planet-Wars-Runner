@@ -115,7 +115,6 @@ bool ParseMapFile(const char *map_path, PlanetDA *planets) {
       return false;
     }
 
-    // TODO support pre-existing fleets
     if (buf[0] != 'P')
       continue;
 
