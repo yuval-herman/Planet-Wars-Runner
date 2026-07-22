@@ -316,8 +316,6 @@ void ParseBotFleets(Nob_String_View bot_message, size_t bot_idx) {
 }
 
 int main(int argc, char *argv[]) {
-  // Initialization
-  //--------------------------------------------------------------------------------------
   const int screenWidth = 800;
   const int screenHeight = 450;
 
@@ -340,15 +338,12 @@ int main(int argc, char *argv[]) {
   InitWindow(screenWidth, screenHeight, "Planet Wars Viewer");
   font = GetFontDefault();
 
-  SetTargetFPS(60); // Set our game to run at 60 frames-per-second
-  //--------------------------------------------------------------------------------------
+  SetTargetFPS(60);
 
   // Reusable string builder to hold bot messages
   Nob_String_Builder bot_message = {0};
 
-  // Main game loop
-  while (!WindowShouldClose()) // Detect window close button or ESC key
-  {
+  while (!WindowShouldClose()) {
     tick++;
     if (game_running && tick % GAME_SPEED == 0) {
       size_t bot_num = 0;
@@ -403,8 +398,6 @@ int main(int argc, char *argv[]) {
         game_running = false;
       }
     }
-    // Draw
-    //----------------------------------------------------------------------------------
     BeginDrawing();
 
     ClearBackground(RAYWHITE);
@@ -414,13 +407,9 @@ int main(int argc, char *argv[]) {
     nob_da_foreach(Fleet, fleet, &fleets) { DrawFleet(*fleet); }
 
     EndDrawing();
-    //----------------------------------------------------------------------------------
   }
 
-  // De-Initialization
-  //--------------------------------------------------------------------------------------
-  CloseWindow(); // Close window and OpenGL context
-  //--------------------------------------------------------------------------------------
+  CloseWindow();
 
   return 0;
 }
