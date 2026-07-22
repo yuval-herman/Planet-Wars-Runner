@@ -7,6 +7,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#define MAX_BOT_AMOUNT 32
+
 typedef struct {
   Vector2 coords;
   int owner;
@@ -85,10 +87,9 @@ static bool ParsePlanetLine(char *line, Planet *planet) {
     return false;
   }
 
-  // TODO support arbitrary amount of players, or a reasonably large number
-  if (owner < 0 || (size_t)owner >= 5) {
-    fprintf(stderr, "Invalid number of player owned planets. The must be "
-                    "between 1 to 4 players.\n");
+  if (owner < 0 || owner > MAX_BOT_AMOUNT) {
+    fprintf(stderr, "Invalid number of player owned planets. There must be "
+                    "between 1 to %d players.\n", MAX_BOT_AMOUNT);
     return false;
   }
 
