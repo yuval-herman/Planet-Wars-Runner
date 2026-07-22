@@ -251,6 +251,70 @@ void GetBotMessage(Nob_String_Builder *sb, size_t bot_idx) {
   }
 }
 
+void ParseBotFleets(Nob_String_View bot_message, size_t bot_idx) {
+  if (bot_message.count < 2 && bot_message.data[0] == 'g' &&
+      bot_message.data[1] == 'o') {
+    return;
+  }
+
+  while (bot_message.count > 0 && bot_message.data[0] != 'g' &&
+         bot_message.data[1] != 'o') {
+    printf("parsing bot %zu fleets\n", bot_idx);
+    Fleet fleet;
+    fleet.owner = bot_idx + 1;
+    const char *start = bot_message.data;
+    if (!(parse_int(&bot_message.data, &fleet.src_id) &&
+          parse_int(&bot_message.data, &fleet.dst_id) &&
+          parse_int(&bot_message.data, &fleet.ships))) {
+      fprintf(stderr, "Invalid bot command.\n");
+      // TODO handle bot disqualification
+      exit(1);
+    }
+    bot_message.count -= bot_message.data - start;
+    bot_message = nob_sv_trim_left(bot_message);
+
+    if (fleet.src_id < 0 || (size_t)fleet.src_id >= planets.count) {
+      fprintf(stderr, "Bot tried sending fleet from nonexistent planet.\n");
+      // TODO handle bot disqualification
+      exit(1);
+    }
+    Planet *src = &planets.items[fleet.src_id];
+    if (fleet.ships < 1) {
+      fprintf(stderr, "Bot tried sending invalid amount of ships.\n");
+      // TODO handle bot disqualification
+      exit(1);
+
+    } else if (fleet.src_id == fleet.dst_id) {
+      fprintf(stderr, "Bot tried sending fleet from a planet itself.\n");
+      // TODO handle bot disqualification
+      exit(1);
+
+    } else if (src->owner != fleet.owner) {
+      fprintf(stderr,
+              "Bot tried sending fleet from a planet it does not own.\n");
+      // TODO handle bot disqualification
+      exit(1);
+    } else if (fleet.dst_id < 0 || (size_t)fleet.dst_id > planets.count) {
+      fprintf(stderr, "Bot tried sending fleet to nonexistent planet.\n");
+      // TODO handle bot disqualification
+      exit(1);
+    } else if (src->ships < fleet.ships) {
+      fprintf(stderr, "Bot tried sending more ships then the planet has.\n");
+      // TODO handle bot disqualification
+      exit(1);
+    }
+    src->ships -= fleet.ships;
+    Planet dst = planets.items[fleet.dst_id];
+
+    fleet.total = ceilf(sqrtf(powf((src->coords.x - dst.coords.x), 2) +
+                              powf((src->coords.y - dst.coords.y), 2)));
+    fleet.remaining = fleet.total;
+
+    nob_da_append(&fleets, fleet);
+  }
+  printf("done parsing bot %zu fleets\n", bot_idx);
+}
+
 int main(int argc, char *argv[]) {
   // Initialization
   //--------------------------------------------------------------------------------------
@@ -287,77 +351,17 @@ int main(int argc, char *argv[]) {
   {
     tick++;
     if (game_running && tick % GAME_SPEED == 0) {
-      int bot_num = 0;
+      size_t bot_num = 0;
       nob_da_foreach(struct subprocess_s, process, &bot_processes) {
-        printf("sending map to bot %d\n", bot_num);
+        printf("sending map to bot %zu\n", bot_num);
+
         sendMapToBot(bot_num);
-
         GetBotMessage(&bot_message, bot_num);
-        Nob_String_View sv = {bot_message.count, bot_message.items};
-        if (sv.count < 2 && bot_message.items[0] == 'g' &&
-            bot_message.items[1] == 'o') {
-          continue;
-        }
+        ParseBotFleets(nob_sv_from_parts(bot_message.items, bot_message.count),
+                       bot_num);
 
-        while (sv.count > 0 && sv.data[0] != 'g' && sv.data[1] != 'o') {
-          printf("parsing bot %d fleets\n", bot_num);
-          Fleet fleet;
-          fleet.owner = bot_num + 1;
-          const char *start = sv.data;
-          if (!(parse_int(&sv.data, &fleet.src_id) &&
-                parse_int(&sv.data, &fleet.dst_id) &&
-                parse_int(&sv.data, &fleet.ships))) {
-            fprintf(stderr, "Invalid bot command.\n");
-            // TODO handle bot disqualification
-            return 1;
-          }
-          sv.count -= sv.data - start;
-          sv = nob_sv_trim_left(sv);
-
-          if (fleet.src_id < 0 || (size_t)fleet.src_id >= planets.count) {
-            fprintf(stderr,
-                    "Bot tried sending fleet from nonexistent planet.\n");
-            // TODO handle bot disqualification
-            return 1;
-          }
-          Planet *src = &planets.items[fleet.src_id];
-          if (fleet.ships < 1) {
-            fprintf(stderr, "Bot tried sending invalid amount of ships.\n");
-            // TODO handle bot disqualification
-            return 1;
-
-          } else if (fleet.src_id == fleet.dst_id) {
-            fprintf(stderr, "Bot tried sending fleet from a planet itself.\n");
-            // TODO handle bot disqualification
-            return 1;
-
-          } else if (src->owner != fleet.owner) {
-            fprintf(stderr,
-                    "Bot tried sending fleet from a planet it does not own.\n");
-            // TODO handle bot disqualification
-            return 1;
-          } else if (fleet.dst_id < 0 || (size_t)fleet.dst_id > planets.count) {
-            fprintf(stderr, "Bot tried sending fleet to nonexistent planet.\n");
-            // TODO handle bot disqualification
-            return 1;
-          } else if (src->ships < fleet.ships) {
-            fprintf(stderr,
-                    "Bot tried sending more ships then the planet has.\n");
-            // TODO handle bot disqualification
-            return 1;
-          }
-          src->ships -= fleet.ships;
-          Planet dst = planets.items[fleet.dst_id];
-
-          fleet.total = ceilf(sqrtf(powf((src->coords.x - dst.coords.x), 2) +
-                                    powf((src->coords.y - dst.coords.y), 2)));
-          fleet.remaining = fleet.total;
-
-          nob_da_append(&fleets, fleet);
-        }
-        printf("done parsing bot %d fleets\n", bot_num);
-
-        printf("done with bot %d, advancing to bot %d\n", bot_num, bot_num + 1);
+        printf("done with bot %zu, advancing to bot %zu\n", bot_num,
+               bot_num + 1);
         bot_num++;
       }
 
