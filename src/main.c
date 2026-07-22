@@ -249,6 +249,9 @@ void sendMapToBot(size_t bot_idx) {
   nob_da_foreach(Fleet, fleet, &fleets) {
     MoveOwner(Fleet, fleet) PrintFleet(bot_stdin, moved_fleet);
   }
+
+#undef MoveOwner
+
   fprintf(bot_stdin, "go\n");
   fflush(bot_stdin);
 }
