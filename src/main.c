@@ -54,7 +54,7 @@ GameSpace game_space = {.min_coords = {INFINITY, INFINITY},
 
 Font font;
 FILE *log_file;
-unsigned int tick = 0;
+unsigned int frame_counter = 0;
 bool game_running = true;
 
 // Calculates the minimum and maximum coordinates of all planets, used to space
@@ -381,7 +381,7 @@ void ParseBotFleets(Nob_String_View bot_message, size_t bot_idx) {
 
 // Runs one game turn using the planets and fleets saved.
 // Returns the amount of bots still in the game.
-int RunTurn() {
+int AdvanceTurn() {
   int bot_count = 0;
   BotBitset bot_bit_set = 0;
 
@@ -423,14 +423,32 @@ int RunTurn() {
   return bot_count;
 }
 
-int main(int argc, char *argv[]) {
-  const int screenWidth = 800;
-  const int screenHeight = 450;
+void RunBotCycle(Nob_String_Builder *bot_message) {
+  size_t bot_num = 0;
+  nob_da_foreach(struct subprocess_s, process, &bot_processes) {
+    nob_log(NOB_INFO, "sending map to bot %zu", bot_num);
 
+    sendMapToBot(bot_num);
+    bot_num++;
+  }
+
+  bot_num = 0;
+  nob_da_foreach(struct subprocess_s, process, &bot_processes) {
+    GetBotMessage(bot_message, bot_num);
+    ParseBotFleets(nob_sv_from_parts(bot_message->items, bot_message->count),
+                   bot_num);
+
+    nob_log(NOB_INFO, "done with bot %zu, advancing to bot %zu", bot_num,
+            bot_num + 1);
+    bot_num++;
+  }
+}
+
+void Setup(int argc, char *argv[]) {
   if (argc < 4) {
     nob_log(NOB_ERROR, "Missing arguments.");
     nob_log(NOB_ERROR, "Usage: %s <map_file> <bot1> <bot2>...", argv[0]);
-    return 1;
+    exit(1);
   }
 
   log_file = fopen(LOG_FILE, "w");
@@ -447,12 +465,19 @@ int main(int argc, char *argv[]) {
             "Provided map requires %d player, yet %d bots were given as "
             "arguments.",
             owner_count, bot_count);
-    return 1;
+    exit(1);
   }
 
   StartBots(argv + 2, bot_count);
 
   ComputeGameSpace();
+}
+
+int main(int argc, char *argv[]) {
+  Setup(argc, argv);
+
+  const int screenWidth = 800;
+  const int screenHeight = 450;
 
   SetTraceLogLevel(LOG_WARNING);
   SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_MSAA_4X_HINT);
@@ -465,31 +490,13 @@ int main(int argc, char *argv[]) {
   Nob_String_Builder bot_message = {0};
 
   while (!WindowShouldClose()) {
-    tick++;
-    if (game_running && tick % GAME_SPEED == 0) {
-
+    frame_counter++;
+    if (game_running && frame_counter % GAME_SPEED == 0) {
       // Bot communication
-      size_t bot_num = 0;
-      nob_da_foreach(struct subprocess_s, process, &bot_processes) {
-        nob_log(NOB_INFO, "sending map to bot %zu", bot_num);
-
-        sendMapToBot(bot_num);
-        bot_num++;
-      }
-
-      bot_num = 0;
-      nob_da_foreach(struct subprocess_s, process, &bot_processes) {
-        GetBotMessage(&bot_message, bot_num);
-        ParseBotFleets(nob_sv_from_parts(bot_message.items, bot_message.count),
-                       bot_num);
-
-        nob_log(NOB_INFO, "done with bot %zu, advancing to bot %zu", bot_num,
-                bot_num + 1);
-        bot_num++;
-      }
+      RunBotCycle(&bot_message);
 
       // Game logic
-      int remaining_bots = RunTurn();
+      int remaining_bots = AdvanceTurn();
       if (remaining_bots <= 1) {
         nob_log(NOB_INFO, "Game ended!");
         game_running = false;
