@@ -15,9 +15,10 @@
 #define BASE_PLANET_RADIUS 10.0f
 #define PLANET_RADIUS_GROWTH_CURVE 20.0f
 #define MAP_MARGIN 50
+#define CONTROLS_HEIGHT 70
 #define SHIP_FONT_SIZE 20
 // The lower the number the faster the game, 0 for realtime
-#define GAME_SPEED 1
+#define GAME_SPEED 5
 #define LOG_FILE "log.txt"
 
 // ## won't work in MSVC, we will cross that bridge when we get there.
@@ -58,6 +59,7 @@ PlanetDA planets = {0};
 FleetsDA fleets = {0};
 BotBitset bot_bit_set = 0;
 int remaining_bots = 0;
+int turn = 0;
 BotProcesses bot_processes = {0};
 GameSpace game_space = {.min_coords = {INFINITY, INFINITY},
                         .max_coords = {-INFINITY, -INFINITY}};
@@ -80,9 +82,9 @@ Vector2 Game2ScreenCoords(Vector2 coords) {
   return (Vector2){
       .x = Remap(coords.x, game_space.min_coords.x, game_space.max_coords.x,
                  MAP_MARGIN, GetScreenWidth() - MAP_MARGIN),
-      .y = GetScreenHeight() - Remap(coords.y, game_space.min_coords.y,
-                                     game_space.max_coords.y, MAP_MARGIN,
-                                     GetScreenHeight() - MAP_MARGIN)};
+      .y = GetScreenHeight() -
+           Remap(coords.y, game_space.min_coords.y, game_space.max_coords.y,
+                 MAP_MARGIN + CONTROLS_HEIGHT, GetScreenHeight() - MAP_MARGIN)};
 }
 
 #define GetOwnerColor(entity)                                                  \
@@ -552,6 +554,30 @@ void StopAndFreeBots() {
   nob_da_free(bot_processes);
 }
 
+void DrawControls() {
+  // Values for round rectanlges
+  const int segments = 4;
+  const float roundness = 0.5;
+
+  const Rectangle scrubber = {
+      .x = MAP_MARGIN,
+      .y = GetScreenHeight() - MAP_MARGIN,
+      .width = GetScreenWidth() - MAP_MARGIN * 2,
+      .height = 10,
+  };
+  DrawRectangleRoundedLines(scrubber, roundness, segments, WHITE);
+
+  const float bar_height = scrubber.height * 2;
+  const Rectangle bar = {
+      .x = Remap(turn, 0, game_log.count, scrubber.x,
+                 scrubber.x + scrubber.width),
+      .y = scrubber.y - bar_height / 2 + scrubber.height / 2,
+      .width = 10,
+      .height = bar_height,
+  };
+  DrawRectangleRounded(bar, roundness, segments, WHITE);
+}
+
 int main(int argc, char *argv[]) {
   Setup(argc, argv);
 
@@ -587,7 +613,6 @@ int main(int argc, char *argv[]) {
   }
   nob_log(NOB_INFO, "Game ended!");
 
-  int turn = 0;
   while (!WindowShouldClose()) {
     frame_counter++;
     if (game_running && frame_counter % GAME_SPEED == 0) {
@@ -603,6 +628,7 @@ int main(int argc, char *argv[]) {
 
     nob_da_foreach(Fleet, fleet, &fleets) { DrawFleet(*fleet); }
 
+    DrawControls();
     EndDrawing();
   }
 
