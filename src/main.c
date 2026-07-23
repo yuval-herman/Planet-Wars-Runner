@@ -321,8 +321,8 @@ void GetBotMessage(Nob_String_Builder *sb, size_t bot_idx) {
 }
 
 void ParseBotFleets(Nob_String_View bot_message, size_t bot_idx) {
-  if (bot_message.count < 2 && bot_message.data[0] == 'g' &&
-      bot_message.data[1] == 'o') {
+  if (bot_message.count < 2 ||
+      (bot_message.data[0] == 'g' && bot_message.data[1] == 'o')) {
     return;
   }
 
