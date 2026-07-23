@@ -494,6 +494,23 @@ void UpdateStateFromLogEntry(size_t entry_idx) {
          sizeof *planets.items * entry.planet_count);
 }
 
+void FreeGameLog() {
+  nob_da_foreach(LogEntry, entry, &game_log) {
+    free(entry->fleets);
+    free(entry->planets);
+  }
+  nob_da_free(game_log);
+}
+
+void StopAndFreeBots() {
+  nob_da_foreach(struct subprocess_s, process, &bot_processes) {
+    subprocess_terminate(process);
+    subprocess_destroy(process);
+  }
+
+  nob_da_free(bot_processes);
+}
+
 int main(int argc, char *argv[]) {
   Setup(argc, argv);
 
@@ -549,7 +566,13 @@ int main(int argc, char *argv[]) {
   }
 
   CloseWindow();
-  fclose(log_file);
 
+  FreeGameLog();
+  StopAndFreeBots();
+  nob_sb_free(bot_message);
+  nob_da_free(planets);
+  nob_da_free(fleets);
+
+  fclose(log_file);
   return 0;
 }
