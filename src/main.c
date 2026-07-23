@@ -29,9 +29,13 @@
 
 #define SetBit(bitset, index)                                                  \
   do {                                                                         \
-    bitset |= 1u << index;                                                     \
+    bitset |= 1u << (index);                                                   \
   } while (0)
-#define TestBit(bitset, index) (bitset & 1u << index)
+#define UnsetBit(bitset, index)                                                \
+  do {                                                                         \
+    bitset &= ~(1u << (index));                                                \
+  } while (0)
+#define TestBit(bitset, index) (bitset & 1u << (index))
 
 typedef uint32_t BotBitset;
 _Static_assert(MAX_BOT_AMOUNT <= sizeof(BotBitset) * CHAR_BIT,
@@ -48,9 +52,11 @@ typedef struct {
   size_t capacity;
 } BotProcesses;
 
+// Global game state
 GameLog game_log = {0};
 PlanetDA planets = {0};
 FleetsDA fleets = {0};
+BotBitset bot_bit_set = 0;
 int remaining_bots = 0;
 BotProcesses bot_processes = {0};
 GameSpace game_space = {.min_coords = {INFINITY, INFINITY},
@@ -136,7 +142,6 @@ int ParseMapFile(const char *map_path, PlanetDA *planets) {
   char buf[256];
   size_t file_line = 0;
   int bot_count = 0;
-  BotBitset bot_bit_set = 0;
 
   while (fgets(buf, sizeof buf, map_file)) {
     file_line += 1;
@@ -165,9 +170,9 @@ int ParseMapFile(const char *map_path, PlanetDA *planets) {
       exit(1);
     }
 
-    if (planet.owner != 0 && !TestBit(bot_bit_set, planet.owner)) {
+    if (planet.owner != 0 && !TestBit(bot_bit_set, planet.owner - 1)) {
       bot_count++;
-      SetBit(bot_bit_set, planet.owner);
+      SetBit(bot_bit_set, planet.owner - 1);
     }
 
     nob_da_append(planets, planet);
@@ -320,6 +325,34 @@ void GetBotMessage(Nob_String_Builder *sb, size_t bot_idx) {
   }
 }
 
+void DisqualifyBot(size_t bot_idx) {
+  if (bot_idx >= bot_processes.count) {
+    nob_log(NOB_ERROR, "Attempted to disqualify non existent bot");
+    exit(1);
+  }
+
+  // We don't remove the bot from the dynamic array because we use the DA index
+  // to address different bots. Instead it should be marked as disqualified and
+  // not used.
+  subprocess_terminate(&bot_processes.items[bot_idx]);
+  subprocess_destroy(&bot_processes.items[bot_idx]);
+
+  remaining_bots--;
+  nob_da_foreach(Planet, planet, &planets) {
+    if ((size_t)planet->owner == bot_idx + 1) {
+      planet->owner = 0;
+    }
+  }
+  nob_da_foreach(Fleet, fleet, &fleets) {
+    if ((size_t)fleet->owner == bot_idx + 1)
+      fleet->owner = 0;
+  }
+
+  UnsetBit(bot_bit_set, bot_idx + 1);
+
+  nob_log(NOB_INFO, "Disqualified bot %zu.\n", bot_idx);
+}
+
 void ParseBotFleets(Nob_String_View bot_message, size_t bot_idx) {
   if (bot_message.count < 2 ||
       (bot_message.data[0] == 'g' && bot_message.data[1] == 'o')) {
@@ -335,42 +368,42 @@ void ParseBotFleets(Nob_String_View bot_message, size_t bot_idx) {
     if (!(parse_int(&bot_message.data, &fleet.src_id) &&
           parse_int(&bot_message.data, &fleet.dst_id) &&
           parse_int(&bot_message.data, &fleet.ships))) {
-      nob_log(NOB_ERROR, "Invalid bot command.");
-      // TODO handle bot disqualification
-      exit(1);
+      nob_log(NOB_INFO, "Invalid bot command.");
+      DisqualifyBot(bot_idx);
+      break;
     }
     bot_message.count -= bot_message.data - start;
     bot_message = nob_sv_trim_left(bot_message);
 
     if (fleet.src_id < 0 || (size_t)fleet.src_id >= planets.count) {
-      nob_log(NOB_ERROR, "Bot tried sending fleet from nonexistent planet.");
-      // TODO handle bot disqualification
-      exit(1);
+      nob_log(NOB_INFO, "Bot tried sending fleet from nonexistent planet.");
+      DisqualifyBot(bot_idx);
+      break;
     }
     Planet *src = &planets.items[fleet.src_id];
     if (fleet.ships < 1) {
-      nob_log(NOB_ERROR, "Bot tried sending invalid amount of ships.");
-      // TODO handle bot disqualification
-      exit(1);
+      nob_log(NOB_INFO, "Bot tried sending invalid amount of ships.");
+      DisqualifyBot(bot_idx);
+      break;
 
     } else if (fleet.src_id == fleet.dst_id) {
-      nob_log(NOB_ERROR, "Bot tried sending fleet from a planet itself.");
-      // TODO handle bot disqualification
-      exit(1);
+      nob_log(NOB_INFO, "Bot tried sending fleet from a planet itself.");
+      DisqualifyBot(bot_idx);
+      break;
 
     } else if (src->owner != fleet.owner) {
-      nob_log(NOB_ERROR,
+      nob_log(NOB_INFO,
               "Bot tried sending fleet from a planet it does not own.");
-      // TODO handle bot disqualification
-      exit(1);
+      DisqualifyBot(bot_idx);
+      break;
     } else if (fleet.dst_id < 0 || (size_t)fleet.dst_id > planets.count) {
-      nob_log(NOB_ERROR, "Bot tried sending fleet to nonexistent planet.");
-      // TODO handle bot disqualification
-      exit(1);
+      nob_log(NOB_INFO, "Bot tried sending fleet to nonexistent planet.");
+      DisqualifyBot(bot_idx);
+      break;
     } else if (src->ships < fleet.ships) {
-      nob_log(NOB_ERROR, "Bot tried sending more ships then the planet has.");
-      // TODO handle bot disqualification
-      exit(1);
+      nob_log(NOB_INFO, "Bot tried sending more ships then the planet has.");
+      DisqualifyBot(bot_idx);
+      break;
     }
     src->ships -= fleet.ships;
     Planet dst = planets.items[fleet.dst_id];
@@ -387,15 +420,15 @@ void ParseBotFleets(Nob_String_View bot_message, size_t bot_idx) {
 // Returns the amount of bots still in the game.
 int AdvanceTurn() {
   int bot_count = 0;
-  BotBitset bot_bit_set = 0;
 
+  bot_bit_set = 0;
   nob_da_foreach(Planet, planet, &planets) {
     if (planet->owner != 0) {
       planet->ships += planet->growth;
       // If the player wasn't counted yet
-      if (!TestBit(bot_bit_set, planet->owner)) {
+      if (!TestBit(bot_bit_set, planet->owner - 1)) {
         bot_count++;
-        SetBit(bot_bit_set, planet->owner);
+        SetBit(bot_bit_set, planet->owner - 1);
       }
     }
   }
@@ -417,33 +450,41 @@ int AdvanceTurn() {
       i--;
     } else {
       // If the player wasn't counted yet
-      if (!TestBit(bot_bit_set, fleet->owner)) {
+      if (!TestBit(bot_bit_set, fleet->owner - 1)) {
         bot_count++;
-        SetBit(bot_bit_set, fleet->owner);
+        SetBit(bot_bit_set, fleet->owner - 1);
       }
     }
   }
+  printf("advance turn bot bitset: %u\n", bot_bit_set);
 
   return bot_count;
 }
 
 void RunBotCycle(Nob_String_Builder *bot_message) {
   size_t bot_num = 0;
+  printf("bot bitset: %u\n", bot_bit_set);
   nob_da_foreach(struct subprocess_s, process, &bot_processes) {
-    nob_log(NOB_INFO, "sending map to bot %zu", bot_num);
+    // Skip disqualified or lost bots.
+    if (TestBit(bot_bit_set, bot_num)) {
+      nob_log(NOB_INFO, "sending map to bot %zu", bot_num);
 
-    sendMapToBot(bot_num);
+      sendMapToBot(bot_num);
+    }
     bot_num++;
   }
 
   bot_num = 0;
   nob_da_foreach(struct subprocess_s, process, &bot_processes) {
-    GetBotMessage(bot_message, bot_num);
-    ParseBotFleets(nob_sv_from_parts(bot_message->items, bot_message->count),
-                   bot_num);
+    // Skip disqualified or lost bots.
+    if (TestBit(bot_bit_set, bot_num)) {
+      GetBotMessage(bot_message, bot_num);
+      ParseBotFleets(nob_sv_from_parts(bot_message->items, bot_message->count),
+                     bot_num);
 
-    nob_log(NOB_INFO, "done with bot %zu, advancing to bot %zu", bot_num,
-            bot_num + 1);
+      nob_log(NOB_INFO, "done with bot %zu, advancing to bot %zu", bot_num,
+              bot_num + 1);
+    }
     bot_num++;
   }
 }
