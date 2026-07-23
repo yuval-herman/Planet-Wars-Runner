@@ -1,3 +1,5 @@
+#include <stdbool.h>
+#include <string.h>
 #define NOB_IMPLEMENTATION
 #include "../nob.h"
 #include "raylib.h"
@@ -15,7 +17,7 @@
 #define MAP_MARGIN 50
 #define SHIP_FONT_SIZE 20
 // The lower the number the faster the game, 0 for realtime
-#define GAME_SPEED 5
+#define GAME_SPEED 1
 #define LOG_FILE "log.txt"
 
 // ## won't work in MSVC, we will cross that bridge when we get there.
@@ -46,8 +48,10 @@ typedef struct {
   size_t capacity;
 } BotProcesses;
 
+GameLog game_log = {0};
 PlanetDA planets = {0};
 FleetsDA fleets = {0};
+int remaining_bots = 0;
 BotProcesses bot_processes = {0};
 GameSpace game_space = {.min_coords = {INFINITY, INFINITY},
                         .max_coords = {-INFINITY, -INFINITY}};
@@ -469,8 +473,25 @@ void Setup(int argc, char *argv[]) {
   }
 
   StartBots(argv + 2, bot_count);
+  remaining_bots = bot_processes.count;
 
   ComputeGameSpace();
+}
+
+void UpdateStateFromLogEntry(size_t entry_idx) {
+  if (entry_idx >= game_log.count) {
+    nob_log(NOB_ERROR, "Attempted accessing OOB game log entry.\n");
+    exit(1);
+  }
+
+  LogEntry entry = game_log.items[entry_idx];
+  remaining_bots = entry.remaining_bots;
+
+  fleets.count = entry.fleet_count;
+  memcpy(fleets.items, entry.fleets, sizeof *fleets.items * entry.fleet_count);
+  planets.count = entry.planet_count;
+  memcpy(planets.items, entry.planets,
+         sizeof *planets.items * entry.planet_count);
 }
 
 int main(int argc, char *argv[]) {
@@ -489,18 +510,32 @@ int main(int argc, char *argv[]) {
   // Reusable string builder to hold bot messages
   Nob_String_Builder bot_message = {0};
 
+  for (int turn = 0; remaining_bots > 1 && turn < 1000; turn++) {
+    // Bot communication
+    RunBotCycle(&bot_message);
+
+    // Game logic
+    remaining_bots = AdvanceTurn();
+
+    LogEntry entry = {.remaining_bots = remaining_bots,
+                      .fleet_count = fleets.count,
+                      .fleets = malloc(sizeof *fleets.items * fleets.count),
+                      .planet_count = planets.count,
+                      .planets = malloc(sizeof *planets.items * planets.count)};
+    memcpy(entry.fleets, fleets.items, sizeof *fleets.items * fleets.count);
+    memcpy(entry.planets, planets.items, sizeof *planets.items * planets.count);
+
+    nob_da_append(&game_log, entry);
+  }
+  nob_log(NOB_INFO, "Game ended!");
+
+  int turn = 0;
   while (!WindowShouldClose()) {
     frame_counter++;
     if (game_running && frame_counter % GAME_SPEED == 0) {
-      // Bot communication
-      RunBotCycle(&bot_message);
-
-      // Game logic
-      int remaining_bots = AdvanceTurn();
-      if (remaining_bots <= 1) {
-        nob_log(NOB_INFO, "Game ended!");
+      UpdateStateFromLogEntry(turn++);
+      if (remaining_bots <= 1)
         game_running = false;
-      }
     }
     BeginDrawing();
 
