@@ -554,6 +554,7 @@ void StopAndFreeBots() {
 }
 
 void DrawControls() {
+  static bool is_scrubber_pressed = false;
   // Values for round rectanlges
   const int segments = 6;
   const float roundness = 0.4;
@@ -583,6 +584,24 @@ void DrawControls() {
       .width = 10,
       .height = bar_height,
   };
+
+  if (CheckCollisionPointRec(GetMousePosition(), bar) &&
+      IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
+    is_scrubber_pressed = true;
+    game_speed = 0;
+  }
+
+  if (is_scrubber_pressed) {
+    if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
+      is_scrubber_pressed = false;
+    } else {
+      turn =
+          Remap(fmin(scrubber.x + scrubber.width,
+                     fmax(scrubber.x, GetMousePosition().x)),
+                scrubber.x, scrubber.x + scrubber.width, 0, game_log.count - 1);
+      UpdateStateFromLogEntry(turn);
+    }
+  }
   DrawRectangleRounded(bar, roundness, segments, WHITE);
 
   Rectangle button = {.y = scrubber.y + scrubber.height + ui_margin,
@@ -687,7 +706,7 @@ int main(int argc, char *argv[]) {
         turn++;
       else
         turn--;
-      if ((size_t)turn >= game_log.count-1 || turn == 0)
+      if ((size_t)turn >= game_log.count - 1 || turn == 0)
         game_speed = 0;
     }
     BeginDrawing();
