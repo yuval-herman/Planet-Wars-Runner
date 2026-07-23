@@ -556,19 +556,25 @@ void StopAndFreeBots() {
 
 void DrawControls() {
   // Values for round rectanlges
-  const int segments = 4;
-  const float roundness = 0.5;
+  const int segments = 6;
+  const float roundness = 0.4;
+
+  // Margin between UI elements.
+  const float ui_margin = 10;
+  const float button_edge = 40;
+  const float scrubber_height = 10;
+  const int button_amount = 3;
 
   const Rectangle scrubber = {
       .x = MAP_MARGIN,
-      .y = GetScreenHeight() - MAP_MARGIN,
+      .y = GetScreenHeight() - button_edge - ui_margin * 2 - scrubber_height,
       .width = GetScreenWidth() - MAP_MARGIN * 2,
-      .height = 10,
+      .height = scrubber_height,
   };
   DrawRectangleRoundedLines(scrubber, roundness, segments, WHITE);
 
   const float bar_height = scrubber.height * 2;
-  const Rectangle bar = {
+  Rectangle bar = {
       .x = Remap(turn, 0, game_log.count, scrubber.x,
                  scrubber.x + scrubber.width),
       .y = scrubber.y - bar_height / 2 + scrubber.height / 2,
@@ -576,6 +582,45 @@ void DrawControls() {
       .height = bar_height,
   };
   DrawRectangleRounded(bar, roundness, segments, WHITE);
+
+  Rectangle button = {.y = scrubber.y + scrubber.height + ui_margin,
+                      .width = button_edge,
+                      .height = button_edge};
+  const int button_row_width =
+      button_edge * button_amount + ui_margin * (button_amount - 1);
+
+  // Play backwards
+  button.x = (GetScreenWidth() - button_row_width) / 2.0f;
+  DrawRectangleRounded(button, roundness, segments, WHITE);
+  DrawTriangle((Vector2){.x = button.x + button_edge * 4 / 5,
+                         .y = button.y + button_edge * 4 / 5},
+               (Vector2){.x = button.x + button_edge * 4 / 5,
+                         .y = button.y + button_edge / 5},
+               (Vector2){.x = button.x + button_edge / 5,
+                         .y = button.y + button_edge / 2},
+               BLACK);
+
+  // Play/Pause toggle
+  button.x += button_edge + ui_margin;
+  DrawRectangleRounded(button, roundness, segments, WHITE);
+  bar.width = button_edge / 5;
+  bar.height = button_edge * 3 / 5;
+  bar.y = button.y + button_edge / 5;
+  bar.x = button.x + button_edge / 5;
+  DrawRectangleRounded(bar, 0.75, segments, BLACK);
+  bar.x = button.x + button_edge * 3 / 5;
+  DrawRectangleRounded(bar, 0.75, segments, BLACK);
+
+  // Play forewards
+  button.x += button_edge + ui_margin;
+  DrawRectangleRounded(button, roundness, segments, WHITE);
+  DrawTriangle((Vector2){.x = button.x + button_edge / 5,
+                         .y = button.y + button_edge * 4 / 5},
+               (Vector2){.x = button.x + button_edge * 4 / 5,
+                         .y = button.y + button_edge / 2},
+               (Vector2){.x = button.x + button_edge / 5,
+                         .y = button.y + button_edge / 5},
+               BLACK);
 }
 
 int main(int argc, char *argv[]) {
