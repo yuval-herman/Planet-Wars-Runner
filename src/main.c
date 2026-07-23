@@ -17,8 +17,6 @@
 #define MAP_MARGIN 50
 #define CONTROLS_HEIGHT 70
 #define SHIP_FONT_SIZE 20
-// The lower the number the faster the game, 0 for realtime
-#define GAME_SPEED 5
 #define LOG_FILE "log.txt"
 
 // ## won't work in MSVC, we will cross that bridge when we get there.
@@ -67,7 +65,8 @@ GameSpace game_space = {.min_coords = {INFINITY, INFINITY},
 Font font;
 FILE *log_file;
 unsigned int frame_counter = 0;
-bool game_running = true;
+// Game run speed in viewer.
+int game_speed = 1;
 
 // Calculates the minimum and maximum coordinates of all planets, used to space
 // planets across the entire screen.
@@ -523,8 +522,8 @@ void Setup(int argc, char *argv[]) {
 
 void UpdateStateFromLogEntry(size_t entry_idx) {
   if (entry_idx >= game_log.count) {
-    nob_log(NOB_ERROR, "Attempted accessing OOB game log entry.\n");
-    exit(1);
+    nob_log(NOB_WARNING, "Attempted accessing OOB game log entry.\n");
+    return;
   }
 
   LogEntry entry = game_log.items[entry_idx];
@@ -565,6 +564,9 @@ void DrawControls() {
   const float scrubber_height = 10;
   const int button_amount = 3;
 
+  const Color button_color = WHITE;
+  const Color button_pressed_color = GRAY;
+
   const Rectangle scrubber = {
       .x = MAP_MARGIN,
       .y = GetScreenHeight() - button_edge - ui_margin * 2 - scrubber_height,
@@ -586,12 +588,28 @@ void DrawControls() {
   Rectangle button = {.y = scrubber.y + scrubber.height + ui_margin,
                       .width = button_edge,
                       .height = button_edge};
+  Color button_computed_color;
   const int button_row_width =
       button_edge * button_amount + ui_margin * (button_amount - 1);
 
+#define HandleMousePress(action)                                               \
+  do {                                                                         \
+    if (CheckCollisionPointRec(GetMousePosition(), button)) {                  \
+      button_computed_color =                                                  \
+          ColorLerp(button_color, button_pressed_color,                        \
+                    IsMouseButtonDown(MOUSE_BUTTON_LEFT) ? 1 : 0.3);           \
+      if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {                          \
+        action;                                                                \
+      }                                                                        \
+    } else {                                                                   \
+      button_computed_color = button_color;                                    \
+    }                                                                          \
+  } while (0)
+
   // Play backwards
   button.x = (GetScreenWidth() - button_row_width) / 2.0f;
-  DrawRectangleRounded(button, roundness, segments, WHITE);
+  HandleMousePress(if (turn > 0) game_speed = -1);
+  DrawRectangleRounded(button, roundness, segments, button_computed_color);
   DrawTriangle((Vector2){.x = button.x + button_edge * 4 / 5,
                          .y = button.y + button_edge * 4 / 5},
                (Vector2){.x = button.x + button_edge * 4 / 5,
@@ -602,7 +620,8 @@ void DrawControls() {
 
   // Play/Pause toggle
   button.x += button_edge + ui_margin;
-  DrawRectangleRounded(button, roundness, segments, WHITE);
+  HandleMousePress(game_speed = game_speed == 0 ? 1 : 0);
+  DrawRectangleRounded(button, roundness, segments, button_computed_color);
   bar.width = button_edge / 5;
   bar.height = button_edge * 3 / 5;
   bar.y = button.y + button_edge / 5;
@@ -613,7 +632,8 @@ void DrawControls() {
 
   // Play forewards
   button.x += button_edge + ui_margin;
-  DrawRectangleRounded(button, roundness, segments, WHITE);
+  HandleMousePress(if ((size_t)turn < game_log.count) game_speed = 1);
+  DrawRectangleRounded(button, roundness, segments, button_computed_color);
   DrawTriangle((Vector2){.x = button.x + button_edge / 5,
                          .y = button.y + button_edge * 4 / 5},
                (Vector2){.x = button.x + button_edge * 4 / 5,
@@ -621,6 +641,7 @@ void DrawControls() {
                (Vector2){.x = button.x + button_edge / 5,
                          .y = button.y + button_edge / 5},
                BLACK);
+#undef HandleMousePress
 }
 
 int main(int argc, char *argv[]) {
@@ -660,10 +681,14 @@ int main(int argc, char *argv[]) {
 
   while (!WindowShouldClose()) {
     frame_counter++;
-    if (game_running && frame_counter % GAME_SPEED == 0) {
-      UpdateStateFromLogEntry(turn++);
-      if (remaining_bots <= 1)
-        game_running = false;
+    if (game_speed && frame_counter % abs(game_speed) == 0) {
+      UpdateStateFromLogEntry(turn);
+      if (game_speed > 0)
+        turn++;
+      else
+        turn--;
+      if ((size_t)turn >= game_log.count-1 || turn == 0)
+        game_speed = 0;
     }
     BeginDrawing();
 
