@@ -9,6 +9,7 @@
 
 #define MAX_BOT_AMOUNT 32
 
+// TODO change owner, growth, src_id, etc. to uint8_t/uint16_t. Add max start count for this
 typedef struct {
   Vector2 coords;
   int owner;
@@ -36,6 +37,20 @@ typedef struct {
   size_t count;
   size_t capacity;
 } FleetsDA;
+
+typedef struct {
+  int remaining_bots;
+  size_t fleet_count;
+  Fleet *fleets;
+  size_t planet_count;
+  Planet *planets;
+} LogEntry;
+
+typedef struct {
+  LogEntry *items;
+  size_t count;
+  size_t capacity;
+} GameLog;
 
 static inline void PrintPlanet(FILE *file, Planet planet) {
   fprintf(file, "P %.11f %.11f %d %d %d\n", planet.coords.x, planet.coords.y,
