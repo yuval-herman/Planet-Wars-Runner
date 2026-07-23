@@ -73,6 +73,7 @@ int main(int argc, char **argv) {
   nob_cmd_append(&cmd, "-Iexternal/raylib");
   nob_cmd_append(&cmd, "-Iexternal");
   nob_cmd_append(&cmd, "-lm", "-lX11");
+  nob_cmd_append(&cmd, "-O2");
   nob_cc_output(&cmd, "main");
 
   FILE *compile_flags_file = fopen("compile_flags.txt", "w");
