@@ -7,9 +7,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <time.h>
+#endif
+
 #define MAX_BOT_AMOUNT 32
 
-// TODO change owner, growth, src_id, etc. to uint8_t/uint16_t. Add max start count for this
+// TODO change owner, growth, src_id, etc. to uint8_t/uint16_t. Add max start
+// count for this
 typedef struct {
   Vector2 coords;
   int owner;
@@ -67,7 +74,8 @@ static inline void PrintFleet(FILE *file, Fleet fleet) {
 bool parse_float(const char **s, float *out) {
   char *end;
   errno = 0;
-  // TODO make custom parser that will accept a string view without a null terminator.
+  // TODO make custom parser that will accept a string view without a null
+  // terminator.
   float v = strtof(*s, &end);
   if (end == *s || errno == ERANGE || !isfinite(v))
     return false;
@@ -80,7 +88,8 @@ bool parse_float(const char **s, float *out) {
 // parsed value. Returns true on success false otherwise.
 bool parse_int(const char **s, int *out) {
   char *end;
-  // TODO make custom parser that will accept a string view without a null terminator.
+  // TODO make custom parser that will accept a string view without a null
+  // terminator.
   long v = strtol(*s, &end, 10);
   if (end == *s || v < INT_MIN || v > INT_MAX)
     return false;
@@ -105,8 +114,10 @@ static bool ParsePlanetLine(char *line, Planet *planet) {
   }
 
   if (owner < 0 || owner > MAX_BOT_AMOUNT) {
-    fprintf(stderr, "Invalid number of player owned planets. There must be "
-                    "between 1 to %d players.\n", MAX_BOT_AMOUNT);
+    fprintf(stderr,
+            "Invalid number of player owned planets. There must be "
+            "between 1 to %d players.\n",
+            MAX_BOT_AMOUNT);
     return false;
   }
 
@@ -116,4 +127,16 @@ static bool ParsePlanetLine(char *line, Planet *planet) {
   planet->growth = growth;
   return true;
 }
+
+#ifdef _WIN32
+void sleep_ms(unsigned ms) { Sleep(ms); }
+#else
+void sleep_ms(unsigned ms) {
+  struct timespec ts;
+  ts.tv_sec = ms / 1000;
+  ts.tv_nsec = (long)(ms % 1000) * 1000000L;
+  nanosleep(&ts, NULL);
+}
+#endif
+
 #endif // PLANET_WARS_H

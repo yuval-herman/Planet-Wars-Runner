@@ -335,6 +335,7 @@ void GetBotMessage(Nob_String_Builder *sb, size_t bot_idx) {
                 bot_idx);
         DisqualifyBot(bot_idx);
         sb->count = 0;
+        sleep_ms(2);
         return;
       }
       continue;
