@@ -183,21 +183,6 @@ int ParseMapFile(const char *map_path, PlanetDA *planets) {
   return bot_count;
 }
 
-void ComputeAttack(Fleet fleet) {
-  if (fleet.remaining > 0)
-    return;
-  Planet *planet = &planets.items[fleet.dst_id];
-
-  if (planet->owner == fleet.owner)
-    planet->ships += fleet.ships;
-  else if (planet->ships < fleet.ships) {
-    planet->owner = fleet.owner;
-    planet->ships = fleet.ships - planet->ships;
-  } else {
-    planet->ships -= fleet.ships;
-  }
-}
-
 void StartBots(char **commands, int command_amount) {
   if (command_amount > MAX_BOT_AMOUNT) {
     nob_log(NOB_ERROR,
@@ -417,6 +402,33 @@ void ParseBotFleets(Nob_String_View bot_message, size_t bot_idx) {
   nob_log(NOB_INFO, "done parsing bot %zu fleets", bot_idx);
 }
 
+// Used for sorting fleets in attack resolution.
+int cmp_fleet_owner_remaining(const void *a, const void *b) {
+  const Fleet *fa = a;
+  const Fleet *fb = b;
+
+  if (fa->remaining < fb->remaining)
+    return -1;
+  if (fa->remaining > fb->remaining)
+    return 1;
+
+  if (fa->dst_id < fb->dst_id)
+    return -1;
+  if (fa->dst_id > fb->dst_id)
+    return 1;
+
+  if (fa->owner < fb->owner)
+    return -1;
+  if (fa->owner > fb->owner)
+    return 1;
+  return 0;
+}
+
+typedef struct {
+  int owner;
+  int force;
+} AttackForce;
+
 // Runs one game turn using the planets and fleets saved.
 // Returns the amount of bots still in the game.
 int AdvanceTurn() {
@@ -434,37 +446,99 @@ int AdvanceTurn() {
     }
   }
 
+  qsort(fleets.items, fleets.count, sizeof(fleets.items[0]),
+        cmp_fleet_owner_remaining);
+
+  nob_da_foreach(Fleet, fleet, &fleets) { fleet->remaining--; }
+
+  Fleet *current_fleet = fleets.items;
+  Fleet *end_fleet = fleets.items + fleets.count;
+
+  while (current_fleet < end_fleet && current_fleet->remaining == 0) {
+    int current_dst = current_fleet->dst_id;
+    Planet *planet = &planets.items[current_dst];
+
+    // MAX_BOT_AMOUNT + 1 to account for neutral planets
+    AttackForce forces[MAX_BOT_AMOUNT + 1];
+    int forces_count = 0;
+
+    // Add current planet being attack, even if it's a neutral planet
+    forces[forces_count].owner = planet->owner;
+    forces[forces_count].force = planet->ships;
+    forces_count++;
+
+    // Process all fleets attacking the current planet
+    while (current_fleet < end_fleet && current_fleet->remaining == 0 &&
+           current_fleet->dst_id == current_dst) {
+
+      // In case this fleet belongs to the owner of the current planet
+      if (current_fleet->owner == forces[0].owner) {
+        forces[0].force += current_fleet->ships;
+      }
+      // In case this fleet is from the same owner that sent the previous
+      // fleet in the list. This works because fleet are sorted by
+      // remaining->dst_id->owner. So we don't need to search the forces array
+      // for the owner.
+      else if (current_fleet->owner == forces[forces_count-1].owner) {
+        forces[forces_count-1].force += current_fleet->ships;
+      }
+      // In case this is a new owner, add it to the list.
+      else {
+        forces[forces_count].owner = current_fleet->owner;
+        forces[forces_count].force = current_fleet->ships;
+        forces_count++;
+      }
+
+      current_fleet++;
+    }
+
+    // Find the two biggest forces
+    int max_force_idx = 0;
+    int second_force_idx = -1;
+
+    for (int i = 1; i < forces_count; i++) {
+      if (forces[i].force > forces[max_force_idx].force) {
+        second_force_idx = max_force_idx;
+        max_force_idx = i;
+      } else if (second_force_idx == -1 ||
+                 forces[i].force > forces[second_force_idx].force) {
+        second_force_idx = i;
+      }
+    }
+
+    if (second_force_idx == -1 ||
+        forces[max_force_idx].force > forces[second_force_idx].force) {
+      int winner_force = forces[max_force_idx].force;
+      int runner_up_force =
+          (second_force_idx == -1) ? 0 : forces[second_force_idx].force;
+
+      planet->owner = forces[max_force_idx].owner;
+      planet->ships = winner_force - runner_up_force;
+    } else {
+      planet->ships = 0;
+    }
+  }
+  // We do this after processing becuase we need to keep fleet order while
+  // processing them.
   for (size_t i = 0; i < fleets.count; i++) {
-    Fleet *fleet = &fleets.items[i];
-    fleet->remaining--;
-    if (fleet->remaining == 0) {
-      // TODO attack computations should happen simultanously for all
-      // fleets attacking a planet. In a situation where a player attempts
-      // to defend his planet while an enemy attacks and both fleets
-      // arrive at the same time, if the enemy the player have the same
-      // amount of ships overall (including the player owned planet) the
-      // planet stays owned by the player.
-      ComputeAttack(*fleet);
+    if (fleets.items[i].remaining == 0) {
       nob_da_remove_unordered(&fleets, i);
       // Remove unordered replaces the current fleet with the last one,
       // so we need to run the loop again on the same index.
       i--;
-    } else {
-      // If the player wasn't counted yet
-      if (!TestBit(bot_bit_set, fleet->owner - 1)) {
-        bot_count++;
-        SetBit(bot_bit_set, fleet->owner - 1);
-      }
+    }
+    // If the player wasn't counted yet
+    else if (!TestBit(bot_bit_set, fleets.items[i].owner - 1)) {
+      bot_count++;
+      SetBit(bot_bit_set, fleets.items[i].owner - 1);
     }
   }
-  printf("advance turn bot bitset: %u\n", bot_bit_set);
 
   return bot_count;
 }
 
 void RunBotCycle(Nob_String_Builder *bot_message) {
   size_t bot_num = 0;
-  printf("bot bitset: %u\n", bot_bit_set);
   nob_da_foreach(struct subprocess_s, process, &bot_processes) {
     // Skip disqualified or lost bots.
     if (TestBit(bot_bit_set, bot_num)) {
