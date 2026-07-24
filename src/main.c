@@ -21,6 +21,10 @@
 #define LOG_FILE "log.txt"
 // Time in nanoseconds, currently set to 100ms
 #define MAX_BOT_RESPONSE_TIME (1000 * 1000 * 100)
+// The name is confusing, but this value denotes the maximum value that the
+// `game_speed` variable can hold, which controls the _lowest_ bound for game
+// speed, i.e. how slow can the game run.
+#define MAX_GAME_SPEED_VALUE 20
 
 // ## won't work in MSVC, we will cross that bridge when we get there.
 #define LogToFile(fmt, ...)                                                    \
@@ -68,8 +72,10 @@ GameSpace game_space = {.min_coords = {INFINITY, INFINITY},
 Font font;
 FILE *log_file;
 unsigned int frame_counter = 0;
-// Game run speed in viewer.
-int game_speed = 1;
+// Game run speed in viewer. 0 is realtime, higher is slower.
+int game_speed = 5;
+bool game_running = false;
+bool playing_forewards = true;
 
 // Calculates the minimum and maximum coordinates of all planets, used to space
 // planets across the entire screen.
@@ -685,7 +691,7 @@ void DrawControls() {
   if (CheckCollisionPointRec(GetMousePosition(), scrubber) &&
       IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
     is_scrubber_pressed = true;
-    game_speed = 0;
+    game_running = false;
   }
 
   if (is_scrubber_pressed) {
@@ -736,7 +742,10 @@ void DrawControls() {
 
   // Play backwards
   button.x = (GetScreenWidth() - button_row_width) / 2.0f;
-  HandleMousePress(if (turn > 0) game_speed = -1);
+  HandleMousePress(if (turn > 0) {
+    playing_forewards = false;
+    game_running = true;
+  });
   DrawRectangleRounded(button, roundness, segments, button_computed_color);
   DrawTriangle((Vector2){.x = button.x + button_edge * 4 / 5,
                          .y = button.y + button_edge * 4 / 5},
@@ -748,7 +757,7 @@ void DrawControls() {
 
   // Play/Pause toggle
   button.x += button_edge + ui_margin;
-  HandleMousePress(game_speed = game_speed == 0 ? 1 : 0);
+  HandleMousePress(game_running = !game_running);
   DrawRectangleRounded(button, roundness, segments, button_computed_color);
   bar.width = button_edge / 5;
   bar.height = button_edge * 3 / 5;
@@ -760,7 +769,10 @@ void DrawControls() {
 
   // Play forewards
   button.x += button_edge + ui_margin;
-  HandleMousePress(if ((size_t)turn < game_log.count) game_speed = 1);
+  HandleMousePress(if ((size_t)turn < game_log.count) {
+    playing_forewards = true;
+    game_running = true;
+  });
   DrawRectangleRounded(button, roundness, segments, button_computed_color);
   DrawTriangle((Vector2){.x = button.x + button_edge / 5,
                          .y = button.y + button_edge * 4 / 5},
@@ -769,6 +781,8 @@ void DrawControls() {
                (Vector2){.x = button.x + button_edge / 5,
                          .y = button.y + button_edge / 5},
                BLACK);
+
+// TODO add slider or other UI to control replay speed
 #undef HandleMousePress
 }
 
@@ -807,32 +821,41 @@ int main(int argc, char *argv[]) {
   }
   nob_log(NOB_INFO, "Game ended!");
 
+  // Set the game to the first turn
+  UpdateStateFromLogEntry(turn = 0);
+
   while (!WindowShouldClose()) {
     frame_counter++;
-    if (game_speed && frame_counter % abs(game_speed) == 0) {
+    if (game_running &&
+        (game_speed == 0 || frame_counter % abs(game_speed) == 0)) {
       UpdateStateFromLogEntry(turn);
-      if (game_speed > 0)
+      if (playing_forewards)
         turn++;
       else
         turn--;
       if ((size_t)turn >= game_log.count - 1 || turn == 0)
-        game_speed = 0;
+        game_running = false;
     }
 
     if (IsKeyPressed(KEY_RIGHT)) {
-      game_speed = 0;
+      game_running = false;
       turn++;
       if ((size_t)turn >= game_log.count)
         turn = game_log.count - 1;
       UpdateStateFromLogEntry(turn);
     } else if (IsKeyPressed(KEY_LEFT)) {
-      game_speed = 0;
+      game_running = false;
       turn--;
       if (turn < 0)
         turn = 0;
       UpdateStateFromLogEntry(turn);
     } else if (IsKeyPressed(KEY_SPACE)) {
-      game_speed = game_speed ? 0 : 1;
+      game_running = !game_running;
+    }
+    if (IsKeyPressed(KEY_UP) && game_speed > 0) {
+      game_speed--;
+    } else if (IsKeyPressed(KEY_DOWN) && game_speed < MAX_GAME_SPEED_VALUE) {
+      game_speed++;
     }
 
     BeginDrawing();
