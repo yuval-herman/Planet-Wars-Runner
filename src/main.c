@@ -1,4 +1,5 @@
 #include <stdbool.h>
+#include <stdint.h>
 #include <string.h>
 #define NOB_IMPLEMENTATION
 #include "../nob.h"
@@ -18,6 +19,8 @@
 #define CONTROLS_HEIGHT 70
 #define SHIP_FONT_SIZE 20
 #define LOG_FILE "log.txt"
+// Time in nanoseconds, currently set to 100ms
+#define MAX_BOT_RESPONSE_TIME (1000 * 1000 * 100)
 
 // ## won't work in MSVC, we will cross that bridge when we get there.
 #define LogToFile(fmt, ...)                                                    \
@@ -210,7 +213,8 @@ void StartBots(char **commands, int command_amount) {
     struct subprocess_s process;
     int result = subprocess_create(command.items,
                                    subprocess_option_search_user_path |
-                                       subprocess_option_enable_async,
+                                       subprocess_option_enable_async |
+                                       subprocess_option_enable_async_no_wait,
                                    &process);
 
     nob_cmd_render(command, &sb);
@@ -269,48 +273,6 @@ void sendMapToBot(size_t bot_idx) {
   fflush(bot_stdin);
 }
 
-void GetBotMessage(Nob_String_Builder *sb, size_t bot_idx) {
-  if (bot_idx >= bot_processes.count) {
-    nob_log(NOB_ERROR, "Tried accessing a bot OOB.");
-    exit(1);
-  }
-
-  const size_t max_chunk_length = 512;
-  sb->count = 0;
-  bool message_ended = false;
-
-  while (!message_ended) {
-    nob_da_reserve(sb, sb->count + max_chunk_length);
-    // Remove null terminator if it exists
-    if (sb->count > 0 && nob_da_last(sb) == '\0') {
-      nob_log(NOB_INFO, "removed null terminator");
-      sb->count--;
-    }
-    // TODO use the no_wait flag for subprocess so we can kill bots taking
-    // too long
-    unsigned int received =
-        subprocess_read_stdout(&bot_processes.items[bot_idx],
-                               sb->items + sb->count, sb->capacity - sb->count);
-    sb->count += received;
-
-    nob_log(NOB_INFO, "bot %zu sent: |%.*s|", bot_idx, (unsigned)sb->count,
-            sb->items);
-    // We need to check sb.count is at least 3 to make sure memcmp does
-    // not access OOB memory
-    if (sb->count >= 3 && memcmp(sb->items + sb->count - 3, "go\n", 3) == 0) {
-      message_ended = true;
-      nob_log(NOB_INFO, "bot %zu message ended", bot_idx);
-    }
-  }
-
-  Nob_String_View sv = {sb->count, sb->items};
-  while (sv.count > 0) {
-    Nob_String_View line = nob_sv_chop_by_delim(&sv, '\n');
-    LogToFile("player%zu > engine: %.*s\n", bot_idx + 1, (int)line.count,
-              line.data);
-  }
-}
-
 void DisqualifyBot(size_t bot_idx) {
   if (bot_idx >= bot_processes.count) {
     nob_log(NOB_ERROR, "Attempted to disqualify non existent bot");
@@ -337,6 +299,64 @@ void DisqualifyBot(size_t bot_idx) {
   UnsetBit(bot_bit_set, bot_idx + 1);
 
   nob_log(NOB_INFO, "Disqualified bot %zu.\n", bot_idx);
+}
+
+void GetBotMessage(Nob_String_Builder *sb, size_t bot_idx) {
+  if (bot_idx >= bot_processes.count) {
+    nob_log(NOB_ERROR, "Tried accessing a bot OOB.");
+    exit(1);
+  }
+  if (!subprocess_alive(&bot_processes.items[bot_idx])) {
+    nob_log(NOB_INFO, "Bot %zu disqualified since it's process crashed.",
+            bot_idx);
+    DisqualifyBot(bot_idx);
+    sb->count = 0;
+    return;
+  }
+
+  const size_t max_chunk_length = 512;
+  sb->count = 0;
+  bool message_ended = false;
+
+  uint64_t start = nob_nanos_since_unspecified_epoch();
+  while (!message_ended) {
+    nob_da_reserve(sb, sb->count + max_chunk_length);
+    // Remove null terminator if it exists
+    if (sb->count > 0 && nob_da_last(sb) == '\0') {
+      nob_log(NOB_INFO, "removed null terminator");
+      sb->count--;
+    }
+    unsigned int received =
+        subprocess_read_stdout(&bot_processes.items[bot_idx],
+                               sb->items + sb->count, sb->capacity - sb->count);
+    if (received == 0) {
+      if (nob_nanos_since_unspecified_epoch() - start > MAX_BOT_RESPONSE_TIME) {
+        nob_log(NOB_INFO, "Bot %zu disqualified for taking too long to reply.",
+                bot_idx);
+        DisqualifyBot(bot_idx);
+        sb->count = 0;
+        return;
+      }
+      continue;
+    }
+    sb->count += received;
+
+    nob_log(NOB_INFO, "bot %zu sent: |%.*s|", bot_idx, (unsigned)sb->count,
+            sb->items);
+    // We need to check sb.count is at least 3 to make sure memcmp does
+    // not access OOB memory
+    if (sb->count >= 3 && memcmp(sb->items + sb->count - 3, "go\n", 3) == 0) {
+      message_ended = true;
+      nob_log(NOB_INFO, "bot %zu message ended", bot_idx);
+    }
+  }
+
+  Nob_String_View sv = {sb->count, sb->items};
+  while (sv.count > 0) {
+    Nob_String_View line = nob_sv_chop_by_delim(&sv, '\n');
+    LogToFile("player%zu > engine: %.*s\n", bot_idx + 1, (int)line.count,
+              line.data);
+  }
 }
 
 void ParseBotFleets(Nob_String_View bot_message, size_t bot_idx) {
