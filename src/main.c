@@ -672,11 +672,13 @@ void DrawControls() {
   DrawRectangleRoundedLines(scrubber, roundness, segments, WHITE);
 
   const float bar_height = scrubber.height * 2;
+  const float bar_width = 40;
+
   Rectangle bar = {
-      .x = Remap(turn, 0, game_log.count, scrubber.x,
-                 scrubber.x + scrubber.width),
+      .x = Remap(turn, 0, game_log.count, scrubber.x - bar_width / 2,
+                 scrubber.x + scrubber.width - bar_width / 2),
       .y = scrubber.y - bar_height / 2 + scrubber.height / 2,
-      .width = 10,
+      .width = bar_width,
       .height = bar_height,
   };
 
@@ -697,7 +699,19 @@ void DrawControls() {
       UpdateStateFromLogEntry(turn);
     }
   }
+
+  const float font_size = 20;
+  const float spacing = 1;
+  const char *turn_text = TextFormat("%d", turn);
+
+  const Vector2 text_measurements =
+      MeasureTextEx(font, turn_text, font_size, spacing);
+  const Vector2 text_coords = {
+      .x = bar.x + (bar_width - text_measurements.x) / 2,
+      .y = bar.y + (bar_height - text_measurements.y) / 2};
+
   DrawRectangleRounded(bar, roundness, segments, WHITE);
+  DrawTextEx(font, turn_text, text_coords, font_size, spacing, BLACK);
 
   Rectangle button = {.y = scrubber.y + scrubber.height + ui_margin,
                       .width = button_edge,
