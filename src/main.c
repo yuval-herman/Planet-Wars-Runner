@@ -659,7 +659,7 @@ void DrawControls() {
       .height = bar_height,
   };
 
-  if (CheckCollisionPointRec(GetMousePosition(), bar) &&
+  if (CheckCollisionPointRec(GetMousePosition(), scrubber) &&
       IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
     is_scrubber_pressed = true;
     game_speed = 0;
