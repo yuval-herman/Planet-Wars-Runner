@@ -39,7 +39,8 @@ Run the binary to launch the engine and visualizer:
 
 #### Keyboard controls
 
-- **right/left** - to jump one turn forewards/backwards
+- **right/left** - jump one turn forewards/backwards
+- **space** - pause/unpause replay
 
 ## License
 

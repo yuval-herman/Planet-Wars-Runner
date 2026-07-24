@@ -479,8 +479,8 @@ int AdvanceTurn() {
       // fleet in the list. This works because fleet are sorted by
       // remaining->dst_id->owner. So we don't need to search the forces array
       // for the owner.
-      else if (current_fleet->owner == forces[forces_count-1].owner) {
-        forces[forces_count-1].force += current_fleet->ships;
+      else if (current_fleet->owner == forces[forces_count - 1].owner) {
+        forces[forces_count - 1].force += current_fleet->ships;
       }
       // In case this is a new owner, add it to the list.
       else {
@@ -783,6 +783,23 @@ int main(int argc, char *argv[]) {
       if ((size_t)turn >= game_log.count - 1 || turn == 0)
         game_speed = 0;
     }
+
+    if (IsKeyPressed(KEY_RIGHT)) {
+      game_speed = 0;
+      turn++;
+      if ((size_t)turn >= game_log.count)
+        turn = game_log.count - 1;
+      UpdateStateFromLogEntry(turn);
+    } else if (IsKeyPressed(KEY_LEFT)) {
+      game_speed = 0;
+      turn--;
+      if (turn < 0)
+        turn = 0;
+      UpdateStateFromLogEntry(turn);
+    } else if (IsKeyPressed(KEY_SPACE)) {
+      game_speed = game_speed ? 0 : 1;
+    }
+
     BeginDrawing();
 
     ClearBackground(BLACK);
