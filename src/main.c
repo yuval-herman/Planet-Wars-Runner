@@ -345,7 +345,7 @@ void ParseBotFleets(Nob_String_View bot_message, size_t bot_idx) {
     return;
   }
 
-  while (bot_message.count > 0 && bot_message.data[0] != 'g' &&
+  while (bot_message.count > 1 && bot_message.data[0] != 'g' &&
          bot_message.data[1] != 'o') {
     nob_log(NOB_INFO, "parsing bot %zu fleets", bot_idx);
     Fleet fleet;
@@ -753,7 +753,7 @@ int main(int argc, char *argv[]) {
   // Reusable string builder to hold bot messages
   Nob_String_Builder bot_message = {0};
 
-  for (int turn = 0; remaining_bots > 1 && turn < 1000; turn++) {
+  for (int sim_turn = 0; remaining_bots > 1 && sim_turn < 1000; sim_turn++) {
     // Bot communication
     RunBotCycle(&bot_message);
 

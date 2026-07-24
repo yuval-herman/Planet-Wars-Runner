@@ -67,6 +67,7 @@ static inline void PrintFleet(FILE *file, Fleet fleet) {
 bool parse_float(const char **s, float *out) {
   char *end;
   errno = 0;
+  // TODO make custom parser that will accept a string view without a null terminator.
   float v = strtof(*s, &end);
   if (end == *s || errno == ERANGE || !isfinite(v))
     return false;
@@ -79,6 +80,7 @@ bool parse_float(const char **s, float *out) {
 // parsed value. Returns true on success false otherwise.
 bool parse_int(const char **s, int *out) {
   char *end;
+  // TODO make custom parser that will accept a string view without a null terminator.
   long v = strtol(*s, &end, 10);
   if (end == *s || v < INT_MIN || v > INT_MAX)
     return false;
