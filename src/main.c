@@ -17,6 +17,7 @@
 #define PLANET_RADIUS_GROWTH_CURVE 20.0f
 #define MAP_MARGIN 50
 #define CONTROLS_HEIGHT 70
+#define PLAYER_LABELS_HEIGHT 30
 #define SHIP_FONT_SIZE 20
 #define LOG_FILE "log.txt"
 // Time in nanoseconds, currently set to 100ms
@@ -92,16 +93,16 @@ Vector2 Game2ScreenCoords(Vector2 coords) {
                  MAP_MARGIN, GetScreenWidth() - MAP_MARGIN),
       .y = GetScreenHeight() -
            Remap(coords.y, game_space.min_coords.y, game_space.max_coords.y,
-                 MAP_MARGIN + CONTROLS_HEIGHT, GetScreenHeight() - MAP_MARGIN)};
+                 MAP_MARGIN + CONTROLS_HEIGHT,
+                 GetScreenHeight() - MAP_MARGIN - PLAYER_LABELS_HEIGHT)};
 }
 
-#define GetOwnerColor(entity)                                                  \
-  (entity.owner == 0                                                           \
-       ? GRAY                                                                  \
-       : ColorFromHSV((((entity.owner - 1) * 7) % MAX_BOT_AMOUNT) * 360.0f /   \
-                          MAX_BOT_AMOUNT,                                      \
-                      1.0f, 1.0f))
-
+inline Color GetOwnerColor(int owner) {
+  return owner == 0 ? GRAY
+                    : ColorFromHSV((((owner - 1) * 7) % MAX_BOT_AMOUNT) *
+                                       360.0f / MAX_BOT_AMOUNT,
+                                   1.0f, 1.0f);
+}
 // Draws a Planet on the screen.
 void DrawPlanet(Planet planet) {
   Vector2 draw_coords = Game2ScreenCoords(planet.coords);
@@ -110,7 +111,7 @@ void DrawPlanet(Planet planet) {
       BASE_PLANET_RADIUS + PLANET_RADIUS_GROWTH_CURVE -
       PLANET_RADIUS_GROWTH_CURVE / fmaxf(planet.growth, 1);
 
-  DrawCircleV(draw_coords, draw_radius, GetOwnerColor(planet));
+  DrawCircleV(draw_coords, draw_radius, GetOwnerColor(planet.owner));
 
   const float font_size = draw_radius;
   const float spacing = 1;
@@ -138,7 +139,7 @@ void DrawFleet(Fleet fleet) {
   const Vector2 text_coords =
       Vector2Subtract(draw_coords, Vector2Scale(text_measurements, 0.5));
   DrawTextEx(font, ships_text, text_coords, font_size, spacing,
-             GetOwnerColor(fleet));
+             GetOwnerColor(fleet.owner));
 }
 
 // Parse map file and return the amount of different planet owners it has
@@ -716,7 +717,7 @@ void DrawControls() {
   const float spacing = 1;
   const char *turn_text = TextFormat("%d", turn);
 
-  const Vector2 text_measurements =
+  Vector2 text_measurements =
       MeasureTextEx(font, turn_text, font_size, spacing);
   const Vector2 text_coords = {
       .x = bar.x + (bar_width - text_measurements.x) / 2,
@@ -790,6 +791,43 @@ void DrawControls() {
 
 // TODO add slider or other UI to control replay speed
 #undef HandleMousePress
+
+  const float indicator_size = 15;
+  const float margin_between_players = 25;
+  const float text_margin = 8;
+
+  const char *player_text = "P99";
+  text_measurements = MeasureTextEx(font, player_text, font_size, spacing);
+  float total_labels_width = (text_measurements.x + indicator_size +
+                              text_margin + margin_between_players) *
+                                 bot_processes.count -
+                             margin_between_players;
+
+  Rectangle color_indicator = {.x = (GetScreenWidth() - total_labels_width) / 2,
+                               .y = 25,
+                               .width = indicator_size,
+                               .height = indicator_size};
+
+  for (size_t i = 0; i < bot_processes.count; i++) {
+    Color player_color = GetOwnerColor(i + 1);
+
+    DrawRectangleRec(color_indicator, player_color);
+    // Indicator border
+    DrawRectangleLinesEx(color_indicator, 1.0f, RAYWHITE);
+
+    const char *player_text = TextFormat("P%zu", i + 1);
+    Vector2 text_measurements =
+        MeasureTextEx(font, player_text, font_size, spacing);
+
+    Vector2 text_pos = {
+        .x = color_indicator.x + color_indicator.width + text_margin,
+        .y = color_indicator.y +
+             (color_indicator.height - text_measurements.y) / 2};
+    DrawTextEx(font, player_text, text_pos, font_size, spacing, WHITE);
+
+    color_indicator.x += color_indicator.width + text_margin +
+                         text_measurements.x + margin_between_players;
+  }
 }
 
 int main(int argc, char *argv[]) {
