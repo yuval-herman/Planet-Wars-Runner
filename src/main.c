@@ -835,9 +835,9 @@ int main(int argc, char *argv[]) {
     if (game_running &&
         (game_speed == 0 || frame_counter % abs(game_speed) == 0)) {
       UpdateStateFromLogEntry(turn);
-      if (playing_forewards)
+      if (playing_forewards && (size_t)turn < game_log.count)
         turn++;
-      else
+      else if (turn > 0)
         turn--;
       if ((size_t)turn >= game_log.count - 1 || turn == 0)
         game_running = false;
