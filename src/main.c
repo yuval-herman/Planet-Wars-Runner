@@ -240,10 +240,44 @@ void StartBots(char **commands, int command_amount) {
   nob_sb_free(sb);
 }
 
+void DisqualifyBot(size_t bot_idx) {
+  if (bot_idx >= bot_processes.count) {
+    nob_log(NOB_ERROR, "Attempted to disqualify non existent bot");
+    exit(1);
+  }
+
+  // We don't remove the bot from the dynamic array because we use the DA index
+  // to address different bots. Instead it should be marked as disqualified and
+  // not used.
+  if (subprocess_alive(&bot_processes.items[bot_idx]))
+    subprocess_terminate(&bot_processes.items[bot_idx]);
+  subprocess_destroy(&bot_processes.items[bot_idx]);
+
+  remaining_bots--;
+  nob_da_foreach(Planet, planet, &planets) {
+    if ((size_t)planet->owner == bot_idx + 1) {
+      planet->owner = 0;
+    }
+  }
+  nob_da_foreach(Fleet, fleet, &fleets) {
+    if ((size_t)fleet->owner == bot_idx + 1)
+      fleet->owner = 0;
+  }
+
+  UnsetBit(bot_bit_set, bot_idx + 1);
+
+  nob_log(NOB_INFO, "Disqualified bot %zu.\n", bot_idx);
+}
+
 void sendMapToBot(size_t bot_idx) {
   if (bot_idx >= bot_processes.count) {
     nob_log(NOB_ERROR, "ERROR: Attempting access to non-existent bot process");
     exit(1);
+  }
+  if (!subprocess_alive(&bot_processes.items[bot_idx])) {
+    nob_log(NOB_INFO, "Bot %zu has crashed.\n", bot_idx);
+    DisqualifyBot(bot_idx);
+    return;
   }
   FILE *bot_stdin = subprocess_stdin(&bot_processes.items[bot_idx]);
 
@@ -277,34 +311,6 @@ void sendMapToBot(size_t bot_idx) {
   fprintf(bot_stdin, "go\n");
   LogToFile("go\n\n");
   fflush(bot_stdin);
-}
-
-void DisqualifyBot(size_t bot_idx) {
-  if (bot_idx >= bot_processes.count) {
-    nob_log(NOB_ERROR, "Attempted to disqualify non existent bot");
-    exit(1);
-  }
-
-  // We don't remove the bot from the dynamic array because we use the DA index
-  // to address different bots. Instead it should be marked as disqualified and
-  // not used.
-  subprocess_terminate(&bot_processes.items[bot_idx]);
-  subprocess_destroy(&bot_processes.items[bot_idx]);
-
-  remaining_bots--;
-  nob_da_foreach(Planet, planet, &planets) {
-    if ((size_t)planet->owner == bot_idx + 1) {
-      planet->owner = 0;
-    }
-  }
-  nob_da_foreach(Fleet, fleet, &fleets) {
-    if ((size_t)fleet->owner == bot_idx + 1)
-      fleet->owner = 0;
-  }
-
-  UnsetBit(bot_bit_set, bot_idx + 1);
-
-  nob_log(NOB_INFO, "Disqualified bot %zu.\n", bot_idx);
 }
 
 void GetBotMessage(Nob_String_Builder *sb, size_t bot_idx) {
