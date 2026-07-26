@@ -314,6 +314,40 @@ void sendMapToBot(size_t bot_idx) {
   fflush(bot_stdin);
 }
 
+void PrintBotDebugMessages(Nob_String_Builder *sb, size_t bot_idx) {
+  if (bot_idx >= bot_processes.count) {
+    nob_log(NOB_ERROR, "Tried accessing a bot OOB.");
+    exit(1);
+  }
+  if (!subprocess_alive(&bot_processes.items[bot_idx])) {
+    nob_log(NOB_WARNING, "Bot %zu is not active.", bot_idx);
+    return;
+  }
+
+  const size_t max_chunk_length = 512;
+  sb->count = 0;
+  bool message_ended = false;
+
+  while (!message_ended) {
+    nob_da_reserve(sb, sb->count + max_chunk_length);
+    // Remove null terminator if it exists
+    if (sb->count > 0 && nob_da_last(sb) == '\0') {
+      nob_log(NOB_INFO, "removed null terminator");
+      sb->count--;
+    }
+    unsigned int received =
+        subprocess_read_stderr(&bot_processes.items[bot_idx],
+                               sb->items + sb->count, sb->capacity - sb->count);
+    if (received == 0) {
+      message_ended = true;
+    }
+    sb->count += received;
+  }
+
+  nob_log(NOB_INFO, "bot %zu says: |%.*s|", bot_idx, (unsigned)sb->count,
+          sb->items);
+}
+
 void GetBotMessage(Nob_String_Builder *sb, size_t bot_idx) {
   if (bot_idx >= bot_processes.count) {
     nob_log(NOB_ERROR, "Tried accessing a bot OOB.");
