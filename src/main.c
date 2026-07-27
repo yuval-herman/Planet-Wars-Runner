@@ -283,7 +283,7 @@ void DisqualifyBot(size_t bot_idx) {
 
   UnsetBit(bot_bit_set, bot_idx);
 
-  nob_log(NOB_INFO, "Disqualified bot %zu.\n", bot_idx);
+  nob_log(NOB_INFO, "Disqualified bot %zu.", bot_idx);
 }
 
 void sendMapToBot(size_t bot_idx) {
@@ -292,7 +292,7 @@ void sendMapToBot(size_t bot_idx) {
     exit(1);
   }
   if (!subprocess_alive(&bot_processes.items[bot_idx])) {
-    nob_log(NOB_INFO, "Bot %zu has crashed.\n", bot_idx);
+    nob_log(NOB_INFO, "Bot %zu has crashed.", bot_idx);
     DisqualifyBot(bot_idx);
     return;
   }
@@ -682,7 +682,7 @@ void Setup(int argc, char *argv[]) {
 
 void UpdateStateFromLogEntry(size_t entry_idx) {
   if (entry_idx >= game_log.count) {
-    nob_log(NOB_WARNING, "Attempted accessing OOB game log entry.\n");
+    nob_log(NOB_WARNING, "Attempted accessing OOB game log entry.");
     return;
   }
 
