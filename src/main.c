@@ -415,10 +415,11 @@ bool GetBotMessage(Nob_String_Builder *sb, size_t bot_idx) {
 
     // Excluding null terminator
     const size_t delimeter_length = NOB_ARRAY_LEN(MESSAGE_DELIMETER) - 1;
-    // We need to check sb.count is at least `delimeter_length` to make sure memcmp does
-    // not access OOB memory
+    // We need to check sb.count is at least `delimeter_length` to make sure
+    // memcmp does not access OOB memory
     if (sb->count >= delimeter_length &&
-        memcmp(sb->items + sb->count - delimeter_length, MESSAGE_DELIMETER, delimeter_length) == 0) {
+        memcmp(sb->items + sb->count - delimeter_length, MESSAGE_DELIMETER,
+               delimeter_length) == 0) {
       message_ended = true;
       nob_log(NOB_DEBUG, "bot %zu message ended", bot_idx);
     }
