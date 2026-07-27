@@ -4,7 +4,11 @@
 #include "nob.h"
 
 #define BUILD_DIR "build"
+#ifdef _WIN32
+#define RAYLIB_LIB BUILD_DIR "/libraylib.lib"
+#else
 #define RAYLIB_LIB BUILD_DIR "/libraylib.a"
+#endif // _WIN32
 
 /**
  * All functions returning bool return true on success.
@@ -32,11 +36,16 @@ bool compile_raylib() {
       nob_cmd_append(&cmd, "-U_GNU_SOURCE");
     nob_cmd_append(&cmd, "-DPLATFORM_DESKTOP_GLFW");
     nob_cmd_append(&cmd, "-DGRAPHICS_API_OPENGL_33");
+
+#ifdef _WIN32
+    nob_cmd_append(&cmd, "-DUNICODE");
+#else
     nob_cmd_append(&cmd, "-D_GLFW_X11");
+    nob_cmd_append(&cmd, "-fPIC");
+#endif // _WIN32
 
     nob_cmd_append(&cmd, "-fno-strict-aliasing");
     nob_cmd_append(&cmd, "-std=c99");
-    nob_cmd_append(&cmd, "-fPIC");
     nob_cmd_append(&cmd, "-O2");
 
     nob_cmd_append(&cmd, "-Iexternal/raylib");
@@ -72,7 +81,12 @@ int main(int argc, char **argv) {
   nob_cc_inputs(&cmd, "src/main.c", RAYLIB_LIB);
   nob_cmd_append(&cmd, "-Iexternal/raylib");
   nob_cmd_append(&cmd, "-Iexternal");
-  nob_cmd_append(&cmd, "-lm", "-lX11");
+  nob_cmd_append(&cmd, "-lm");
+#ifdef _WIN32
+  nob_cmd_append(&cmd, "-lgdi32", "-lwinmm", "-lshcore");
+#else
+  nob_cmd_append(&cmd, "-lX11");
+#endif // _WIN32
   nob_cmd_append(&cmd, "-O2");
   nob_cc_output(&cmd, "main");
 

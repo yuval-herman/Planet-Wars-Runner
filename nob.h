@@ -793,7 +793,7 @@ NOBDEF char *nob_temp_running_executable_path(void);
 #ifndef nob_cc
 #  if _WIN32
 #    if defined(__GNUC__)
-#       define nob_cc(cmd) nob_cmd_append(cmd, "cc")
+#       define nob_cc(cmd) nob_cmd_append(cmd, "gcc")
 #    elif defined(__clang__)
 #       define nob_cc(cmd) nob_cmd_append(cmd, "clang")
 #    elif defined(_MSC_VER)

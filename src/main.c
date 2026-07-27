@@ -236,6 +236,7 @@ void StartBots(char **commands, int command_amount) {
     struct subprocess_s process;
     int result = subprocess_create(command.items,
                                    subprocess_option_search_user_path |
+                                       subprocess_option_search_user_path |
                                        subprocess_option_enable_async |
                                        subprocess_option_enable_async_no_wait,
                                    &process);
