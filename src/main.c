@@ -930,7 +930,7 @@ int main(int argc, char *argv[]) {
     nob_da_append(&game_log, entry);
   }
   nob_log(NOB_INFO, "Game ended!");
-  nob_log(NOB_INFO, "Bot %d won!", bit_index(bot_bit_set));
+  nob_log(NOB_INFO, "Bot %d won!", bit_index(bot_bit_set) + 1);
 
   // Set the game to the first turn
   UpdateStateFromLogEntry(turn = 0);
