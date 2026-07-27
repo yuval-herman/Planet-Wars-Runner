@@ -44,6 +44,20 @@
   } while (0)
 #define TestBit(bitset, index) (bitset & 1u << (index))
 
+// Returns the index of the set bit in x if only one bit is set. Else return -1.
+int bit_index(uint32_t x) {
+  if (x == 0 || (x & (x - 1)) != 0) {
+    return -1; // not exactly one bit set
+  }
+
+  int i = 0;
+  while ((x & 1u) == 0) {
+    x >>= 1;
+    i++;
+  }
+  return i;
+}
+
 typedef uint32_t BotBitset;
 _Static_assert(MAX_BOT_AMOUNT <= sizeof(BotBitset) * CHAR_BIT,
                "BotBitset is not wide enough to hold max amount of bots");
@@ -153,6 +167,7 @@ int ParseMapFile(const char *map_path, PlanetDA *planets) {
   char buf[256];
   size_t file_line = 0;
   int bot_count = 0;
+  bot_bit_set = 0;
 
   while (fgets(buf, sizeof buf, map_file)) {
     file_line += 1;
@@ -319,7 +334,7 @@ void PrintBotDebugMessages(Nob_String_Builder *sb, size_t bot_idx) {
     nob_log(NOB_ERROR, "Tried accessing a bot OOB.");
     exit(1);
   }
-  if (!subprocess_alive(&bot_processes.items[bot_idx])) {
+  if (!TestBit(bot_bit_set, bot_idx+1) || !subprocess_alive(&bot_processes.items[bot_idx])) {
     nob_log(NOB_WARNING, "Bot %zu is not active.", bot_idx);
     return;
   }
@@ -332,7 +347,7 @@ void PrintBotDebugMessages(Nob_String_Builder *sb, size_t bot_idx) {
     nob_da_reserve(sb, sb->count + max_chunk_length);
     // Remove null terminator if it exists
     if (sb->count > 0 && nob_da_last(sb) == '\0') {
-      nob_log(NOB_INFO, "removed null terminator");
+      nob_log(NOB_DEBUG, "removed null terminator");
       sb->count--;
     }
     unsigned int received =
@@ -344,8 +359,9 @@ void PrintBotDebugMessages(Nob_String_Builder *sb, size_t bot_idx) {
     sb->count += received;
   }
 
-  nob_log(NOB_INFO, "bot %zu says: |%.*s|", bot_idx, (unsigned)sb->count,
-          sb->items);
+  if (sb->count)
+    nob_log(NOB_INFO, "bot %zu says: |%.*s|", bot_idx, (unsigned)sb->count,
+            sb->items);
 }
 
 void GetBotMessage(Nob_String_Builder *sb, size_t bot_idx) {
@@ -370,7 +386,7 @@ void GetBotMessage(Nob_String_Builder *sb, size_t bot_idx) {
     nob_da_reserve(sb, sb->count + max_chunk_length);
     // Remove null terminator if it exists
     if (sb->count > 0 && nob_da_last(sb) == '\0') {
-      nob_log(NOB_INFO, "removed null terminator");
+      nob_log(NOB_DEBUG, "removed null terminator");
       sb->count--;
     }
     unsigned int received =
@@ -389,13 +405,13 @@ void GetBotMessage(Nob_String_Builder *sb, size_t bot_idx) {
     }
     sb->count += received;
 
-    nob_log(NOB_INFO, "bot %zu sent: |%.*s|", bot_idx, (unsigned)sb->count,
+    nob_log(NOB_DEBUG, "bot %zu sent: |%.*s|", bot_idx, (unsigned)sb->count,
             sb->items);
     // We need to check sb.count is at least 3 to make sure memcmp does
     // not access OOB memory
     if (sb->count >= 3 && memcmp(sb->items + sb->count - 3, "go\n", 3) == 0) {
       message_ended = true;
-      nob_log(NOB_INFO, "bot %zu message ended", bot_idx);
+      nob_log(NOB_DEBUG, "bot %zu message ended", bot_idx);
     }
   }
 
@@ -415,7 +431,7 @@ void ParseBotFleets(Nob_String_View bot_message, size_t bot_idx) {
 
   while (bot_message.count > 1 && bot_message.data[0] != 'g' &&
          bot_message.data[1] != 'o') {
-    nob_log(NOB_INFO, "parsing bot %zu fleets", bot_idx);
+    nob_log(NOB_DEBUG, "parsing bot %zu fleets", bot_idx);
     Fleet fleet;
     fleet.owner = bot_idx + 1;
     const char *start = bot_message.data;
@@ -467,7 +483,7 @@ void ParseBotFleets(Nob_String_View bot_message, size_t bot_idx) {
 
     nob_da_append(&fleets, fleet);
   }
-  nob_log(NOB_INFO, "done parsing bot %zu fleets", bot_idx);
+  nob_log(NOB_DEBUG, "done parsing bot %zu fleets", bot_idx);
 }
 
 // Used for sorting fleets in attack resolution.
@@ -610,7 +626,7 @@ void RunBotCycle(Nob_String_Builder *bot_message) {
   nob_da_foreach(struct subprocess_s, process, &bot_processes) {
     // Skip disqualified or lost bots.
     if (TestBit(bot_bit_set, bot_num)) {
-      nob_log(NOB_INFO, "sending map to bot %zu", bot_num);
+      nob_log(NOB_DEBUG, "sending map to bot %zu", bot_num);
 
       sendMapToBot(bot_num);
     }
@@ -624,8 +640,9 @@ void RunBotCycle(Nob_String_Builder *bot_message) {
       GetBotMessage(bot_message, bot_num);
       ParseBotFleets(nob_sv_from_parts(bot_message->items, bot_message->count),
                      bot_num);
+      PrintBotDebugMessages(bot_message, bot_num);
 
-      nob_log(NOB_INFO, "done with bot %zu, advancing to bot %zu", bot_num,
+      nob_log(NOB_DEBUG, "done with bot %zu, advancing to bot %zu", bot_num,
               bot_num + 1);
     }
     bot_num++;
@@ -898,6 +915,7 @@ int main(int argc, char *argv[]) {
     nob_da_append(&game_log, entry);
   }
   nob_log(NOB_INFO, "Game ended!");
+  nob_log(NOB_INFO, "Bot %d won!", bit_index(bot_bit_set));
 
   // Set the game to the first turn
   UpdateStateFromLogEntry(turn = 0);
