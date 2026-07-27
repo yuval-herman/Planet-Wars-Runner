@@ -740,7 +740,7 @@ void DrawControls() {
   const float bar_width = 40;
 
   Rectangle bar = {
-      .x = Remap(turn, 0, game_log.count, scrubber.x - bar_width / 2,
+      .x = Remap(turn, 0, game_log.count-1, scrubber.x - bar_width / 2,
                  scrubber.x + scrubber.width - bar_width / 2),
       .y = scrubber.y - bar_height / 2 + scrubber.height / 2,
       .width = bar_width,
