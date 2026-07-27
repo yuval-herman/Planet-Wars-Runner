@@ -26,6 +26,8 @@
 // `game_speed` variable can hold, which controls the _lowest_ bound for game
 // speed, i.e. how slow can the game run.
 #define MAX_GAME_SPEED_VALUE 20
+// A string used to denote the end of a message by the bots and engine
+#define MESSAGE_DELIMETER "go" NOB_LINE_END
 
 // ## won't work in MSVC, we will cross that bridge when we get there.
 #define LogToFile(fmt, ...)                                                    \
@@ -326,8 +328,8 @@ void sendMapToBot(size_t bot_idx) {
 
 #undef MoveOwner
 
-  fprintf(bot_stdin, "go\n");
-  LogToFile("go\n\n");
+  fprintf(bot_stdin, MESSAGE_DELIMETER);
+  LogToFile(MESSAGE_DELIMETER "\n");
   fflush(bot_stdin);
 }
 
@@ -410,9 +412,13 @@ bool GetBotMessage(Nob_String_Builder *sb, size_t bot_idx) {
 
     nob_log(NOB_DEBUG, "bot %zu sent: |%.*s|", bot_idx, (unsigned)sb->count,
             sb->items);
-    // We need to check sb.count is at least 3 to make sure memcmp does
+
+    // Excluding null terminator
+    const size_t delimeter_length = NOB_ARRAY_LEN(MESSAGE_DELIMETER) - 1;
+    // We need to check sb.count is at least `delimeter_length` to make sure memcmp does
     // not access OOB memory
-    if (sb->count >= 3 && memcmp(sb->items + sb->count - 3, "go\n", 3) == 0) {
+    if (sb->count >= delimeter_length &&
+        memcmp(sb->items + sb->count - delimeter_length, MESSAGE_DELIMETER, delimeter_length) == 0) {
       message_ended = true;
       nob_log(NOB_DEBUG, "bot %zu message ended", bot_idx);
     }
@@ -746,7 +752,7 @@ void DrawControls() {
   const float bar_width = 40;
 
   Rectangle bar = {
-      .x = Remap(turn, 0, game_log.count-1, scrubber.x - bar_width / 2,
+      .x = Remap(turn, 0, game_log.count - 1, scrubber.x - bar_width / 2,
                  scrubber.x + scrubber.width - bar_width / 2),
       .y = scrubber.y - bar_height / 2 + scrubber.height / 2,
       .width = bar_width,
