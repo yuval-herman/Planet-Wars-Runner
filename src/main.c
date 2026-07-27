@@ -899,6 +899,7 @@ int main(int argc, char *argv[]) {
   Nob_String_Builder bot_message = {0};
 
   for (int sim_turn = 0; remaining_bots > 1 && sim_turn < 1000; sim_turn++) {
+    nob_log(NOB_INFO, "Turn %d", sim_turn);
     // Bot communication
     RunBotCycle(&bot_message);
 
