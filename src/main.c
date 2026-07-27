@@ -336,7 +336,8 @@ void PrintBotDebugMessages(Nob_String_Builder *sb, size_t bot_idx) {
     nob_log(NOB_ERROR, "Tried accessing a bot OOB.");
     exit(1);
   }
-  if (!TestBit(bot_bit_set, bot_idx) || !subprocess_alive(&bot_processes.items[bot_idx])) {
+  if (!TestBit(bot_bit_set, bot_idx) ||
+      !subprocess_alive(&bot_processes.items[bot_idx])) {
     nob_log(NOB_WARNING, "Bot %zu is not active.", bot_idx);
     return;
   }
@@ -366,7 +367,9 @@ void PrintBotDebugMessages(Nob_String_Builder *sb, size_t bot_idx) {
             sb->items);
 }
 
-void GetBotMessage(Nob_String_Builder *sb, size_t bot_idx) {
+// Return true if everythin went okay. Return false in case bot should be
+// disqualified.
+bool GetBotMessage(Nob_String_Builder *sb, size_t bot_idx) {
   if (bot_idx >= bot_processes.count) {
     nob_log(NOB_ERROR, "Tried accessing a bot OOB.");
     exit(1);
@@ -374,9 +377,8 @@ void GetBotMessage(Nob_String_Builder *sb, size_t bot_idx) {
   if (!subprocess_alive(&bot_processes.items[bot_idx])) {
     nob_log(NOB_INFO, "Bot %zu disqualified since it's process crashed.",
             bot_idx);
-    DisqualifyBot(bot_idx);
     sb->count = 0;
-    return;
+    return false;
   }
 
   const size_t max_chunk_length = 512;
@@ -398,11 +400,10 @@ void GetBotMessage(Nob_String_Builder *sb, size_t bot_idx) {
       if (nob_nanos_since_unspecified_epoch() - start > MAX_BOT_RESPONSE_TIME) {
         nob_log(NOB_INFO, "Bot %zu disqualified for taking too long to reply.",
                 bot_idx);
-        DisqualifyBot(bot_idx);
         sb->count = 0;
-        sleep_ms(2);
-        return;
+        return false;
       }
+      sleep_ms(2);
       continue;
     }
     sb->count += received;
@@ -423,12 +424,15 @@ void GetBotMessage(Nob_String_Builder *sb, size_t bot_idx) {
     LogToFile("player%zu > engine: %.*s\n", bot_idx + 1, (int)line.count,
               line.data);
   }
+  return true;
 }
 
-void ParseBotFleets(Nob_String_View bot_message, size_t bot_idx) {
+// Return true if everythin went okay. Return false in case bot should be
+// disqualified.
+bool ParseBotFleets(Nob_String_View bot_message, size_t bot_idx) {
   if (bot_message.count < 2 ||
       (bot_message.data[0] == 'g' && bot_message.data[1] == 'o')) {
-    return;
+    return true;
   }
 
   while (bot_message.count > 1 && bot_message.data[0] != 'g' &&
@@ -441,41 +445,34 @@ void ParseBotFleets(Nob_String_View bot_message, size_t bot_idx) {
           parse_int(&bot_message.data, &fleet.dst_id) &&
           parse_int(&bot_message.data, &fleet.ships))) {
       nob_log(NOB_INFO, "Invalid bot command.");
-      DisqualifyBot(bot_idx);
-      break;
+      return false;
     }
     bot_message.count -= bot_message.data - start;
     bot_message = nob_sv_trim_left(bot_message);
 
     if (fleet.src_id < 0 || (size_t)fleet.src_id >= planets.count) {
       nob_log(NOB_INFO, "Bot tried sending fleet from nonexistent planet.");
-      DisqualifyBot(bot_idx);
-      break;
+      return false;
     }
     Planet *src = &planets.items[fleet.src_id];
     if (fleet.ships < 1) {
       nob_log(NOB_INFO, "Bot tried sending invalid amount of ships.");
-      DisqualifyBot(bot_idx);
-      break;
+      return false;
 
     } else if (fleet.src_id == fleet.dst_id) {
       nob_log(NOB_INFO, "Bot tried sending fleet from a planet itself.");
-      DisqualifyBot(bot_idx);
-      break;
+      return false;
 
     } else if (src->owner != fleet.owner) {
       nob_log(NOB_INFO,
               "Bot tried sending fleet from a planet it does not own.");
-      DisqualifyBot(bot_idx);
-      break;
+      return false;
     } else if (fleet.dst_id < 0 || (size_t)fleet.dst_id > planets.count) {
       nob_log(NOB_INFO, "Bot tried sending fleet to nonexistent planet.");
-      DisqualifyBot(bot_idx);
-      break;
+      return false;
     } else if (src->ships < fleet.ships) {
       nob_log(NOB_INFO, "Bot tried sending more ships then the planet has.");
-      DisqualifyBot(bot_idx);
-      break;
+      return false;
     }
     src->ships -= fleet.ships;
     Planet dst = planets.items[fleet.dst_id];
@@ -486,6 +483,7 @@ void ParseBotFleets(Nob_String_View bot_message, size_t bot_idx) {
     nob_da_append(&fleets, fleet);
   }
   nob_log(NOB_DEBUG, "done parsing bot %zu fleets", bot_idx);
+  return true;
 }
 
 // Used for sorting fleets in attack resolution.
@@ -636,13 +634,20 @@ void RunBotCycle(Nob_String_Builder *bot_message) {
   }
 
   bot_num = 0;
+  bool bot_okay = true;
   nob_da_foreach(struct subprocess_s, process, &bot_processes) {
     // Skip disqualified or lost bots.
     if (TestBit(bot_bit_set, bot_num)) {
-      GetBotMessage(bot_message, bot_num);
-      ParseBotFleets(nob_sv_from_parts(bot_message->items, bot_message->count),
-                     bot_num);
+      bot_okay = GetBotMessage(bot_message, bot_num);
+
+      if (bot_okay)
+        bot_okay = ParseBotFleets(
+            nob_sv_from_parts(bot_message->items, bot_message->count), bot_num);
+
       PrintBotDebugMessages(bot_message, bot_num);
+
+      if (!bot_okay)
+        DisqualifyBot(bot_num);
 
       nob_log(NOB_DEBUG, "done with bot %zu, advancing to bot %zu", bot_num,
               bot_num + 1);
