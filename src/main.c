@@ -77,6 +77,7 @@ typedef struct {
 GameLog game_log = {0};
 PlanetDA planets = {0};
 FleetsDA fleets = {0};
+// 0 indexed. The first bot which is owner 1 is bot 0.
 BotBitset bot_bit_set = 0;
 int remaining_bots = 0;
 int turn = 0;
@@ -280,7 +281,7 @@ void DisqualifyBot(size_t bot_idx) {
       fleet->owner = 0;
   }
 
-  UnsetBit(bot_bit_set, bot_idx + 1);
+  UnsetBit(bot_bit_set, bot_idx);
 
   nob_log(NOB_INFO, "Disqualified bot %zu.\n", bot_idx);
 }
@@ -334,7 +335,7 @@ void PrintBotDebugMessages(Nob_String_Builder *sb, size_t bot_idx) {
     nob_log(NOB_ERROR, "Tried accessing a bot OOB.");
     exit(1);
   }
-  if (!TestBit(bot_bit_set, bot_idx+1) || !subprocess_alive(&bot_processes.items[bot_idx])) {
+  if (!TestBit(bot_bit_set, bot_idx) || !subprocess_alive(&bot_processes.items[bot_idx])) {
     nob_log(NOB_WARNING, "Bot %zu is not active.", bot_idx);
     return;
   }
