@@ -1,6 +1,7 @@
 #include "game.h"
 #include "subprocess.h"
 #include "utils.h"
+#include <string.h>
 #include <time.h>
 
 // ## won't work in MSVC, we will cross that bridge when we get there.
@@ -575,6 +576,16 @@ void RunGame(GameState *state) {
   nob_log(NOB_INFO, "Bot %d won!", bit_index(state->bot_bit_set) + 1);
 
   nob_sb_free(bot_message);
+}
+
+void FreeState(GameState *state) {
+  FreeGameLog(&state->game_log);
+  nob_da_free(state->planets);
+  nob_da_free(state->fleets);
+  StopAndFreeBots(&state->bot_processes);
+  fclose(state->log_file);
+
+  memset(state, 0, sizeof *state);
 }
 
 void FreeGameLog(GameLog *game_log) {

@@ -38,5 +38,7 @@ GameState MakeGame(const char *map_file_path,
 void FreeGameLog(GameLog *game_log);
 void StopAndFreeBots(BotProcesses *bot_processes);
 void RunGame(GameState *state);
+// This will free allocated memory, stop bot processes, close open files etc.
+void FreeState(GameState *state);
 
 #endif // GAME_H
