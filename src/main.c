@@ -56,7 +56,7 @@ Vector2 Game2ScreenCoords(Vector2 coords) {
                  GetScreenHeight() - MAP_MARGIN - PLAYER_LABELS_HEIGHT)};
 }
 
-inline Color GetOwnerColor(int owner) {
+static inline Color GetOwnerColor(int owner) {
   return owner == 0 ? GRAY
                     : ColorFromHSV((((owner - 1) * 7) % MAX_BOT_AMOUNT) *
                                        360.0f / MAX_BOT_AMOUNT,
