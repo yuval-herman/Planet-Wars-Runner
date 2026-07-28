@@ -7,12 +7,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#ifdef _WIN32
-#include <windows.h>
-#else
-#include <time.h>
-#endif
-
 #define MAX_BOT_AMOUNT 32
 
 // TODO change owner, growth, src_id, etc. to uint8_t/uint16_t. Add max start
@@ -71,7 +65,7 @@ static inline void PrintFleet(FILE *file, Fleet fleet) {
 
 // Parses a float, advances s to the end of the parsed string, sets out to the
 // parsed value. Returns true on success false otherwise.
-bool parse_float(const char **s, float *out) {
+static bool parse_float(const char **s, float *out) {
   char *end;
   errno = 0;
   // TODO make custom parser that will accept a string view without a null
@@ -86,7 +80,7 @@ bool parse_float(const char **s, float *out) {
 
 // Parses a int, advances s to the end of the parsed string, sets out to the
 // parsed value. Returns true on success false otherwise.
-bool parse_int(const char **s, int *out) {
+static bool parse_int(const char **s, int *out) {
   char *end;
   // TODO make custom parser that will accept a string view without a null
   // terminator.
@@ -127,16 +121,5 @@ static bool ParsePlanetLine(char *line, Planet *planet) {
   planet->growth = growth;
   return true;
 }
-
-#ifdef _WIN32
-void sleep_ms(unsigned ms) { Sleep(ms); }
-#else
-void sleep_ms(unsigned ms) {
-  struct timespec ts;
-  ts.tv_sec = ms / 1000;
-  ts.tv_nsec = (long)(ms % 1000) * 1000000L;
-  nanosleep(&ts, NULL);
-}
-#endif
 
 #endif // PLANET_WARS_H

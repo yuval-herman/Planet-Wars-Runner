@@ -78,7 +78,7 @@ int main(int argc, char **argv) {
   Nob_Cmd cmd = {0};
   nob_cc(&cmd);
   nob_cc_flags(&cmd);
-  nob_cc_inputs(&cmd, "src/main.c", RAYLIB_LIB);
+  nob_cc_inputs(&cmd, "src/main.c", "src/game.c", RAYLIB_LIB);
   nob_cmd_append(&cmd, "-Iexternal/raylib");
   nob_cmd_append(&cmd, "-Iexternal");
   nob_cmd_append(&cmd, "-lm");
@@ -88,7 +88,7 @@ int main(int argc, char **argv) {
   nob_cmd_append(&cmd, "-lX11");
 #endif // _WIN32
   nob_cmd_append(&cmd, "-O2");
-  nob_cc_output(&cmd, "main");
+  nob_cc_output(&cmd, "planet_wars");
 
   FILE *compile_flags_file = fopen("compile_flags.txt", "w");
   if (!compile_flags_file) {
