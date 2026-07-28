@@ -15,6 +15,7 @@
 
 #define BASE_PLANET_RADIUS 10.0f
 #define PLANET_RADIUS_GROWTH_CURVE 20.0f
+#define PLANET_RING_MAX_RADIUS 2.0F
 #define MAP_MARGIN 50
 #define CONTROLS_HEIGHT 70
 #define PLAYER_LABELS_HEIGHT 30
@@ -128,7 +129,16 @@ void DrawPlanet(Planet planet) {
       BASE_PLANET_RADIUS + PLANET_RADIUS_GROWTH_CURVE -
       PLANET_RADIUS_GROWTH_CURVE / fmaxf(planet.growth, 1);
 
+  // Wrapped time for use in repeating functions
+  float r_time = fmodf(GetTime(), PLANET_RING_MAX_RADIUS);
+  float ring_radius = r_time;
+
   DrawCircleV(draw_coords, draw_radius, GetOwnerColor(planet.owner));
+  DrawCircleLinesV(
+      draw_coords, draw_radius + ring_radius,
+      ColorAlpha(GetOwnerColor(planet.owner),
+                 (4 * r_time * (PLANET_RING_MAX_RADIUS - r_time)) /
+                     (PLANET_RING_MAX_RADIUS * PLANET_RING_MAX_RADIUS)));
 
   const float font_size = draw_radius;
   const float spacing = 1;
