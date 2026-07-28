@@ -77,8 +77,8 @@ int main(int argc, char **argv) {
 
   Nob_Cmd cmd = {0};
   nob_cc(&cmd);
-  nob_cc_flags(&cmd);
-  nob_cc_inputs(&cmd, "src/main.c", "src/game.c", RAYLIB_LIB);
+  nob_cmd_append(&cmd, "-Wall", "-Wextra", "-Wpadded");
+  nob_cmd_append(&cmd, "src/main.c", "src/game.c", RAYLIB_LIB);
   nob_cmd_append(&cmd, "-Iexternal/raylib");
   nob_cmd_append(&cmd, "-Iexternal");
   nob_cmd_append(&cmd, "-lm");
