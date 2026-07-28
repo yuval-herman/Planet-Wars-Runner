@@ -10,7 +10,6 @@
 #include <math.h>
 #include <stdbool.h>
 #include <stdlib.h>
-#include <string.h>
 
 #define BASE_PLANET_RADIUS 10.0f
 #define PLANET_RADIUS_GROWTH_CURVE 20.0f
@@ -110,23 +109,6 @@ void DrawFleet(GameState state, Fleet fleet) {
       Vector2Subtract(draw_coords, Vector2Scale(text_measurements, 0.5));
   DrawTextEx(font, ships_text, text_coords, font_size, spacing,
              GetOwnerColor(fleet.owner));
-}
-
-void UpdateStateFromLogEntry(GameState *state, size_t entry_idx) {
-  if (entry_idx >= state->game_log.count) {
-    nob_log(NOB_WARNING, "Attempted accessing OOB game log entry.");
-    return;
-  }
-
-  LogEntry entry = state->game_log.items[entry_idx];
-  state->remaining_bots = entry.remaining_bots;
-
-  state->fleets.count = entry.fleet_count;
-  memcpy(state->fleets.items, entry.fleets,
-         sizeof *state->fleets.items * entry.fleet_count);
-  state->planets.count = entry.planet_count;
-  memcpy(state->planets.items, entry.planets,
-         sizeof *state->planets.items * entry.planet_count);
 }
 
 void DrawControls(GameState *state) {

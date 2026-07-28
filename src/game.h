@@ -40,5 +40,6 @@ void StopAndFreeBots(BotProcesses *bot_processes);
 void RunGame(GameState *state);
 // This will free allocated memory, stop bot processes, close open files etc.
 void FreeState(GameState *state);
+void UpdateStateFromLogEntry(GameState *state, size_t entry_idx);
 
 #endif // GAME_H
