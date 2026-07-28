@@ -1,6 +1,6 @@
 #ifndef GAME_H
 #define GAME_H
-#include "../nob.h"
+#include "nob.h"
 #include "planet_wars.h"
 
 #include <stdint.h>
