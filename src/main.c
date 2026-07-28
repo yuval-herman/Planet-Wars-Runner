@@ -299,6 +299,15 @@ int main(int argc, char *argv[]) {
   InitWindow(screenWidth, screenHeight, "Planet Wars Viewer");
   font = GetFontDefault();
 
+  Shader shader = LoadShader(0, "shaders/stars.fs");
+
+  int resLoc = GetShaderLocation(shader, "u_resolution");
+  int timeLoc = GetShaderLocation(shader, "u_time");
+
+  // 3. Set static uniform values
+  float resolution[2] = {(float)screenWidth, (float)screenHeight};
+  SetShaderValue(shader, resLoc, resolution, SHADER_UNIFORM_VEC2);
+
   SetTargetFPS(60);
 
   RunGame(&state);
@@ -340,9 +349,18 @@ int main(int argc, char *argv[]) {
       game_speed++;
     }
 
+    float time = (float)GetTime();
+    SetShaderValue(shader, timeLoc, &time, SHADER_UNIFORM_FLOAT);
+
     BeginDrawing();
 
     ClearBackground(BLACK);
+    // 5. Activate the shader to affect the canvas drawings
+    BeginShaderMode(shader);
+    // Draw a blank canvas area covering your screen size
+    // The fragment shader fills this rectangle area
+    DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), BLACK);
+    EndShaderMode();
 
     nob_da_foreach(Planet, planet, &state.planets) { DrawPlanet(*planet); }
 
