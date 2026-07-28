@@ -87,7 +87,13 @@ int main(int argc, char **argv) {
 #else
   nob_cmd_append(&cmd, "-lX11");
 #endif // _WIN32
-  nob_cmd_append(&cmd, "-O2");
+  // Enable debug mode
+  if (argc > 1) {
+    nob_log(NOB_WARNING, "Compiling program in debug mode");
+    nob_cmd_append(&cmd, "-fsanitize=address,undefined", "-g", "-Og");
+  } else {
+    nob_cmd_append(&cmd, "-O2");
+  }
   nob_cc_output(&cmd, "planet_wars");
 
   FILE *compile_flags_file = fopen("compile_flags.txt", "w");
