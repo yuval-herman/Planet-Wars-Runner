@@ -5,7 +5,7 @@
 #include "planet_wars.h"
 
 #define NOB_IMPLEMENTATION
-#include "../nob.h"
+#include "nob.h"
 
 #include <math.h>
 #include <stdbool.h>
