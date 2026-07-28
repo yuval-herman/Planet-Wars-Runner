@@ -372,11 +372,6 @@ int main(int argc, char *argv[]) {
 
   CloseWindow();
 
-  FreeGameLog(&state.game_log);
-  StopAndFreeBots(&state.bot_processes);
-  nob_da_free(state.planets);
-  nob_da_free(state.fleets);
-
-  fclose(state.log_file);
+  FreeState(&state);
   return 0;
 }
