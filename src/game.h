@@ -34,7 +34,8 @@ typedef struct {
 } GameState;
 
 GameState MakeGame(const char *map_file_path,
-                   const char *const bot_start_commands[], int bot_count);
+                   const char *const bot_start_commands[], int bot_count,
+                   bool log);
 void FreeGameLog(GameLog *game_log);
 void StopAndFreeBots(BotProcesses *bot_processes);
 void RunGame(GameState *state);

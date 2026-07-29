@@ -1,6 +1,7 @@
 #include "game.h"
 #include "subprocess.h"
 #include "utils.h"
+#include <stdio.h>
 #include <string.h>
 #include <time.h>
 
@@ -107,6 +108,9 @@ int ParseMapFile(GameState *state, const char *map_path) {
       SetBit(state->bot_bit_set, planet.owner - 1);
     }
 
+    snprintf(planet.print_prefix, NOB_ARRAY_LEN(planet.print_prefix), "P %8.6f %8.6f",
+             planet.coords.x, planet.coords.y);
+
     nob_da_append(&state->planets, planet);
   }
 
@@ -115,14 +119,17 @@ int ParseMapFile(GameState *state, const char *map_path) {
 }
 
 GameState MakeGame(const char *map_file_path,
-                   const char *const bot_start_commands[], int bot_count) {
+                   const char *const bot_start_commands[], int bot_count,
+                   bool log) {
   GameState state = {0};
-  state.log_file = fopen(LOG_FILE, "w");
-  if (!state.log_file) {
-    nob_log(NOB_WARNING, "Failed to open log file: %s", strerror(errno));
+  if (log) {
+    state.log_file = fopen(LOG_FILE, "w");
+    if (!state.log_file) {
+      nob_log(NOB_WARNING, "Failed to open log file: %s", strerror(errno));
+    } else {
+      fprintf(state.log_file, "initializing\n");
+    }
   }
-  fprintf(state.log_file, "initializing\n");
-
   nob_log(NOB_INFO, "Loading map file from %s.", map_file_path);
   int owner_count = ParseMapFile(&state, map_file_path);
   if (owner_count != bot_count) {
@@ -581,7 +588,8 @@ void FreeState(GameState *state) {
   nob_da_free(state->planets);
   nob_da_free(state->fleets);
   StopAndFreeBots(&state->bot_processes);
-  fclose(state->log_file);
+  if (state->log_file)
+    fclose(state->log_file);
 
   memset(state, 0, sizeof *state);
 }
