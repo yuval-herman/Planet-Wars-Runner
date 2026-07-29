@@ -286,6 +286,20 @@ void DrawControls(GameState *state) {
   }
 }
 
+void RunTournament(const char *map_file_path,
+                   const char *const bot_start_commands[], int bot_count) {
+  char const *playing_bot_commands[2];
+  for (int p1_idx = 0; p1_idx < bot_count - 1; p1_idx++) {
+    for (int p2_idx = p1_idx + 1; p2_idx < bot_count; p2_idx++) {
+      playing_bot_commands[0] = bot_start_commands[p1_idx];
+      playing_bot_commands[1] = bot_start_commands[p2_idx];
+      GameState state = MakeGame(map_file_path, bot_start_commands, 2);
+      RunGame(&state);
+      FreeState(&state);
+    }
+  }
+}
+
 void Usage(FILE *stream) {
   fprintf(stream, "Usage: %s [OPTIONS] [--] [ARGS]\n", flag_program_name());
   fprintf(stream, "OPTIONS:\n");
@@ -294,6 +308,7 @@ void Usage(FILE *stream) {
 
 typedef struct {
   bool *help;
+  bool *tournament;
   char **map_file;
   char **bot_commands;
   int bot_commands_count;
@@ -302,8 +317,11 @@ typedef struct {
 CLIArguments RegisterFlagArguments() {
   CLIArguments args;
   args.help = flag_bool("help", false, "Show this help.");
-  args.map_file = flag_str("map", NULL,
-               "The map file bots will play on.");
+  args.tournament =
+      flag_bool("tournament", false,
+                "Activate tournament mode. Tournament mode runs a round-robin "
+                "tournamet between all bots and ranks them based on winnings.");
+  args.map_file = flag_str("map", NULL, "The map file bots will play on.");
   args.bot_commands_count = 0;
   args.bot_commands = NULL;
   return args;
@@ -322,11 +340,20 @@ int main(int argc, char *argv[]) {
     nob_log(NOB_ERROR, "A map file must be provided.");
     return 1;
   }
+
   args.bot_commands = flag_rest_argv();
   args.bot_commands_count = flag_rest_argc();
 
+  if (*args.tournament) {
+    RunTournament(*args.map_file, (const char *const *)(args.bot_commands),
+                  args.bot_commands_count);
+    return 0;
+  }
   GameState state =
-      MakeGame(*args.map_file, (const char *const *)(args.bot_commands), args.bot_commands_count);
+      MakeGame(*args.map_file, (const char *const *)(args.bot_commands),
+               args.bot_commands_count);
+  RunGame(&state);
+
   ComputeGameSpace(state.planets);
 
   const int screenWidth = 800;
@@ -338,8 +365,6 @@ int main(int argc, char *argv[]) {
   font = GetFontDefault();
 
   SetTargetFPS(60);
-
-  RunGame(&state);
 
   // Set the game to the first turn
   UpdateStateFromLogEntry(&state, state.turn = 0);
