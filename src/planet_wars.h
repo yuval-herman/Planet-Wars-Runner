@@ -4,6 +4,7 @@
 #include <errno.h>
 #include <limits.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -50,9 +51,12 @@ typedef struct {
 } LogEntry;
 
 typedef struct {
+  char **bot_commands;
   LogEntry *items;
   size_t count;
   size_t capacity;
+  uint_fast8_t bot_amount;
+  uint_fast8_t winning_bot;
 } GameLog;
 
 static inline void PrintPlanet(FILE *file, Planet planet) {
