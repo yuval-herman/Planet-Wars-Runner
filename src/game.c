@@ -1,7 +1,9 @@
 #include "game.h"
 #include "subprocess.h"
 #include "utils.h"
+#include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <time.h>
 
@@ -108,8 +110,8 @@ int ParseMapFile(GameState *state, const char *map_path) {
       SetBit(state->bot_bit_set, planet.owner - 1);
     }
 
-    snprintf(planet.print_prefix, NOB_ARRAY_LEN(planet.print_prefix), "P %8.6f %8.6f",
-             planet.coords.x, planet.coords.y);
+    snprintf(planet.print_prefix, NOB_ARRAY_LEN(planet.print_prefix),
+             "P %8.6f %8.6f", planet.coords.x, planet.coords.y);
 
     nob_da_append(&state->planets, planet);
   }
@@ -142,6 +144,31 @@ GameState MakeGame(const char *map_file_path,
 
   StartBots(&state, bot_start_commands, bot_count);
   state.remaining_bots = state.bot_processes.count;
+
+  size_t bot_commands_length = 0;
+  for (int i = 0; i < bot_count; i++) {
+    // +1 for null terminator
+    bot_commands_length += strlen(bot_start_commands[i]) + 1;
+  }
+
+  const size_t pointer_block_size = bot_count * sizeof(char *);
+  state.game_log.bot_amount = bot_count;
+  state.game_log.bot_commands =
+      malloc(pointer_block_size + bot_commands_length * sizeof(char));
+
+  // Pointer to the start of the data section. Cast to char* is because c sees
+  // this as a multidimensional array while we want to use it as a single
+  // dimension with two parts.
+  char *data = (char *)state.game_log.bot_commands + pointer_block_size;
+
+  bot_commands_length = 0;
+  for (int i = 0; i < bot_count; i++) {
+    state.game_log.bot_commands[i] = data + bot_commands_length;
+    size_t command_length = strlen(bot_start_commands[i]) + 1;
+    memcpy(state.game_log.bot_commands[i], bot_start_commands[i],
+           command_length);
+    bot_commands_length += command_length;
+  }
 
   return state;
 }
@@ -578,7 +605,9 @@ void RunGame(GameState *state) {
     nob_da_append(&state->game_log, entry);
   }
   nob_log(NOB_INFO, "Game ended!");
-  nob_log(NOB_INFO, "Bot %d won!", bit_index(state->bot_bit_set) + 1);
+  uint_fast8_t winning_bot = bit_index(state->bot_bit_set);
+  state->game_log.winning_bot = winning_bot;
+  nob_log(NOB_INFO, "Bot %d won!", winning_bot + 1);
 
   nob_sb_free(bot_message);
 }
@@ -599,6 +628,7 @@ void FreeGameLog(GameLog *game_log) {
     free(entry->fleets);
     free(entry->planets);
   }
+  free(game_log->bot_commands);
   nob_da_free(*game_log);
 }
 
