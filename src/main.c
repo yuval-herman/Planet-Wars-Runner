@@ -3,6 +3,11 @@
 
 #include "game.h"
 #include "planet_wars.h"
+#include <stdio.h>
+#include <time.h>
+
+#define FLAG_IMPLEMENTATION
+#include "flag.h"
 
 #define NOB_IMPLEMENTATION
 #include "nob.h"
@@ -281,14 +286,47 @@ void DrawControls(GameState *state) {
   }
 }
 
+void Usage(FILE *stream) {
+  fprintf(stream, "Usage: %s [OPTIONS] [--] [ARGS]\n", flag_program_name());
+  fprintf(stream, "OPTIONS:\n");
+  flag_print_options(stream);
+}
+
+typedef struct {
+  bool *help;
+  char **map_file;
+  char **bot_commands;
+  int bot_commands_count;
+} CLIArguments;
+
+CLIArguments RegisterFlagArguments() {
+  CLIArguments args;
+  args.help = flag_bool("help", false, "Show this help.");
+  args.map_file = flag_str("map", NULL,
+               "The map file bots will play on.");
+  args.bot_commands_count = 0;
+  args.bot_commands = NULL;
+  return args;
+}
+
 int main(int argc, char *argv[]) {
-  if (argc < 4) {
-    nob_log(NOB_ERROR, "Missing arguments.");
-    nob_log(NOB_ERROR, "Usage: %s <map_file> <bot1> <bot2>...", argv[0]);
+  CLIArguments args = RegisterFlagArguments();
+  if (!flag_parse(argc, argv)) {
+    Usage(stderr);
+    flag_print_error(stderr);
+    exit(1);
+  } else if (*args.help) {
+    Usage(stderr);
+    return 0;
+  } else if (!*args.map_file) {
+    nob_log(NOB_ERROR, "A map file must be provided.");
     return 1;
   }
+  args.bot_commands = flag_rest_argv();
+  args.bot_commands_count = flag_rest_argc();
+
   GameState state =
-      MakeGame(argv[1], (const char *const *)(argv + 2), argc - 2);
+      MakeGame(*args.map_file, (const char *const *)(args.bot_commands), args.bot_commands_count);
   ComputeGameSpace(state.planets);
 
   const int screenWidth = 800;
