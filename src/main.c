@@ -419,14 +419,29 @@ int main(int argc, char *argv[]) {
   InitWindow(screenWidth, screenHeight, "Planet Wars Viewer");
   font = GetFontDefault();
 
-  Shader shader = LoadShader(0, "shaders/stars.fs");
+  Shader stars_shader = LoadShader(0, "shaders/stars.fs");
 
-  int resLoc = GetShaderLocation(shader, "u_resolution");
-  int timeLoc = GetShaderLocation(shader, "u_time");
+  int timeLoc = GetShaderLocation(stars_shader, "uTime");
+  int resLoc = GetShaderLocation(stars_shader, "uResolution");
+  int starSizeLoc = GetShaderLocation(stars_shader, "uStarSize");
+  int starBrightnessLoc = GetShaderLocation(stars_shader, "uStarBrightness");
+  int starDensityLoc = GetShaderLocation(stars_shader, "uStarDensity");
+  int seedLoc = GetShaderLocation(stars_shader, "uSeed");
 
-  // 3. Set static uniform values
   float resolution[2] = {(float)screenWidth, (float)screenHeight};
-  SetShaderValue(shader, resLoc, resolution, SHADER_UNIFORM_VEC2);
+  SetShaderValue(stars_shader, resLoc, resolution, SHADER_UNIFORM_VEC2);
+
+  float starSize = 0.5f;       // 1.0 is default, >1.0 makes stars bigger
+  float starBrightness = 0.4f; // 1.0 is default, >1.0 boosts brightness
+  float starDensity = 0.5f; // 1.0 is default, >1.0 creates more star clusters
+  float starsSeed = 1;
+
+  SetShaderValue(stars_shader, starSizeLoc, &starSize, SHADER_UNIFORM_FLOAT);
+  SetShaderValue(stars_shader, starBrightnessLoc, &starBrightness,
+                 SHADER_UNIFORM_FLOAT);
+  SetShaderValue(stars_shader, starDensityLoc, &starDensity,
+                 SHADER_UNIFORM_FLOAT);
+  SetShaderValue(stars_shader, seedLoc, &starsSeed, SHADER_UNIFORM_FLOAT);
 
   SetTargetFPS(60);
 
@@ -468,16 +483,16 @@ int main(int argc, char *argv[]) {
     }
 
     float time = (float)GetTime();
-    SetShaderValue(shader, timeLoc, &time, SHADER_UNIFORM_FLOAT);
+    SetShaderValue(stars_shader, timeLoc, &time, SHADER_UNIFORM_FLOAT);
 
     BeginDrawing();
 
     ClearBackground(BLACK);
     // 5. Activate the shader to affect the canvas drawings
-    BeginShaderMode(shader);
+    BeginShaderMode(stars_shader);
     // Draw a blank canvas area covering your screen size
     // The fragment shader fills this rectangle area
-    DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), BLACK);
+    DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), WHITE);
     EndShaderMode();
 
     nob_da_foreach(Planet, planet, &state.planets) { DrawPlanet(*planet); }
@@ -489,6 +504,7 @@ int main(int argc, char *argv[]) {
   }
 
   CloseWindow();
+  UnloadShader(stars_shader);
 
   FreeState(&state);
   return 0;
