@@ -40,11 +40,11 @@ typedef struct {
 } FleetsDA;
 
 typedef struct {
-  int remaining_bots;
-  size_t fleet_count;
   Fleet *fleets;
-  size_t planet_count;
   Planet *planets;
+  size_t planet_count;
+  size_t fleet_count;
+  int remaining_bots;
 } LogEntry;
 
 typedef struct {

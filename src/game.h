@@ -26,11 +26,11 @@ typedef struct {
   GameLog game_log;
   PlanetDA planets;
   FleetsDA fleets;
+  BotProcesses bot_processes;
+  FILE *log_file;
   BotBitset bot_bit_set;
   int remaining_bots;
   int turn;
-  BotProcesses bot_processes;
-  FILE *log_file;
 } GameState;
 
 GameState MakeGame(const char *map_file_path,
