@@ -4,6 +4,7 @@
 #include "game.h"
 #include "planet_wars.h"
 #include <stdio.h>
+#include <string.h>
 #include <time.h>
 
 #define FLAG_IMPLEMENTATION
@@ -33,6 +34,12 @@ typedef struct {
   Vector2 max_coords;
 } GameSpace;
 
+typedef struct {
+  GameLog *items;
+  size_t capacity;
+  size_t count;
+} TournametData;
+
 GameSpace game_space = {.min_coords = {INFINITY, INFINITY},
                         .max_coords = {-INFINITY, -INFINITY}};
 Font font;
@@ -41,6 +48,7 @@ unsigned int frame_counter = 0;
 int game_speed = 5;
 bool game_running = false;
 bool playing_forewards = true;
+TournametData tournament = {0};
 
 // Calculates the minimum and maximum coordinates of all planets, used to space
 // planets across the entire screen.
@@ -297,6 +305,46 @@ void RunTournament(const char *map_file_path,
       nob_minimal_log_level = NOB_WARNING;
       RunGame(&state);
       nob_minimal_log_level = NOB_INFO;
+      GameLog game_log_copy = state.game_log;
+      size_t bot_commands_length = 0;
+      for (int i = 0; i < game_log_copy.bot_amount; i++) {
+        // +1 for null terminator
+        bot_commands_length += strlen(state.game_log.bot_commands[i]) + 1;
+      }
+      size_t bot_commands_array_length =
+          game_log_copy.bot_amount * sizeof(char *) +
+          bot_commands_length * sizeof(char);
+      game_log_copy.bot_commands = malloc(bot_commands_array_length);
+      memcpy(game_log_copy.bot_commands, state.game_log.bot_commands,
+             bot_commands_array_length);
+
+      char *str_dest =
+          (char *)(game_log_copy.bot_commands + game_log_copy.bot_amount);
+      for (int i = 0; i < game_log_copy.bot_amount; i++) {
+        game_log_copy.bot_commands[i] = str_dest;
+        str_dest += strlen(str_dest) + 1;
+      }
+
+      game_log_copy.items =
+          malloc(sizeof *game_log_copy.items * game_log_copy.count);
+      game_log_copy.capacity = game_log_copy.count;
+      memcpy(game_log_copy.items, state.game_log.items,
+             game_log_copy.count * sizeof *game_log_copy.items);
+      for (size_t i = 0; i < state.game_log.count; i++) {
+        LogEntry *copy_entry = &game_log_copy.items[i];
+        size_t planets_size =
+            copy_entry->planet_count * sizeof *copy_entry->planets;
+        copy_entry->planets = malloc(planets_size);
+        memcpy(copy_entry->planets, state.game_log.items[i].planets,
+               planets_size);
+        size_t fleets_size =
+            copy_entry->fleet_count * sizeof *copy_entry->fleets;
+        copy_entry->fleets = malloc(fleets_size);
+        memcpy(copy_entry->fleets, state.game_log.items[i].fleets, fleets_size);
+      }
+      // TODO This entire thing is leaking, add a freeing mechanism
+
+      nob_da_append(&tournament, game_log_copy);
       FreeState(&state);
     }
   }
@@ -352,8 +400,10 @@ int main(int argc, char *argv[]) {
   if (*args.tournament) {
     RunTournament(*args.map_file, (const char *const *)(args.bot_commands),
                   args.bot_commands_count);
+    nob_da_free(tournament);
     return 0;
   }
+
   GameState state =
       MakeGame(*args.map_file, (const char *const *)(args.bot_commands),
                args.bot_commands_count, true);
