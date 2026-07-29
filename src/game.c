@@ -193,8 +193,10 @@ void DisqualifyBot(GameState *state, size_t bot_idx) {
     }
   }
   nob_da_foreach(Fleet, fleet, &state->fleets) {
-    if ((size_t)fleet->owner == bot_idx + 1)
+    if ((size_t)fleet->owner == bot_idx + 1) {
       *fleet = state->fleets.items[--state->fleets.count];
+      fleet--;
+    }
   }
 
   UnsetBit(state->bot_bit_set, bot_idx);
