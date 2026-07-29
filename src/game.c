@@ -115,9 +115,7 @@ int ParseMapFile(GameState *state, const char *map_path) {
 }
 
 GameState MakeGame(const char *map_file_path,
-                   const char *const bot_start_commands[],
-
-                   int bot_count) {
+                   const char *const bot_start_commands[], int bot_count) {
   GameState state = {0};
   state.log_file = fopen(LOG_FILE, "w");
   if (!state.log_file) {
