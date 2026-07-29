@@ -293,7 +293,7 @@ void RunTournament(const char *map_file_path,
     for (int p2_idx = p1_idx + 1; p2_idx < bot_count; p2_idx++) {
       playing_bot_commands[0] = bot_start_commands[p1_idx];
       playing_bot_commands[1] = bot_start_commands[p2_idx];
-      GameState state = MakeGame(map_file_path, bot_start_commands, 2);
+      GameState state = MakeGame(map_file_path, playing_bot_commands, 2, false);
       RunGame(&state);
       FreeState(&state);
     }
