@@ -294,7 +294,9 @@ void RunTournament(const char *map_file_path,
       playing_bot_commands[0] = bot_start_commands[p1_idx];
       playing_bot_commands[1] = bot_start_commands[p2_idx];
       GameState state = MakeGame(map_file_path, playing_bot_commands, 2, false);
+      nob_minimal_log_level = NOB_WARNING;
       RunGame(&state);
+      nob_minimal_log_level = NOB_INFO;
       FreeState(&state);
     }
   }
@@ -309,6 +311,7 @@ void Usage(FILE *stream) {
 typedef struct {
   bool *help;
   bool *tournament;
+  bool *write_log;
   char **map_file;
   char **bot_commands;
   int bot_commands_count;
@@ -321,6 +324,8 @@ CLIArguments RegisterFlagArguments() {
       flag_bool("tournament", false,
                 "Activate tournament mode. Tournament mode runs a round-robin "
                 "tournamet between all bots and ranks them based on winnings.");
+  args.write_log =
+      flag_bool("write_log", false, "Write a log of the game to log.txt");
   args.map_file = flag_str("map", NULL, "The map file bots will play on.");
   args.bot_commands_count = 0;
   args.bot_commands = NULL;
@@ -351,7 +356,7 @@ int main(int argc, char *argv[]) {
   }
   GameState state =
       MakeGame(*args.map_file, (const char *const *)(args.bot_commands),
-               args.bot_commands_count);
+               args.bot_commands_count, true);
   RunGame(&state);
 
   ComputeGameSpace(state.planets);
