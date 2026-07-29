@@ -91,7 +91,7 @@ int main(int argc, char **argv) {
   // Enable debug mode
   if (argc > 1) {
     nob_log(NOB_WARNING, "Compiling program in debug mode");
-    nob_cmd_append(&cmd, "-fsanitize=address,undefined", "-g", "-Og");
+    nob_cmd_append(&cmd, "-fsanitize=address,undefined", "-g", "-O0");
   } else {
     nob_cmd_append(&cmd, "-O2");
   }

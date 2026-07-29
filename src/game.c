@@ -1,6 +1,9 @@
 #include "game.h"
 #include "subprocess.h"
 #include "utils.h"
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <time.h>
 
@@ -107,6 +110,9 @@ int ParseMapFile(GameState *state, const char *map_path) {
       SetBit(state->bot_bit_set, planet.owner - 1);
     }
 
+    snprintf(planet.print_prefix, NOB_ARRAY_LEN(planet.print_prefix),
+             "P %8.6f %8.6f", planet.coords.x, planet.coords.y);
+
     nob_da_append(&state->planets, planet);
   }
 
@@ -115,16 +121,17 @@ int ParseMapFile(GameState *state, const char *map_path) {
 }
 
 GameState MakeGame(const char *map_file_path,
-                   const char *const bot_start_commands[],
-
-                   int bot_count) {
+                   const char *const bot_start_commands[], int bot_count,
+                   bool log) {
   GameState state = {0};
-  state.log_file = fopen(LOG_FILE, "w");
-  if (!state.log_file) {
-    nob_log(NOB_WARNING, "Failed to open log file: %s", strerror(errno));
+  if (log) {
+    state.log_file = fopen(LOG_FILE, "w");
+    if (!state.log_file) {
+      nob_log(NOB_WARNING, "Failed to open log file: %s", strerror(errno));
+    } else {
+      fprintf(state.log_file, "initializing\n");
+    }
   }
-  fprintf(state.log_file, "initializing\n");
-
   nob_log(NOB_INFO, "Loading map file from %s.", map_file_path);
   int owner_count = ParseMapFile(&state, map_file_path);
   if (owner_count != bot_count) {
@@ -137,6 +144,31 @@ GameState MakeGame(const char *map_file_path,
 
   StartBots(&state, bot_start_commands, bot_count);
   state.remaining_bots = state.bot_processes.count;
+
+  size_t bot_commands_length = 0;
+  for (int i = 0; i < bot_count; i++) {
+    // +1 for null terminator
+    bot_commands_length += strlen(bot_start_commands[i]) + 1;
+  }
+
+  const size_t pointer_block_size = bot_count * sizeof(char *);
+  state.game_log.bot_amount = bot_count;
+  state.game_log.bot_commands =
+      malloc(pointer_block_size + bot_commands_length * sizeof(char));
+
+  // Pointer to the start of the data section. Cast to char* is because c sees
+  // this as a multidimensional array while we want to use it as a single
+  // dimension with two parts.
+  char *data = (char *)state.game_log.bot_commands + pointer_block_size;
+
+  bot_commands_length = 0;
+  for (int i = 0; i < bot_count; i++) {
+    state.game_log.bot_commands[i] = data + bot_commands_length;
+    size_t command_length = strlen(bot_start_commands[i]) + 1;
+    memcpy(state.game_log.bot_commands[i], bot_start_commands[i],
+           command_length);
+    bot_commands_length += command_length;
+  }
 
   return state;
 }
@@ -161,8 +193,10 @@ void DisqualifyBot(GameState *state, size_t bot_idx) {
     }
   }
   nob_da_foreach(Fleet, fleet, &state->fleets) {
-    if ((size_t)fleet->owner == bot_idx + 1)
-      fleet->owner = 0;
+    if ((size_t)fleet->owner == bot_idx + 1) {
+      *fleet = state->fleets.items[--state->fleets.count];
+      fleet--;
+    }
   }
 
   UnsetBit(state->bot_bit_set, bot_idx);
@@ -573,7 +607,9 @@ void RunGame(GameState *state) {
     nob_da_append(&state->game_log, entry);
   }
   nob_log(NOB_INFO, "Game ended!");
-  nob_log(NOB_INFO, "Bot %d won!", bit_index(state->bot_bit_set) + 1);
+  uint_fast8_t winning_bot = bit_index(state->bot_bit_set);
+  state->game_log.winning_bot = winning_bot;
+  nob_log(NOB_INFO, "Bot %d won!", winning_bot + 1);
 
   nob_sb_free(bot_message);
 }
@@ -583,7 +619,8 @@ void FreeState(GameState *state) {
   nob_da_free(state->planets);
   nob_da_free(state->fleets);
   StopAndFreeBots(&state->bot_processes);
-  fclose(state->log_file);
+  if (state->log_file)
+    fclose(state->log_file);
 
   memset(state, 0, sizeof *state);
 }
@@ -593,6 +630,7 @@ void FreeGameLog(GameLog *game_log) {
     free(entry->fleets);
     free(entry->planets);
   }
+  free(game_log->bot_commands);
   nob_da_free(*game_log);
 }
 

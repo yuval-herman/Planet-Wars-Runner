@@ -4,6 +4,7 @@
 #include <errno.h>
 #include <limits.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -16,6 +17,8 @@ typedef struct {
   int owner;
   int ships;
   int growth;
+  // Used to save time on printing data that does not change
+  char print_prefix[20];
 } Planet;
 
 typedef struct {
@@ -48,14 +51,17 @@ typedef struct {
 } LogEntry;
 
 typedef struct {
+  char **bot_commands;
   LogEntry *items;
   size_t count;
   size_t capacity;
+  uint_fast8_t bot_amount;
+  uint_fast8_t winning_bot;
 } GameLog;
 
 static inline void PrintPlanet(FILE *file, Planet planet) {
-  fprintf(file, "P %.11f %.11f %d %d %d\n", planet.coords.x, planet.coords.y,
-          planet.owner, planet.ships, planet.growth);
+  fprintf(file, "%s %d %d %d\n", planet.print_prefix, planet.owner,
+          planet.ships, planet.growth);
 }
 
 static inline void PrintFleet(FILE *file, Fleet fleet) {
