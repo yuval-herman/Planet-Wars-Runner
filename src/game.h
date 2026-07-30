@@ -40,7 +40,7 @@ typedef struct {
   size_t capacity;
 } BotProcesses;
 
-typedef struct {
+DefineComplexStruct(GameState, {
   GameLog game_log;
   PlanetDA planets;
   FleetsDA fleets;
@@ -49,16 +49,13 @@ typedef struct {
   BotBitset bot_bit_set;
   int remaining_bots;
   int turn;
-} GameState;
+});
 
 GameState MakeGame(const char *map_file_path,
                    const char *const bot_start_commands[], int bot_count,
                    bool log);
-void FreeGameLog(GameLog *game_log);
 void StopAndFreeBots(BotProcesses *bot_processes);
 void RunGame(GameState *state);
-// This will free allocated memory, stop bot processes, close open files etc.
-void FreeState(GameState *state);
 void UpdateStateFromLogEntry(GameState *state, size_t entry_idx);
 
 #endif // GAME_H

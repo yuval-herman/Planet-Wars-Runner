@@ -345,7 +345,7 @@ void RunTournament(const char *map_file_path,
       // TODO This entire thing is leaking, add a freeing mechanism
 
       nob_da_append(&tournament, game_log_copy);
-      FreeState(&state);
+      FreeInnerGameState(state);
     }
   }
 }
@@ -506,6 +506,6 @@ int main(int argc, char *argv[]) {
   UnloadShader(stars_shader);
   CloseWindow();
 
-  FreeState(&state);
+  FreeInnerGameState(state);
   return 0;
 }
