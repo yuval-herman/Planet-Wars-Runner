@@ -134,7 +134,7 @@ int main(int argc, char *argv[]) {
 
   GameState state =
       MakeGame(*args.map_file, (const char *const *)(args.bot_commands),
-               args.bot_commands_count, true);
+               args.bot_commands_count, args.write_log);
   RunGame(&state);
 
   RunViewerForGame(state);
