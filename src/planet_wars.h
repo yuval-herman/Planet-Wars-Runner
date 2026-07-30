@@ -42,23 +42,6 @@ typedef struct {
   size_t capacity;
 } FleetsDA;
 
-typedef struct {
-  Fleet *fleets;
-  Planet *planets;
-  size_t planet_count;
-  size_t fleet_count;
-  int remaining_bots;
-} LogEntry;
-
-typedef struct {
-  char **bot_commands;
-  LogEntry *items;
-  size_t count;
-  size_t capacity;
-  uint_fast8_t bot_amount;
-  uint_fast8_t winning_bot;
-} GameLog;
-
 static inline void PrintPlanet(FILE *file, Planet planet) {
   fprintf(file, "%s %d %d %d\n", planet.print_prefix, planet.owner,
           planet.ships, planet.growth);
