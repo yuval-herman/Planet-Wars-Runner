@@ -503,8 +503,8 @@ int main(int argc, char *argv[]) {
     EndDrawing();
   }
 
-  CloseWindow();
   UnloadShader(stars_shader);
+  CloseWindow();
 
   FreeState(&state);
   return 0;
