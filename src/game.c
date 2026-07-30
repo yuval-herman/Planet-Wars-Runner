@@ -34,6 +34,42 @@ void FreeInnerLogEntry(LogEntry entry) {
   free(entry.planets);
 }
 
+GameLog DeepCopyGameLog(GameLog game_log) {
+  LogEntry *log_entries = malloc(sizeof *game_log.items * game_log.count);
+  for (size_t i = 0; i < game_log.count; i++) {
+    log_entries[i] = DeepCopyLogEntry(game_log.items[i]);
+  }
+
+  char **bot_commands = malloc(sizeof *bot_commands * game_log.bot_amount);
+  for (size_t i = 0; i < game_log.bot_amount; i++) {
+    size_t cmd_len = strlen(game_log.bot_commands[i]) + 1;
+    bot_commands[i] = malloc(sizeof *bot_commands[i] * cmd_len);
+    memcpy(bot_commands[i], game_log.bot_commands[i], cmd_len);
+  }
+
+  GameLog new_game_log = {
+      .count = game_log.count,
+      .capacity = game_log.capacity,
+      .bot_amount = game_log.bot_amount,
+      .winning_bot = game_log.winning_bot,
+      .items = log_entries,
+      .bot_commands = bot_commands,
+  };
+  return new_game_log;
+}
+
+void FreeInnerGameLog(GameLog game_log) {
+  for (size_t i = 0; i < game_log.count; i++) {
+    FreeInnerLogEntry(game_log.items[i]);
+  }
+  free(game_log.items);
+
+  for (size_t i = 0; i < game_log.bot_amount; i++) {
+    free(game_log.bot_commands[i]);
+  }
+  free(game_log.bot_commands);
+}
+
 void StartBots(GameState *state, const char *const commands[],
                int command_amount) {
   if (command_amount > MAX_BOT_AMOUNT) {
@@ -144,6 +180,8 @@ GameState MakeGame(const char *map_file_path,
                    const char *const bot_start_commands[], int bot_count,
                    bool log) {
   GameState state = {0};
+
+  // ----- LOGGING -----
   if (log) {
     state.log_file = fopen(LOG_FILE, "w");
     if (!state.log_file) {
@@ -152,6 +190,8 @@ GameState MakeGame(const char *map_file_path,
       fprintf(state.log_file, "initializing\n");
     }
   }
+
+  // ----- MAP -----
   nob_log(NOB_INFO, "Loading map file from %s.", map_file_path);
   int owner_count = ParseMapFile(&state, map_file_path);
   if (owner_count != bot_count) {
@@ -162,34 +202,21 @@ GameState MakeGame(const char *map_file_path,
     exit(1);
   }
 
+  // ----- BOTS -----
   StartBots(&state, bot_start_commands, bot_count);
   state.remaining_bots = state.bot_processes.count;
 
-  size_t bot_commands_length = 0;
-  for (int i = 0; i < bot_count; i++) {
-    // +1 for null terminator
-    bot_commands_length += strlen(bot_start_commands[i]) + 1;
-  }
-
-  const size_t pointer_block_size = bot_count * sizeof(char *);
   state.game_log.bot_amount = bot_count;
-  state.game_log.bot_commands =
-      malloc(pointer_block_size + bot_commands_length * sizeof(char));
 
-  // Pointer to the start of the data section. Cast to char* is because c sees
-  // this as a multidimensional array while we want to use it as a single
-  // dimension with two parts.
-  char *data = (char *)state.game_log.bot_commands + pointer_block_size;
+  char **bot_commands = malloc(sizeof *bot_commands * bot_count);
 
-  bot_commands_length = 0;
   for (int i = 0; i < bot_count; i++) {
-    state.game_log.bot_commands[i] = data + bot_commands_length;
-    size_t command_length = strlen(bot_start_commands[i]) + 1;
-    memcpy(state.game_log.bot_commands[i], bot_start_commands[i],
-           command_length);
-    bot_commands_length += command_length;
+    size_t cmd_len = strlen(bot_start_commands[i]) + 1;
+    bot_commands[i] = malloc(sizeof *bot_commands[i] * cmd_len);
+    memcpy(bot_commands[i], bot_start_commands[i], cmd_len);
   }
 
+  state.game_log.bot_commands = bot_commands;
   return state;
 }
 
@@ -632,7 +659,7 @@ void RunGame(GameState *state) {
 }
 
 void FreeState(GameState *state) {
-  FreeGameLog(&state->game_log);
+  FreeInnerGameLog(state->game_log);
   nob_da_free(state->planets);
   nob_da_free(state->fleets);
   StopAndFreeBots(&state->bot_processes);
@@ -640,15 +667,6 @@ void FreeState(GameState *state) {
     fclose(state->log_file);
 
   memset(state, 0, sizeof *state);
-}
-
-void FreeGameLog(GameLog *game_log) {
-  nob_da_foreach(LogEntry, entry, game_log) {
-    free(entry->fleets);
-    free(entry->planets);
-  }
-  free(game_log->bot_commands);
-  nob_da_free(*game_log);
 }
 
 void StopAndFreeBots(BotProcesses *bot_processes) {

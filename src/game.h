@@ -25,14 +25,14 @@ DefineComplexStruct(LogEntry, {
   int remaining_bots;
 });
 
-typedef struct {
+DefineComplexStruct(GameLog, {
   char **bot_commands;
   LogEntry *items;
   size_t count;
   size_t capacity;
   uint_fast8_t bot_amount;
   uint_fast8_t winning_bot;
-} GameLog;
+});
 
 typedef struct {
   struct subprocess_s *items;
