@@ -79,8 +79,8 @@ int main(int argc, char **argv) {
   nob_cc(&cmd);
   nob_cmd_append(&cmd, "-Wall", "-Wextra"
                  // , "-Wpadded"
-               );
-  nob_cmd_append(&cmd, "src/main.c", "src/game.c", RAYLIB_LIB);
+  );
+  nob_cmd_append(&cmd, "src/main.c", "src/game.c", "src/viewer.c", RAYLIB_LIB);
   nob_cmd_append(&cmd, "-isystemexternal/raylib");
   nob_cmd_append(&cmd, "-isystemexternal");
   nob_cmd_append(&cmd, "-isystem.");
