@@ -44,6 +44,17 @@ static inline Color GetOwnerColor(int owner) {
                                    1.0f, 1.0f);
 }
 
+void DrawTextCenteredOnPoint(Vector2 center, const char *text, float font_size,
+                             float spacing, Color tint) {
+
+  const Vector2 text_measurements =
+      MeasureTextEx(font, text, font_size, spacing);
+  const Vector2 text_coords =
+      Vector2Subtract(center, Vector2Scale(text_measurements, 0.5));
+
+  DrawTextEx(font, text, text_coords, font_size, spacing, tint);
+}
+
 // Draws a Planet on the screen.
 void DrawPlanet(Planet planet) {
   Vector2 draw_coords = Game2ScreenCoords(planet.coords);
@@ -64,15 +75,8 @@ void DrawPlanet(Planet planet) {
                      (PLANET_RING_MAX_RADIUS * PLANET_RING_MAX_RADIUS)));
 
   const float font_size = draw_radius;
-  const float spacing = 1;
   const char *ships_text = TextFormat("%d", planet.ships);
-
-  const Vector2 text_measurements =
-      MeasureTextEx(font, ships_text, font_size, spacing);
-  const Vector2 text_coords =
-      Vector2Subtract(draw_coords, Vector2Scale(text_measurements, 0.5));
-
-  DrawTextEx(font, ships_text, text_coords, font_size, spacing, BLACK);
+  DrawTextCenteredOnPoint(draw_coords, ships_text, font_size, 1, BLACK);
 }
 
 void DrawFleet(GameState state, Fleet fleet) {
@@ -83,14 +87,9 @@ void DrawFleet(GameState state, Fleet fleet) {
 
   const char *ships_text = TextFormat("%d", fleet.ships);
   const float font_size = SHIP_FONT_SIZE;
-  const float spacing = 1;
 
-  const Vector2 text_measurements =
-      MeasureTextEx(font, ships_text, font_size, spacing);
-  const Vector2 text_coords =
-      Vector2Subtract(draw_coords, Vector2Scale(text_measurements, 0.5));
-  DrawTextEx(font, ships_text, text_coords, font_size, spacing,
-             GetOwnerColor(fleet.owner));
+  DrawTextCenteredOnPoint(draw_coords, ships_text, font_size, 1,
+                          GetOwnerColor(fleet.owner));
 }
 
 void DrawControls(GameState *state) {
