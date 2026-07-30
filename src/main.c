@@ -1,6 +1,7 @@
 #include "viewer.h"
 
 #include "game.h"
+#include <src/utils.h>
 
 #define FLAG_IMPLEMENTATION
 #include "flag.h"
@@ -14,68 +15,56 @@
 #include <string.h>
 #include <time.h>
 
-typedef struct {
+DefineComplexStruct(TournametData, {
   GameLog *items;
   size_t capacity;
   size_t count;
-} TournametData;
+});
 
-TournametData tournament = {0};
+TournametData DeepCopyTournametData(TournametData tournament) {
+  TournametData new_tournament = {
+      .capacity = tournament.count,
+      .count = tournament.count,
+      .items = malloc(sizeof *tournament.items * tournament.count),
+  };
+  for (size_t i = 0; i < tournament.count; i++) {
+    new_tournament.items[i] = DeepCopyGameLog(tournament.items[i]);
+  }
+  return tournament;
+}
 
-void RunTournament(const char *map_file_path,
-                   const char *const bot_start_commands[], int bot_count) {
+void FreeInnerTournametData(TournametData tournament) {
+  for (size_t i = 0; i < tournament.count; i++) {
+    FreeInnerGameLog(tournament.items[i]);
+  }
+  nob_da_free(tournament);
+}
+
+TournametData RunTournament(const char *map_file_path,
+                            const char *const bot_start_commands[],
+                            int bot_count) {
+  TournametData tournament = {0};
   char const *playing_bot_commands[2];
+
   for (int p1_idx = 0; p1_idx < bot_count - 1; p1_idx++) {
     for (int p2_idx = p1_idx + 1; p2_idx < bot_count; p2_idx++) {
       playing_bot_commands[0] = bot_start_commands[p1_idx];
       playing_bot_commands[1] = bot_start_commands[p2_idx];
+
+      // Run a full game, slilence normal logging to not clog the terminal
       GameState state = MakeGame(map_file_path, playing_bot_commands, 2, false);
       nob_minimal_log_level = NOB_WARNING;
       RunGame(&state);
       nob_minimal_log_level = NOB_INFO;
-      GameLog game_log_copy = state.game_log;
-      size_t bot_commands_length = 0;
-      for (int i = 0; i < game_log_copy.bot_amount; i++) {
-        // +1 for null terminator
-        bot_commands_length += strlen(state.game_log.bot_commands[i]) + 1;
-      }
-      size_t bot_commands_array_length =
-          game_log_copy.bot_amount * sizeof(char *) +
-          bot_commands_length * sizeof(char);
-      game_log_copy.bot_commands = malloc(bot_commands_array_length);
-      memcpy(game_log_copy.bot_commands, state.game_log.bot_commands,
-             bot_commands_array_length);
 
-      char *str_dest =
-          (char *)(game_log_copy.bot_commands + game_log_copy.bot_amount);
-      for (int i = 0; i < game_log_copy.bot_amount; i++) {
-        game_log_copy.bot_commands[i] = str_dest;
-        str_dest += strlen(str_dest) + 1;
-      }
-
-      game_log_copy.items =
-          malloc(sizeof *game_log_copy.items * game_log_copy.count);
-      game_log_copy.capacity = game_log_copy.count;
-      memcpy(game_log_copy.items, state.game_log.items,
-             game_log_copy.count * sizeof *game_log_copy.items);
-      for (size_t i = 0; i < state.game_log.count; i++) {
-        LogEntry *copy_entry = &game_log_copy.items[i];
-        size_t planets_size =
-            copy_entry->planet_count * sizeof *copy_entry->planets;
-        copy_entry->planets = malloc(planets_size);
-        memcpy(copy_entry->planets, state.game_log.items[i].planets,
-               planets_size);
-        size_t fleets_size =
-            copy_entry->fleet_count * sizeof *copy_entry->fleets;
-        copy_entry->fleets = malloc(fleets_size);
-        memcpy(copy_entry->fleets, state.game_log.items[i].fleets, fleets_size);
-      }
-      // TODO This entire thing is leaking, add a freeing mechanism
+      GameLog game_log_copy = DeepCopyGameLog(state.game_log);
 
       nob_da_append(&tournament, game_log_copy);
       FreeInnerGameState(state);
     }
   }
+
+  return tournament;
 }
 
 void Usage(FILE *stream) {
@@ -126,9 +115,11 @@ int main(int argc, char *argv[]) {
   args.bot_commands_count = flag_rest_argc();
 
   if (*args.tournament) {
-    RunTournament(*args.map_file, (const char *const *)(args.bot_commands),
-                  args.bot_commands_count);
-    nob_da_free(tournament);
+    TournametData tournament =
+        RunTournament(*args.map_file, (const char *const *)(args.bot_commands),
+                      args.bot_commands_count);
+
+    FreeInnerTournametData(tournament);
     return 0;
   }
 
