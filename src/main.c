@@ -1,7 +1,6 @@
 #include "viewer.h"
 
 #include "game.h"
-#include "planet_wars.h"
 
 #define FLAG_IMPLEMENTATION
 #include "flag.h"
@@ -9,7 +8,6 @@
 #define NOB_IMPLEMENTATION
 #include "nob.h"
 
-#include <math.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
