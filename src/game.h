@@ -2,6 +2,7 @@
 #define GAME_H
 #include "nob.h"
 #include "planet_wars.h"
+#include "utils.h"
 
 #include <stdint.h>
 #include <stdio.h>
@@ -15,6 +16,23 @@
 typedef uint32_t BotBitset;
 _Static_assert(MAX_BOT_AMOUNT <= sizeof(BotBitset) * CHAR_BIT,
                "BotBitset is not wide enough to hold max amount of bots");
+
+DefineComplexStruct(LogEntry, {
+  Fleet *fleets;
+  Planet *planets;
+  size_t planet_count;
+  size_t fleet_count;
+  int remaining_bots;
+});
+
+typedef struct {
+  char **bot_commands;
+  LogEntry *items;
+  size_t count;
+  size_t capacity;
+  uint_fast8_t bot_amount;
+  uint_fast8_t winning_bot;
+} GameLog;
 
 typedef struct {
   struct subprocess_s *items;

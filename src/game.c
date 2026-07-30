@@ -14,6 +14,26 @@
       fprintf(state->log_file, fmt, ##__VA_ARGS__);                            \
   } while (0)
 
+LogEntry DeepCopyLogEntry(LogEntry entry) {
+  LogEntry new_entry = {
+      .fleets = malloc(sizeof *entry.fleets * entry.fleet_count),
+      .planets = malloc(sizeof *entry.planets * entry.planet_count),
+      .planet_count = entry.planet_count,
+      .fleet_count = entry.fleet_count,
+      .remaining_bots = entry.remaining_bots,
+  };
+  memcpy(new_entry.fleets, entry.fleets,
+         sizeof *entry.fleets * entry.fleet_count);
+  memcpy(new_entry.planets, entry.planets,
+         sizeof *entry.planets * entry.planet_count);
+  return new_entry;
+}
+
+void FreeInnerLogEntry(LogEntry entry) {
+  free(entry.fleets);
+  free(entry.planets);
+}
+
 void StartBots(GameState *state, const char *const commands[],
                int command_amount) {
   if (command_amount > MAX_BOT_AMOUNT) {
@@ -593,16 +613,13 @@ void RunGame(GameState *state) {
     // Game logic
     state->remaining_bots = AdvanceTurn(state);
 
-    LogEntry entry = {
+    LogEntry entry = DeepCopyLogEntry((LogEntry){
         .remaining_bots = state->remaining_bots,
         .fleet_count = state->fleets.count,
-        .fleets = malloc(sizeof *state->fleets.items * state->fleets.count),
+        .fleets = state->fleets.items,
         .planet_count = state->planets.count,
-        .planets = malloc(sizeof *state->planets.items * state->planets.count)};
-    memcpy(entry.fleets, state->fleets.items,
-           sizeof *state->fleets.items * state->fleets.count);
-    memcpy(entry.planets, state->planets.items,
-           sizeof *state->planets.items * state->planets.count);
+        .planets = state->planets.items,
+    });
 
     nob_da_append(&state->game_log, entry);
   }
