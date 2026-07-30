@@ -46,7 +46,7 @@ bool compile_raylib() {
 
     nob_cmd_append(&cmd, "-fno-strict-aliasing");
     nob_cmd_append(&cmd, "-std=c99");
-    nob_cmd_append(&cmd, "-O2");
+    nob_cmd_append(&cmd, "-flto=auto", "-O2");
 
     nob_cmd_append(&cmd, "-Iexternal/raylib");
     nob_cmd_append(&cmd, "-Iexternal/raylib/external/glfw/include");
@@ -59,7 +59,7 @@ bool compile_raylib() {
 
   if (!nob_procs_flush(&procs))
     return false;
-  nob_cmd_append(&cmd, "ar", "rcs", RAYLIB_LIB);
+  nob_cmd_append(&cmd, "gcc-ar", "rcs", RAYLIB_LIB);
   for (size_t i = 0; i < NOB_ARRAY_LEN(module_names); i++) {
     nob_cmd_append(&cmd, nob_temp_sprintf(BUILD_DIR "/%s.o", module_names[i]));
   }
@@ -77,7 +77,9 @@ int main(int argc, char **argv) {
 
   Nob_Cmd cmd = {0};
   nob_cc(&cmd);
-  nob_cmd_append(&cmd, "-Wall", "-Wextra", "-Wpadded");
+  nob_cmd_append(&cmd, "-Wall", "-Wextra"
+                 // , "-Wpadded"
+               );
   nob_cmd_append(&cmd, "src/main.c", "src/game.c", RAYLIB_LIB);
   nob_cmd_append(&cmd, "-isystemexternal/raylib");
   nob_cmd_append(&cmd, "-isystemexternal");
@@ -93,7 +95,7 @@ int main(int argc, char **argv) {
     nob_log(NOB_WARNING, "Compiling program in debug mode");
     nob_cmd_append(&cmd, "-fsanitize=address,undefined", "-g", "-O0");
   } else {
-    nob_cmd_append(&cmd, "-O2");
+    nob_cmd_append(&cmd, "-flto=auto", "-O2");
   }
   nob_cc_output(&cmd, "planet_wars");
 
