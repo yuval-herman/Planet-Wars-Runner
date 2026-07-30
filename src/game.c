@@ -40,20 +40,14 @@ GameLog DeepCopyGameLog(GameLog game_log) {
     log_entries[i] = DeepCopyLogEntry(game_log.items[i]);
   }
 
-  char **bot_commands = malloc(sizeof *bot_commands * game_log.bot_amount);
-  for (size_t i = 0; i < game_log.bot_amount; i++) {
-    size_t cmd_len = strlen(game_log.bot_commands[i]) + 1;
-    bot_commands[i] = malloc(sizeof *bot_commands[i] * cmd_len);
-    memcpy(bot_commands[i], game_log.bot_commands[i], cmd_len);
-  }
-
   GameLog new_game_log = {
       .count = game_log.count,
       .capacity = game_log.capacity,
       .bot_amount = game_log.bot_amount,
       .winning_bot = game_log.winning_bot,
       .items = log_entries,
-      .bot_commands = bot_commands,
+      .bot_commands = DupeMultiDString(
+          (char const *const *)game_log.bot_commands, game_log.bot_amount),
   };
   return new_game_log;
 }
@@ -64,10 +58,7 @@ void FreeInnerGameLog(GameLog game_log) {
   }
   free(game_log.items);
 
-  for (size_t i = 0; i < game_log.bot_amount; i++) {
-    free(game_log.bot_commands[i]);
-  }
-  free(game_log.bot_commands);
+  FreeMultiDString(game_log.bot_commands, game_log.bot_amount);
 }
 
 GameState DeepCopyGameState(GameState state) {
@@ -79,6 +70,7 @@ GameState DeepCopyGameState(GameState state) {
   // perhaps you should reconsider what you are trying to do.
   NOB_UNREACHABLE("Coping game state is unsupported.");
 }
+
 void FreeInnerGameState(GameState state) {
   FreeInnerGameLog(state.game_log);
   nob_da_free(state.planets);
@@ -226,15 +218,7 @@ GameState MakeGame(const char *map_file_path,
 
   state.game_log.bot_amount = bot_count;
 
-  char **bot_commands = malloc(sizeof *bot_commands * bot_count);
-
-  for (int i = 0; i < bot_count; i++) {
-    size_t cmd_len = strlen(bot_start_commands[i]) + 1;
-    bot_commands[i] = malloc(sizeof *bot_commands[i] * cmd_len);
-    memcpy(bot_commands[i], bot_start_commands[i], cmd_len);
-  }
-
-  state.game_log.bot_commands = bot_commands;
+  state.game_log.bot_commands = DupeMultiDString(bot_start_commands, bot_count);
   return state;
 }
 

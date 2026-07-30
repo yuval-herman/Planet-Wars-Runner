@@ -8,6 +8,8 @@
 #endif
 
 #include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
 
 // ----- MACROS -----
 
@@ -55,4 +57,22 @@ static inline void sleep_ms(unsigned ms) {
   nanosleep(&ts, NULL);
 }
 #endif
+
+inline static char **DupeMultiDString(char const *const *md_str, size_t dim) {
+  char **new_md_str = malloc(sizeof *new_md_str * dim);
+  for (size_t i = 0; i < dim; i++) {
+    size_t cmd_len = strlen(md_str[i]) + 1;
+    new_md_str[i] = malloc(sizeof *new_md_str[i] * cmd_len);
+    memcpy(new_md_str[i], md_str[i], cmd_len);
+  }
+  return new_md_str;
+}
+
+inline static void FreeMultiDString(char **md_str, size_t dim) {
+  for (size_t i = 0; i < dim; i++) {
+    free(md_str[i]);
+  }
+  free(md_str);
+}
+
 #endif // UTILS_H
