@@ -70,6 +70,24 @@ void FreeInnerGameLog(GameLog game_log) {
   free(game_log.bot_commands);
 }
 
+GameState DeepCopyGameState(GameState state) {
+  NOB_UNUSED(state);
+  // Copying is unsupported because game state contains some things relevant to
+  // a single game that would not make sense duplicated, such as bot processes.
+  // It would be technically possible to spin up new bot processes using the
+  // same command and so on, but it wouldn't make sense. If you got here,
+  // perhaps you should reconsider what you are trying to do.
+  NOB_UNREACHABLE("Coping game state is unsupported.");
+}
+void FreeInnerGameState(GameState state) {
+  FreeInnerGameLog(state.game_log);
+  nob_da_free(state.planets);
+  nob_da_free(state.fleets);
+  StopAndFreeBots(&state.bot_processes);
+  if (state.log_file)
+    fclose(state.log_file);
+}
+
 void StartBots(GameState *state, const char *const commands[],
                int command_amount) {
   if (command_amount > MAX_BOT_AMOUNT) {
@@ -656,17 +674,6 @@ void RunGame(GameState *state) {
   nob_log(NOB_INFO, "Bot %d won!", winning_bot + 1);
 
   nob_sb_free(bot_message);
-}
-
-void FreeState(GameState *state) {
-  FreeInnerGameLog(state->game_log);
-  nob_da_free(state->planets);
-  nob_da_free(state->fleets);
-  StopAndFreeBots(&state->bot_processes);
-  if (state->log_file)
-    fclose(state->log_file);
-
-  memset(state, 0, sizeof *state);
 }
 
 void StopAndFreeBots(BotProcesses *bot_processes) {
