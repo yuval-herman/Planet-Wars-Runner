@@ -97,6 +97,21 @@ void FreeInnerBot(Bot bot) {
   StopBot(bot);
 }
 
+BotsDA DeepCopyBotsDA(BotsDA bots) {
+  BotsDA new_bots = {
+      .items = malloc(sizeof *bots.items * bots.count),
+      .count = bots.count,
+      .capacity = bots.count,
+  };
+  nob_da_foreach(Bot, bot, &new_bots) { *bot = DeepCopyBot(*bot); }
+  return new_bots;
+}
+
+void FreeInnerBotsDA(BotsDA bots) {
+  nob_da_foreach(Bot, bot, &bots) { FreeInnerBot(*bot); }
+  nob_da_free(bots);
+}
+
 void StopBot(Bot bot) {
   subprocess_terminate(bot.process);
   subprocess_destroy(bot.process);
