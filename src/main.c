@@ -2,6 +2,7 @@
 
 #include "game.h"
 #include "ini.h"
+#include "src/tournament.h"
 #include <src/utils.h>
 
 #define FLAG_IMPLEMENTATION
@@ -27,6 +28,7 @@ typedef struct {
 
 // Configuration for the entire system.
 DefineComplexStruct(Configs, {
+  bool tournament;
   bool write_log;
   char *map_file;
   BotsDA bots;
@@ -73,6 +75,15 @@ int handler(void *user_data, const char *section, const char *name,
   */
 
 #define MATCH(l, r) strcmp(l, r) == 0
+#define SET_BOOL(var)                                                          \
+  int p_bool = ParseBool(value);                                               \
+  if (p_bool < 0) {                                                            \
+    nob_log(NOB_ERROR, #var " may only be set to `true` or `false`. line %d.", \
+            lineno);                                                           \
+    return 0;                                                                  \
+  }                                                                            \
+  var = p_bool;
+
   Configs *config = (Configs *)user_data;
 
   if (name == NULL && value == NULL) {
@@ -86,16 +97,10 @@ int handler(void *user_data, const char *section, const char *name,
   if (MATCH(section, "application")) {
 
     if (MATCH(name, "write_log")) {
-      if (MATCH(value, "true")) {
-        config->write_log = true;
-      } else if (MATCH(value, "false")) {
-        config->write_log = false;
-      } else {
-        nob_log(NOB_ERROR,
-                "write_log may only be set to `true` or `false`. line %d.",
-                lineno);
-        return 0;
-      }
+      SET_BOOL(config->write_log);
+    }
+    if (MATCH(name, "tournament")) {
+      SET_BOOL(config->tournament);
     }
 
   } else if (MATCH(section, "simulation")) {
@@ -189,13 +194,19 @@ int main(int argc, char *argv[]) {
       return 1;
   }
 
-  GameState state = MakeGame(configs.map_file, configs.bots, configs.write_log);
+  if (configs.tournament) {
+    TournametData tournament = RunTournament(configs.map_file, configs.bots);
+    FreeInnerTournametData(tournament);
+  } else {
+    GameState state =
+        MakeGame(configs.map_file, configs.bots, configs.write_log);
 
-  RunGame(&state);
+    RunGame(&state);
 
-  RunViewerForGame(state);
+    RunViewerForGame(state);
 
-  FreeInnerGameState(state);
+    FreeInnerGameState(state);
+  }
   FreeInnerConfigs(configs);
   return 0;
 }
