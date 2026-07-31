@@ -1,4 +1,5 @@
 #include "tournament.h"
+#include "src/game.h"
 
 TournametData DeepCopyTournametData(TournametData tournament) {
   TournametData new_tournament = {
@@ -19,19 +20,20 @@ void FreeInnerTournametData(TournametData tournament) {
   nob_da_free(tournament);
 }
 
-TournametData RunTournament(const char *map_file_path,
-                            const char *const bot_start_commands[],
-                            int bot_count) {
+TournametData RunTournament(const char *map_file_path, BotsDA bots) {
   TournametData tournament = {0};
-  char const *playing_bot_commands[2];
+  BotsDA playing_bots = {0};
+  playing_bots.count = 2;
+  playing_bots.capacity = playing_bots.count;
+  playing_bots.items = malloc(sizeof *playing_bots.items * playing_bots.count);
 
-  for (int p1_idx = 0; p1_idx < bot_count - 1; p1_idx++) {
-    for (int p2_idx = p1_idx + 1; p2_idx < bot_count; p2_idx++) {
-      playing_bot_commands[0] = bot_start_commands[p1_idx];
-      playing_bot_commands[1] = bot_start_commands[p2_idx];
+  for (size_t p1_idx = 0; p1_idx < bots.count - 1; p1_idx++) {
+    for (size_t p2_idx = p1_idx + 1; p2_idx < bots.count; p2_idx++) {
+      playing_bots.items[0] = bots.items[p1_idx];
+      playing_bots.items[1] = bots.items[p2_idx];
 
-      // Run a full game, slilence normal logging so we don't clog the terminal
-      GameState state = MakeGame(map_file_path, playing_bot_commands, 2, false);
+      // Run a full game, silence normal logging so we don't clog the terminal
+      GameState state = MakeGame(map_file_path, playing_bots, false);
       nob_minimal_log_level = NOB_WARNING;
       RunGame(&state);
       nob_minimal_log_level = NOB_INFO;
@@ -43,5 +45,6 @@ TournametData RunTournament(const char *map_file_path,
     }
   }
 
+  nob_da_free(playing_bots);
   return tournament;
 }
