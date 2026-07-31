@@ -1,5 +1,6 @@
 #include "tournament.h"
 #include "src/game.h"
+#include <stdlib.h>
 
 TournametData DeepCopyTournametData(TournametData tournament) {
   TournametData new_tournament = {
@@ -20,7 +21,15 @@ void FreeInnerTournametData(TournametData tournament) {
   nob_da_free(tournament);
 }
 
+#define GetBotName(idx)                                                        \
+  (playing_bots.items[idx].name ? playing_bots.items[idx].name                 \
+                                : nob_temp_sprintf("Player %d", idx + 1))
+
 TournametData RunTournament(const char *map_file_path, BotsDA bots) {
+  if (bots.count < 3) {
+    nob_log(NOB_ERROR, "A tournament cannot be run for less then 3 bots.");
+    exit(1);
+  }
   TournametData tournament = {0};
   BotsDA playing_bots = {0};
   playing_bots.count = 2;
@@ -31,14 +40,19 @@ TournametData RunTournament(const char *map_file_path, BotsDA bots) {
     for (size_t p2_idx = p1_idx + 1; p2_idx < bots.count; p2_idx++) {
       playing_bots.items[0] = bots.items[p1_idx];
       playing_bots.items[1] = bots.items[p2_idx];
+      nob_log(NOB_INFO, "Running match between %s and %s", GetBotName(0),
+              GetBotName(1));
 
       // Run a full game, silence normal logging so we don't clog the terminal
+      // TODO split the `MakeGame` function to more sub-functions so we can load
+      // maps, bots and other stuff once instead of on every match.
       GameState state = MakeGame(map_file_path, playing_bots, false);
       nob_minimal_log_level = NOB_WARNING;
       RunGame(&state);
       nob_minimal_log_level = NOB_INFO;
 
       GameLog game_log_copy = DeepCopyGameLog(state.game_log);
+      nob_log(NOB_INFO, "%s won.", GetBotName(game_log_copy.winning_bot));
 
       nob_da_append(&tournament, game_log_copy);
       FreeInnerGameState(state);
