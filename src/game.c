@@ -72,8 +72,7 @@ void FreeInnerGameState(GameState state) {
   FreeInnerGameLog(state.game_log);
   nob_da_free(state.planets);
   nob_da_free(state.fleets);
-  nob_da_foreach(Bot, bot, &state.bots) { FreeInnerBot(*bot); }
-  nob_da_free(state.bots);
+  FreeInnerBotsDA(state.bots);
   if (state.log_file)
     fclose(state.log_file);
 }
@@ -84,17 +83,17 @@ Bot DeepCopyBot(Bot bot) {
   Bot new_bot = {
       .name = strdup(bot.name),
       .start_command = strdup(bot.start_command),
-      .process = bot.process,
+      .process = NULL,
   };
   return new_bot;
 }
 
 // This DOES stop and free the bot process.
 void FreeInnerBot(Bot bot) {
+  StopBot(bot);
   free(bot.name);
   free(bot.start_command);
   free(bot.process);
-  StopBot(bot);
 }
 
 BotsDA DeepCopyBotsDA(BotsDA bots) {
@@ -103,16 +102,23 @@ BotsDA DeepCopyBotsDA(BotsDA bots) {
       .count = bots.count,
       .capacity = bots.count,
   };
-  nob_da_foreach(Bot, bot, &new_bots) { *bot = DeepCopyBot(*bot); }
+  for (size_t i = 0; i < bots.count; i++) {
+    new_bots.items[i] = DeepCopyBot(bots.items[i]);
+  }
   return new_bots;
 }
 
 void FreeInnerBotsDA(BotsDA bots) {
-  nob_da_foreach(Bot, bot, &bots) { FreeInnerBot(*bot); }
+  nob_da_foreach(Bot, bot, &bots) {
+    FreeInnerBot(*bot);
+    bot->process = NULL;
+  }
   nob_da_free(bots);
 }
 
 void StopBot(Bot bot) {
+  if (bot.process == NULL)
+    return;
   subprocess_terminate(bot.process);
   subprocess_destroy(bot.process);
 }
@@ -129,7 +135,6 @@ void StartBot(Bot bot) {
     // all cases, perhaps returning a bool would be better.
     exit(1);
   }
-  bot.process = malloc(sizeof *bot.process);
   int result = subprocess_create(split_command.items,
                                  subprocess_option_search_user_path |
                                      subprocess_option_inherit_environment |
@@ -227,13 +232,14 @@ GameState MakeGame(const char *map_file_path, BotsDA bots, bool log) {
   }
 
   // ----- BOTS -----
-  nob_da_foreach(Bot, bot, &bots) {
+  state.bots = DeepCopyBotsDA(bots);
+  nob_da_foreach(Bot, bot, &state.bots) {
     if (bot->process == NULL)
       bot->process = malloc(sizeof *bot->process);
     StartBot(*bot);
   }
   state.remaining_bots = state.bots.count;
-  state.game_log.bots = DeepCopyBotsDA(state.bots);
+  state.game_log.bots = DeepCopyBotsDA(bots);
 
   return state;
 }

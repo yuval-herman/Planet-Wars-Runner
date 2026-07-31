@@ -63,8 +63,7 @@ Configs DeepCopyConfigs(Configs config) {
 
 void FreeInnerConfigs(Configs config) {
   free(config.map_file);
-  nob_da_foreach(Bot, bot, &config.bots) { FreeInnerBot(*bot); }
-  nob_da_free(config.bots);
+  FreeInnerBotsDA(config.bots);
 }
 
 int handler(void *user_data, const char *section, const char *name,
