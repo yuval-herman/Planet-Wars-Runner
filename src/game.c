@@ -149,6 +149,7 @@ void StartBot(Bot bot) {
     // See comment on previous exit
     exit(1);
   }
+  nob_cmd_free(split_command);
 }
 
 // Parse map file, saving the map into the game state and returning the amount
