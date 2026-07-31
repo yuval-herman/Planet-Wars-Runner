@@ -22,8 +22,8 @@ void FreeInnerTournametData(TournametData tournament) {
 }
 
 #define GetBotName(idx)                                                        \
-  (playing_bots.items[idx].name ? playing_bots.items[idx].name                 \
-                                : nob_temp_sprintf("Player %d", idx + 1))
+  (bots.items[idx].name ? bots.items[idx].name                                 \
+                        : nob_temp_sprintf("Player %zu", idx + 1))
 
 TournametData RunTournament(const char *map_file_path, BotsDA bots) {
   if (bots.count < 3) {
@@ -40,8 +40,8 @@ TournametData RunTournament(const char *map_file_path, BotsDA bots) {
     for (size_t p2_idx = p1_idx + 1; p2_idx < bots.count; p2_idx++) {
       playing_bots.items[0] = bots.items[p1_idx];
       playing_bots.items[1] = bots.items[p2_idx];
-      nob_log(NOB_INFO, "Running match between %s and %s", GetBotName(0),
-              GetBotName(1));
+      nob_log(NOB_INFO, "Running match between %s and %s", GetBotName(p1_idx),
+              GetBotName(p2_idx));
 
       // Run a full game, silence normal logging so we don't clog the terminal
       // TODO split the `MakeGame` function to more sub-functions so we can load
@@ -52,7 +52,8 @@ TournametData RunTournament(const char *map_file_path, BotsDA bots) {
       nob_minimal_log_level = NOB_INFO;
 
       GameLog game_log_copy = DeepCopyGameLog(state.game_log);
-      nob_log(NOB_INFO, "%s won.", GetBotName(game_log_copy.winning_bot));
+      size_t winner_idx = game_log_copy.winning_bot == 0 ? p1_idx : p2_idx;
+      nob_log(NOB_INFO, "%s won.", GetBotName(winner_idx));
 
       nob_da_append(&tournament, game_log_copy);
       FreeInnerGameState(state);
