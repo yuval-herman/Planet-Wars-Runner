@@ -53,19 +53,24 @@ This is an example config file with comments explaining everything:
 ```ini
 [application]
 write_log = true             ; Whether to write a log.txt file containing the log of the battle.
+tournament = true            ; Whether to run a tournament between all supplied bots.
+                             ; this requires more bots specified then the map requires.
 
 [simulation]
 map = map.txt                ; Path to the map file that will be used.
 
-
 [bot]
-name = Best Bot              ; Name for the bot. Optional, but good for tournament mode.
-command = python best_bot.py ; Actuall command that will be invoked by the manager.
+name = Okay Bot              ; Name for the bot. Optional, but good for tournament mode.
+command = python okay_bot.py ; Actuall command that will be invoked by the manager.
 
 ; Each bot can be defined in it's own section
 [bot]
 name = Worst bot
 command = node worst_bot.js
+
+[bot]
+name = Best bot
+command = ./best_bot
 ```
 
 ## License
