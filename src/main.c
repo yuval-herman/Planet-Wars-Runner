@@ -16,12 +16,6 @@
 #include <string.h>
 #include <time.h>
 
-void Usage(FILE *stream) {
-  fprintf(stream, "Usage: %s [OPTIONS] [--] [ARGS]\n", flag_program_name());
-  fprintf(stream, "OPTIONS:\n");
-  flag_print_options(stream);
-}
-
 typedef struct {
   bool *help;
   bool *write_log;
@@ -30,6 +24,19 @@ typedef struct {
   char **bot_commands;
   int bot_commands_count;
 } CLIArguments;
+
+// Configuration for the entire system.
+DefineComplexStruct(Configs, {
+  bool write_log;
+  char *map_file;
+  BotsDA bots;
+});
+
+void Usage(FILE *stream) {
+  fprintf(stream, "Usage: %s [OPTIONS] [--] [ARGS]\n", flag_program_name());
+  fprintf(stream, "OPTIONS:\n");
+  flag_print_options(stream);
+}
 
 CLIArguments RegisterFlagArguments() {
   CLIArguments args;
@@ -47,20 +54,14 @@ CLIArguments RegisterFlagArguments() {
   return args;
 }
 
-DefineComplexStruct(ConfigArgs, {
-  bool write_log;
-  char *map_file;
-  BotsDA bots;
-});
-
-ConfigArgs DeepCopyConfigArgs(ConfigArgs config) {
+Configs DeepCopyConfigs(Configs config) {
   NOB_UNUSED(config);
   NOB_UNREACHABLE(
-      "You shouldn't try to copy Config args. If you really need to feel fre "
+      "You shouldn't try to copy configs. If you really need to feel free "
       "to implement this, but your'e probably doing something wrong.");
 }
 
-void FreeInnerConfigArgs(ConfigArgs config) {
+void FreeInnerConfigs(Configs config) {
   free(config.map_file);
   nob_da_foreach(Bot, bot, &config.bots) { FreeInnerBot(*bot); }
   nob_da_free(config.bots);
@@ -73,7 +74,7 @@ int handler(void *user_data, const char *section, const char *name,
   */
 
 #define MATCH(l, r) strcmp(l, r) == 0
-  ConfigArgs *config = (ConfigArgs *)user_data;
+  Configs *config = (Configs *)user_data;
 
   if (name == NULL && value == NULL) {
     // If we start parsing a new bot, reserve it's place
@@ -126,46 +127,51 @@ int handler(void *user_data, const char *section, const char *name,
 #undef MATCH
 }
 
-int RunFlags(CLIArguments args) {
-  if (*args.map_file) {
-    nob_log(NOB_ERROR, "A map file must be provided.");
+int VerifyConfigs(Configs configs) {
+  if (configs.bots.count == 0) {
+    nob_log(NOB_ERROR, "No bots provided.");
     return 1;
   }
-}
-
-int RunConfig(const char *config_path) {
-  ConfigArgs config_args = {0};
-
-  if (ini_parse(config_path, handler, &config_args) < 0) {
-    nob_log(NOB_ERROR, "Failed parsing config file");
-    return 1;
-  }
-
-  if (config_args.bots.count == 0) {
-    nob_log(NOB_ERROR, "Bots must be provided through the config file when "
-                       "using a config file.");
-    return 1;
-  }
-  nob_da_foreach(Bot, bot, &config_args.bots) {
+  nob_da_foreach(Bot, bot, &configs.bots) {
     if (bot->start_command == NULL) {
       nob_log(NOB_ERROR,
-              "A bot was provided %s without a command in the config "
-              "file. Please supply a command, name is potional.",
+              "A bot was provided%s without a command. Please supply a "
+              "command, name is potional.",
               bot->name == NULL
                   ? ""
-                  : nob_temp_sprintf("with the name %s", bot->name));
+                  : nob_temp_sprintf(" with the name %s but", bot->name));
       return 1;
     }
   }
 
-  if (!config_args.map_file) {
+  if (!configs.map_file) {
     nob_log(NOB_ERROR, "A map file must be provided.");
     return 1;
   }
   return 0;
 }
 
+bool FillConfigsWithArgs(CLIArguments args, Configs *configs) {
+  if (!*args.map_file) {
+    nob_log(NOB_ERROR, "A map file must be provided.");
+    return false;
+  }
+  configs->write_log = *args.write_log;
+  configs->map_file = strdup(*args.map_file);
+
+  char *const *argv = flag_rest_argv();
+  const int argc = flag_rest_argc();
+  for (int i = 0; i < argc; i++) {
+    Bot bot = {0};
+    bot.start_command = strdup(argv[i]);
+    nob_da_append(&configs->bots, bot);
+  }
+
+  return true;
+}
+
 int main(int argc, char *argv[]) {
+  Configs configs = {0};
   CLIArguments args = RegisterFlagArguments();
   if (!flag_parse(argc, argv)) {
     Usage(stderr);
@@ -175,35 +181,22 @@ int main(int argc, char *argv[]) {
     Usage(stderr);
     return 0;
   } else if (*args.config_file) {
-    return RunConfig(*args.config_file);
-  }
-
-  return RunFlags(args);
-
-  GameState state;
-  if (!*args.config_file) {
-
-    args.bot_commands = flag_rest_argv();
-    args.bot_commands_count = flag_rest_argc();
-    state = MakeGame(*args.map_file, (const char *const *)(args.bot_commands),
-                     args.bot_commands_count, args.write_log);
-  } else {
-    Nob_Cmd bot_commands = {0};
-    nob_da_foreach(Bot, bot, &config_args.bots) {
-      nob_cmd_append(&bot_commands, bot->start_command);
+    if (ini_parse(*args.config_file, handler, &configs) < 0) {
+      nob_log(NOB_ERROR, "Failed parsing config file");
+      return 1;
     }
-
-    state = MakeGame(config_args.map_file, bot_commands.items,
-                     bot_commands.count, args.write_log);
-
-    nob_cmd_free(bot_commands);
-    FreeInnerConfigArgs(config_args);
+  } else {
+    if (!FillConfigsWithArgs(args, &configs))
+      return 1;
   }
+
+  GameState state = MakeGame(configs.map_file, configs.bots, configs.write_log);
 
   RunGame(&state);
 
   RunViewerForGame(state);
 
   FreeInnerGameState(state);
+  FreeInnerConfigs(configs);
   return 0;
 }
