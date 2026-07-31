@@ -1,4 +1,3 @@
-#include "tournament.h"
 #include "viewer.h"
 
 #include "game.h"
@@ -48,17 +47,6 @@ CLIArguments RegisterFlagArguments() {
   return args;
 }
 
-typedef struct {
-  char *name;
-  char *start_command;
-} Bot;
-
-typedef struct {
-  Bot *items;
-  size_t count;
-  size_t capacity;
-} BotsDA;
-
 DefineComplexStruct(ConfigArgs, {
   bool write_log;
   char *map_file;
@@ -66,6 +54,7 @@ DefineComplexStruct(ConfigArgs, {
 });
 
 ConfigArgs DeepCopyConfigArgs(ConfigArgs config) {
+  NOB_UNUSED(config);
   NOB_UNREACHABLE(
       "You shouldn't try to copy Config args. If you really need to feel fre "
       "to implement this, but your'e probably doing something wrong.");
@@ -73,10 +62,7 @@ ConfigArgs DeepCopyConfigArgs(ConfigArgs config) {
 
 void FreeInnerConfigArgs(ConfigArgs config) {
   free(config.map_file);
-  nob_da_foreach(Bot, bot, &config.bots) {
-    free(bot->name);
-    free(bot->start_command);
-  }
+  nob_da_foreach(Bot, bot, &config.bots) { FreeInnerBot(*bot); }
   nob_da_free(config.bots);
 }
 
@@ -140,44 +126,59 @@ int handler(void *user_data, const char *section, const char *name,
 #undef MATCH
 }
 
+int RunFlags(CLIArguments args) {
+  if (*args.map_file) {
+    nob_log(NOB_ERROR, "A map file must be provided.");
+    return 1;
+  }
+}
+
+int RunConfig(const char *config_path) {
+  ConfigArgs config_args = {0};
+
+  if (ini_parse(config_path, handler, &config_args) < 0) {
+    nob_log(NOB_ERROR, "Failed parsing config file");
+    return 1;
+  }
+
+  if (config_args.bots.count == 0) {
+    nob_log(NOB_ERROR, "Bots must be provided through the config file when "
+                       "using a config file.");
+    return 1;
+  }
+  nob_da_foreach(Bot, bot, &config_args.bots) {
+    if (bot->start_command == NULL) {
+      nob_log(NOB_ERROR,
+              "A bot was provided %s without a command in the config "
+              "file. Please supply a command, name is potional.",
+              bot->name == NULL
+                  ? ""
+                  : nob_temp_sprintf("with the name %s", bot->name));
+      return 1;
+    }
+  }
+
+  if (!config_args.map_file) {
+    nob_log(NOB_ERROR, "A map file must be provided.");
+    return 1;
+  }
+  return 0;
+}
+
 int main(int argc, char *argv[]) {
   CLIArguments args = RegisterFlagArguments();
-  ConfigArgs config_args = {0};
   if (!flag_parse(argc, argv)) {
     Usage(stderr);
     flag_print_error(stderr);
-    exit(1);
+    return 1;
   } else if (*args.help) {
     Usage(stderr);
     return 0;
   } else if (*args.config_file) {
-    if (ini_parse(*args.config_file, handler, &config_args) < 0) {
-      nob_log(NOB_ERROR, "Failed parsing config file");
-      return 1;
-    }
-    if (config_args.bots.count == 0 && args.bot_commands_count == 0) {
-      nob_log(
-          NOB_ERROR,
-          "Bots must be provided through the config file or CLI arguments.");
-      return 1;
-    }
-    nob_da_foreach(Bot, bot, &config_args.bots) {
-      if (bot->start_command == NULL) {
-        nob_log(NOB_ERROR,
-                "A bot was provided %s without a command in the config "
-                "file. Please supply a command, name is potional.",
-                bot->name == NULL
-                    ? ""
-                    : nob_temp_sprintf("with the name %s", bot->name));
-        return 1;
-      }
-    }
+    return RunConfig(*args.config_file);
   }
 
-  if ((*args.config_file && !config_args.map_file) || *args.map_file) {
-    nob_log(NOB_ERROR, "A map file must be provided.");
-    return 1;
-  }
+  return RunFlags(args);
 
   GameState state;
   if (!*args.config_file) {
@@ -187,8 +188,6 @@ int main(int argc, char *argv[]) {
     state = MakeGame(*args.map_file, (const char *const *)(args.bot_commands),
                      args.bot_commands_count, args.write_log);
   } else {
-    // TODO use the Bot struct all over the game to use name and other possible
-    // future metadata where necessary.
     Nob_Cmd bot_commands = {0};
     nob_da_foreach(Bot, bot, &config_args.bots) {
       nob_cmd_append(&bot_commands, bot->start_command);

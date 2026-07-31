@@ -25,36 +25,40 @@ DefineComplexStruct(LogEntry, {
   int remaining_bots;
 });
 
+DefineComplexStruct(Bot, {
+  char *name;
+  char *start_command;
+  struct subprocess_s *process;
+});
+
+DefineComplexStruct(BotsDA, {
+  Bot *items;
+  size_t count;
+  size_t capacity;
+});
+
 DefineComplexStruct(GameLog, {
-  char **bot_commands;
+  BotsDA bots;
   LogEntry *items;
   size_t count;
   size_t capacity;
-  uint_fast8_t bot_amount;
   uint_fast8_t winning_bot;
 });
-
-typedef struct {
-  struct subprocess_s *items;
-  size_t count;
-  size_t capacity;
-} BotProcesses;
 
 DefineComplexStruct(GameState, {
   GameLog game_log;
   PlanetDA planets;
   FleetsDA fleets;
-  BotProcesses bot_processes;
+  BotsDA bots;
   FILE *log_file;
   BotBitset bot_bit_set;
   int remaining_bots;
   int turn;
 });
 
-GameState MakeGame(const char *map_file_path,
-                   const char *const bot_start_commands[], int bot_count,
-                   bool log);
-void StopAndFreeBots(BotProcesses *bot_processes);
+GameState MakeGame(const char *map_file_path, BotsDA bots, bool log);
+void StopBot(Bot bot);
+void StartBot(Bot bot);
 void RunGame(GameState *state);
 void UpdateStateFromLogEntry(GameState *state, size_t entry_idx);
 

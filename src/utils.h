@@ -1,6 +1,8 @@
 #ifndef UTILS_H
 #define UTILS_H
 
+#include "nob.h"
+
 #ifdef _WIN32
 #include <windows.h>
 #else
@@ -37,6 +39,9 @@
   name DeepCopy##name(name);                                                   \
   ForceFunctionImplementation(name, DeepCopy##name, name);                     \
   /* Free all pointers inside the struct recursively. */                       \
+  /* TODO Maybe this function should accept a pointer? That way it could set   \
+   * inner pointer fields to null which would help debugging in case of                  \
+   * errors. */                                                                \
   void FreeInner##name(name);                                                  \
   ForceFunctionImplementation(void, FreeInner##name, name);
 
@@ -57,6 +62,27 @@ static inline void sleep_ms(unsigned ms) {
   nanosleep(&ts, NULL);
 }
 #endif
+
+// A version of `SplitStringByDelim` that accepts a Nob_Cmd pointer. If you
+// already used one and it has memory this can save allocations and time.
+inline static void SplitStringByDelimEx(Nob_Cmd *split_str, const char *str,
+                                        char delim) {
+  split_str->count = 0;
+  Nob_String_View view = {0};
+  view = nob_sv_from_cstr(str);
+
+  while (view.count > 0) {
+    nob_cmd_append(split_str,
+                   nob_temp_sv_to_cstr(nob_sv_chop_by_delim(&view, delim)));
+  }
+}
+
+inline static Nob_Cmd SplitStringByDelim(const char *str, char delim) {
+  Nob_Cmd split_str = {0};
+  SplitStringByDelimEx(&split_str, str, delim);
+
+  return split_str;
+}
 
 inline static char **DupeMultiDString(char const *const *md_str, size_t dim) {
   char **new_md_str = malloc(sizeof *new_md_str * dim);
