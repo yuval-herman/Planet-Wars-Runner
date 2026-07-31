@@ -42,16 +42,6 @@ typedef struct {
   size_t capacity;
 } FleetsDA;
 
-static inline void PrintPlanet(FILE *file, Planet planet) {
-  fprintf(file, "%s %d %d %d\n", planet.print_prefix, planet.owner,
-          planet.ships, planet.growth);
-}
-
-static inline void PrintFleet(FILE *file, Fleet fleet) {
-  fprintf(file, "F %d %d %d %d %d %d\n", fleet.owner, fleet.ships, fleet.src_id,
-          fleet.dst_id, fleet.total, fleet.remaining);
-}
-
 // Parses a float, advances s to the end of the parsed string, sets out to the
 // parsed value. Returns true on success false otherwise.
 static bool parse_float(const char **s, float *out) {

@@ -1,6 +1,11 @@
 #include "game.h"
 #include "subprocess.h"
 #include "utils.h"
+
+#define STB_SPRINTF_NOFLOAT
+#define STB_SPRINTF_IMPLEMENTATION
+#include "stb_sprintf.h"
+
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -274,6 +279,20 @@ void DisqualifyBot(GameState *state, size_t bot_idx) {
   UnsetBit(state->bot_bit_set, bot_idx);
 
   nob_log(NOB_INFO, "Disqualified bot %zu.", bot_idx);
+}
+
+static inline void PrintPlanet(FILE *file, Planet planet) {
+  char buf[64];
+  int len = stbsp_sprintf(buf, "%s %d %d %d\n", planet.print_prefix, planet.owner,
+          planet.ships, planet.growth);
+  fwrite(buf, sizeof *buf, len, file);
+}
+
+static inline void PrintFleet(FILE *file, Fleet fleet) {
+  char buf[64];
+  int len = stbsp_sprintf(buf, "F %d %d %d %d %d %d\n",fleet.owner, fleet.ships, fleet.src_id,
+          fleet.dst_id, fleet.total, fleet.remaining);
+  fwrite(buf, sizeof *buf, len, file);
 }
 
 void sendMapToBot(GameState *state, size_t bot_idx) {
