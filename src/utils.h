@@ -55,8 +55,36 @@ static inline int bit_index(uint32_t x) {
 }
 
 #ifdef _WIN32
+static inline void sleep_ns(uint64_t ns) {
+  // Create a manual-reset waitable timer
+  HANDLE timer = CreateWaitableTimer(NULL, TRUE, NULL);
+  if (!timer)
+    return;
+
+  // Negative values indicate relative time for SetWaitableTimer
+  // Windows uses 100-nanosecond units.
+  // Clamp to what fits in signed 64-bit.
+  const int64_t ticks = (ns > (uint64_t)LLONG_MAX / 10ULL)
+                            ? LLONG_MIN / 2
+                            : -(int64_t)(ns / 100ULL); // ns -> 100ns
+
+  LARGE_INTEGER due;
+  due.QuadPart = ticks;
+
+  // We don't need periodic behavior
+  SetWaitableTimer(timer, &due, 0, NULL, NULL, FALSE);
+  WaitForSingleObject(timer, INFINITE);
+
+  CloseHandle(timer);
+}
 static inline void sleep_ms(unsigned ms) { Sleep(ms); }
 #else
+static inline void sleep_ns(uint64_t ns) {
+  struct timespec ts;
+  ts.tv_sec = (time_t)(ns / 1000000000ULL);
+  ts.tv_nsec = (long)(ns % 1000000000ULL);
+  nanosleep(&ts, NULL);
+}
 static inline void sleep_ms(unsigned ms) {
   struct timespec ts;
   ts.tv_sec = ms / 1000;

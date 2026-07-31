@@ -283,15 +283,16 @@ void DisqualifyBot(GameState *state, size_t bot_idx) {
 
 static inline void PrintPlanet(FILE *file, Planet planet) {
   char buf[64];
-  int len = stbsp_sprintf(buf, "%s %d %d %d\n", planet.print_prefix, planet.owner,
-          planet.ships, planet.growth);
+  int len = stbsp_sprintf(buf, "%s %d %d %d\n", planet.print_prefix,
+                          planet.owner, planet.ships, planet.growth);
   fwrite(buf, sizeof *buf, len, file);
 }
 
 static inline void PrintFleet(FILE *file, Fleet fleet) {
   char buf[64];
-  int len = stbsp_sprintf(buf, "F %d %d %d %d %d %d\n",fleet.owner, fleet.ships, fleet.src_id,
-          fleet.dst_id, fleet.total, fleet.remaining);
+  int len =
+      stbsp_sprintf(buf, "F %d %d %d %d %d %d\n", fleet.owner, fleet.ships,
+                    fleet.src_id, fleet.dst_id, fleet.total, fleet.remaining);
   fwrite(buf, sizeof *buf, len, file);
 }
 
@@ -375,7 +376,7 @@ bool GetBotMessage(GameState *state, Nob_String_Builder *sb, size_t bot_idx) {
         sb->count = 0;
         return false;
       }
-      sleep_ms(2);
+      sleep_ns(WAIT_SLEEP_TIME);
       continue;
     }
     sb->count += received;
