@@ -6,9 +6,11 @@
 #ifdef _WIN32
 #include <windows.h>
 #else
+#include <strings.h>
 #include <time.h>
 #endif
 
+#include <ctype.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -40,7 +42,7 @@
   ForceFunctionImplementation(name, DeepCopy##name, name);                     \
   /* Free all pointers inside the struct recursively. */                       \
   /* TODO Maybe this function should accept a pointer? That way it could set   \
-   * inner pointer fields to null which would help debugging in case of                  \
+   * inner pointer fields to null which would help debugging in case of        \
    * errors. */                                                                \
   void FreeInner##name(name);                                                  \
   ForceFunctionImplementation(void, FreeInner##name, name);
@@ -101,4 +103,22 @@ inline static void FreeMultiDString(char **md_str, size_t dim) {
   free(md_str);
 }
 
+inline static int ParseBool(const char *str) {
+  if (!str)
+    return -1;
+
+#ifdef _WIN32
+  if (_stricmp(str, "true") == 0)
+    return 1;
+  if (_stricmp(str, "false") == 0)
+    return 0;
+#else
+  if (strcasecmp(str, "true") == 0)
+    return 1;
+  if (strcasecmp(str, "false") == 0)
+    return 0;
+#endif
+
+  return -1;
+}
 #endif // UTILS_H
