@@ -232,7 +232,7 @@ void DrawControls(GameState *state) {
   text_measurements = MeasureTextEx(font, player_text, font_size, spacing);
   float total_labels_width = (text_measurements.x + indicator_size +
                               text_margin + margin_between_players) *
-                                 state->bot_processes.count -
+                                 state->bots.count -
                              margin_between_players;
 
   Rectangle color_indicator = {.x = (GetScreenWidth() - total_labels_width) / 2,
@@ -240,7 +240,7 @@ void DrawControls(GameState *state) {
                                .width = indicator_size,
                                .height = indicator_size};
 
-  for (size_t i = 0; i < state->bot_processes.count; i++) {
+  for (size_t i = 0; i < state->bots.count; i++) {
     Color player_color = GetOwnerColor(i + 1);
 
     DrawRectangleRec(color_indicator, player_color);

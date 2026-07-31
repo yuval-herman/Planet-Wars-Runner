@@ -1,6 +1,6 @@
 # Planet Wars C Engine & Visualizer
 
-A lightweight, high-performance, cross-platform engine and visualizer written in C for Planet Wars, according to the **Google Planet Wars 2010 AI Challenge** specification with few additions. 
+A lightweight, high-performance, cross-platform engine and visualizer written in C for Planet Wars, according to the **Google Planet Wars 2010 AI Challenge** specification with some new additions.
 
 This project simulates multi-bot space strategy battles in real time, executing bot binaries as asynchronous child processes over standard IPC, tracking the simulation log, and rendering the battle using [raylib](https://www.raylib.com/).
 
@@ -11,7 +11,8 @@ This project simulates multi-bot space strategy battles in real time, executing 
 ### Prerequisites
 
 * A standard C compiler (`gcc` or `clang`)
-* Raylib dependencies. Make sure to read raylibs compilation page before this. You can also download a raylib release and place the `libraylib.a` file inside the `build` folder.
+* Raylib dependencies. Make sure to read raylibs compilation page before this.
+  If you don't want to compile raylib from scratch, you can also download a raylib release from [here](https://github.com/raysan5/raylib/releases) and place the `libraylib.a`(Linux) or `libraylib.lib`(windows) file inside the `build` folder.
 
 ### Building the Project
 
@@ -29,18 +30,43 @@ The build script supports auto-rebuilding via `NOB_GO_REBUILD_URSELF`. Execute `
 
 ## Running the Simulation
 
-Upon a successful build, the compiled executable `main` will be generated in the root directory.
+Upon a successful build, the compiled executable `planet_wars` will be generated in the root directory.
 
 Run the binary to launch the engine and visualizer:
 
 ```bash
-./main <map_file> <bot1> <bot2>...
+./planet_wars -help
 ```
 
 #### Keyboard controls
 
 - **right/left** - jump one turn forewards/backwards
-- **space** - pause/unpause replay
+- **up/down**    - increase/decrease replay speed
+- **space**      - pause/unpause replay
+
+## Configuration file
+
+You can specify a config file by using the `-config` flag and providing a path to a `.ini` file.
+
+This is an example config file with comments explaining everything:
+
+```ini
+[application]
+write_log = true             ; Whether to write a log.txt file containing the log of the battle.
+
+[simulation]
+map = map.txt                ; Path to the map file that will be used.
+
+
+[bot]
+name = Best Bot              ; Name for the bot. Optional, but good for tournament mode.
+command = python best_bot.py ; Actuall command that will be invoked by the manager.
+
+; Each bot can be defined in it's own section
+[bot]
+name = Worst bot
+command = node worst_bot.js
+```
 
 ## License
 

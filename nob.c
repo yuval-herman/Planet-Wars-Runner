@@ -80,8 +80,15 @@ int main(int argc, char **argv) {
   nob_cmd_append(&cmd, "-Wall", "-Wextra"
                  // , "-Wpadded"
   );
-  nob_cmd_append(&cmd, "src/main.c", "src/game.c", "src/viewer.c", RAYLIB_LIB);
+  nob_cmd_append(&cmd, "src/main.c", "src/game.c", "src/viewer.c",
+                 "src/tournament.c", );
+  nob_cmd_append(&cmd, "-DINI_ALLOW_MULTILINE=0", "-DINI_STOP_ON_FIRST_ERROR=1",
+                 "-DINI_HANDLER_LINENO=1",
+                 "-DINI_CALL_HANDLER_ON_NEW_SECTION=1", "-DINI_MAX_LINE=1000",
+                 "external/inih/ini.c");
+  nob_cmd_append(&cmd, RAYLIB_LIB);
   nob_cmd_append(&cmd, "-isystemexternal/raylib");
+  nob_cmd_append(&cmd, "-isystemexternal/inih");
   nob_cmd_append(&cmd, "-isystemexternal");
   nob_cmd_append(&cmd, "-isystem.");
   nob_cmd_append(&cmd, "-lm");

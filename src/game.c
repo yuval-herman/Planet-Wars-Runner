@@ -43,11 +43,9 @@ GameLog DeepCopyGameLog(GameLog game_log) {
   GameLog new_game_log = {
       .count = game_log.count,
       .capacity = game_log.capacity,
-      .bot_amount = game_log.bot_amount,
       .winning_bot = game_log.winning_bot,
       .items = log_entries,
-      .bot_commands = DupeMultiDString(
-          (char const *const *)game_log.bot_commands, game_log.bot_amount),
+      .bots = DeepCopyBotsDA(game_log.bots),
   };
   return new_game_log;
 }
@@ -57,8 +55,7 @@ void FreeInnerGameLog(GameLog game_log) {
     FreeInnerLogEntry(game_log.items[i]);
   }
   free(game_log.items);
-
-  FreeMultiDString(game_log.bot_commands, game_log.bot_amount);
+  FreeInnerBotsDA(game_log.bots);
 }
 
 GameState DeepCopyGameState(GameState state) {
@@ -75,64 +72,89 @@ void FreeInnerGameState(GameState state) {
   FreeInnerGameLog(state.game_log);
   nob_da_free(state.planets);
   nob_da_free(state.fleets);
-  StopAndFreeBots(&state.bot_processes);
+  FreeInnerBotsDA(state.bots);
   if (state.log_file)
     fclose(state.log_file);
 }
 
-void StartBots(GameState *state, const char *const commands[],
-               int command_amount) {
-  if (command_amount > MAX_BOT_AMOUNT) {
-    nob_log(NOB_ERROR,
-            "Provided more then %d bots, which is the maximum supprted number "
-            "allowed",
-            MAX_BOT_AMOUNT);
+// This does not copy the bot process! If you want to start another process for
+// the bot, you must do so manually.
+Bot DeepCopyBot(Bot bot) {
+  Bot new_bot = {
+      .name = strdup(bot.name),
+      .start_command = strdup(bot.start_command),
+      .process = NULL,
+  };
+  return new_bot;
+}
+
+// This DOES stop and free the bot process.
+void FreeInnerBot(Bot bot) {
+  StopBot(bot);
+  free(bot.name);
+  free(bot.start_command);
+  free(bot.process);
+}
+
+BotsDA DeepCopyBotsDA(BotsDA bots) {
+  BotsDA new_bots = {
+      .items = malloc(sizeof *bots.items * bots.count),
+      .count = bots.count,
+      .capacity = bots.count,
+  };
+  for (size_t i = 0; i < bots.count; i++) {
+    new_bots.items[i] = DeepCopyBot(bots.items[i]);
+  }
+  return new_bots;
+}
+
+void FreeInnerBotsDA(BotsDA bots) {
+  nob_da_foreach(Bot, bot, &bots) {
+    FreeInnerBot(*bot);
+    bot->process = NULL;
+  }
+  nob_da_free(bots);
+}
+
+void StopBot(Bot bot) {
+  if (bot.process == NULL)
+    return;
+  subprocess_terminate(bot.process);
+  subprocess_destroy(bot.process);
+}
+
+void StartBot(Bot bot) {
+  Nob_Cmd split_command = SplitStringByDelim(bot.start_command, ' ');
+  // Required by subprocess.h
+  nob_cmd_append(&split_command, NULL);
+
+  if (bot.process == NULL) {
+    nob_log(NOB_ERROR, "Can't start a bot without a process struct allocated.");
+    // TODO maybe rethink exit calls from this function. Since we moved to a
+    // single small and self-contained function, exiting might not be right in
+    // all cases, perhaps returning a bool would be better.
     exit(1);
   }
+  int result = subprocess_create(split_command.items,
+                                 subprocess_option_search_user_path |
+                                     subprocess_option_inherit_environment |
+                                     subprocess_option_enable_async |
+                                     subprocess_option_enable_async_no_wait,
+                                 bot.process);
 
-  Nob_Cmd command = {0};
-  Nob_String_View view = {0};
-  Nob_String_Builder sb = {0};
-  for (int i = 0; i < command_amount; i++) {
-    sb.count = 0;
-    command.count = 0;
-    view = nob_sv_from_cstr(commands[i]);
-
-    while (view.count > 0) {
-      nob_cmd_append(&command,
-                     nob_temp_sv_to_cstr(nob_sv_chop_by_delim(&view, ' ')));
-    }
-
-    nob_cmd_append(&command, NULL);
-
-    struct subprocess_s process;
-    int result = subprocess_create(command.items,
-                                   subprocess_option_search_user_path |
-                                       subprocess_option_inherit_environment |
-                                       subprocess_option_enable_async |
-                                       subprocess_option_enable_async_no_wait,
-                                   &process);
-
-    nob_cmd_render(command, &sb);
-    nob_sb_append_null(&sb);
-    if (0 != result) {
-      nob_log(NOB_ERROR, "ERROR: Failed to launch bot number %d: %s\n%s", 2,
-              sb.items, strerror(errno));
-      exit(1);
-    } else {
-      nob_log(NOB_INFO, "Started bot %d: %s", i, sb.items);
-    }
-
-    nob_da_append(&state->bot_processes, process);
+  if (0 != result) {
+    // TODO errno is only POSIX, need to add GetLastError for windows here
+    nob_log(NOB_ERROR, "ERROR: Failed to launch bot number %d: %s\n%s", 2,
+            bot.start_command, strerror(errno));
+    // See comment on previous exit
+    exit(1);
   }
-
-  nob_cmd_free(command);
-  nob_sb_free(sb);
+  nob_cmd_free(split_command);
 }
 
 // Parse map file, saving the map into the game state and returning the amount
 // of different planet owners it has
-int ParseMapFile(GameState *state, const char *map_path) {
+unsigned ParseMapFile(GameState *state, const char *map_path) {
   FILE *map_file = fopen(map_path, "r");
   if (!map_file) {
     perror("Failed loading map file");
@@ -186,9 +208,7 @@ int ParseMapFile(GameState *state, const char *map_path) {
   return bot_count;
 }
 
-GameState MakeGame(const char *map_file_path,
-                   const char *const bot_start_commands[], int bot_count,
-                   bool log) {
+GameState MakeGame(const char *map_file_path, BotsDA bots, bool log) {
   GameState state = {0};
 
   // ----- LOGGING -----
@@ -203,27 +223,30 @@ GameState MakeGame(const char *map_file_path,
 
   // ----- MAP -----
   nob_log(NOB_INFO, "Loading map file from %s.", map_file_path);
-  int owner_count = ParseMapFile(&state, map_file_path);
-  if (owner_count != bot_count) {
+  size_t owner_count = ParseMapFile(&state, map_file_path);
+  if (owner_count != bots.count) {
     nob_log(NOB_ERROR,
-            "Provided map requires %d player, yet %d bots were given as "
+            "Provided map requires %zu player, yet %zu bots were given as "
             "arguments.",
-            owner_count, bot_count);
+            owner_count, bots.count);
     exit(1);
   }
 
   // ----- BOTS -----
-  StartBots(&state, bot_start_commands, bot_count);
-  state.remaining_bots = state.bot_processes.count;
+  state.bots = DeepCopyBotsDA(bots);
+  nob_da_foreach(Bot, bot, &state.bots) {
+    if (bot->process == NULL)
+      bot->process = malloc(sizeof *bot->process);
+    StartBot(*bot);
+  }
+  state.remaining_bots = state.bots.count;
+  state.game_log.bots = DeepCopyBotsDA(bots);
 
-  state.game_log.bot_amount = bot_count;
-
-  state.game_log.bot_commands = DupeMultiDString(bot_start_commands, bot_count);
   return state;
 }
 
 void DisqualifyBot(GameState *state, size_t bot_idx) {
-  if (bot_idx >= state->bot_processes.count) {
+  if (bot_idx >= state->bots.count) {
     nob_log(NOB_ERROR, "Attempted to disqualify non existent bot");
     exit(1);
   }
@@ -231,9 +254,9 @@ void DisqualifyBot(GameState *state, size_t bot_idx) {
   // We don't remove the bot from the dynamic array because we use the DA index
   // to address different bots. Instead it should be marked as disqualified and
   // not used.
-  if (subprocess_alive(&state->bot_processes.items[bot_idx]))
-    subprocess_terminate(&state->bot_processes.items[bot_idx]);
-  subprocess_destroy(&state->bot_processes.items[bot_idx]);
+  if (subprocess_alive(state->bots.items[bot_idx].process))
+    subprocess_terminate(state->bots.items[bot_idx].process);
+  subprocess_destroy(state->bots.items[bot_idx].process);
 
   state->remaining_bots--;
   nob_da_foreach(Planet, planet, &state->planets) {
@@ -254,26 +277,26 @@ void DisqualifyBot(GameState *state, size_t bot_idx) {
 }
 
 void sendMapToBot(GameState *state, size_t bot_idx) {
-  if (bot_idx >= state->bot_processes.count) {
+  if (bot_idx >= state->bots.count) {
     nob_log(NOB_ERROR, "ERROR: Attempting access to non-existent bot process");
     exit(1);
   }
-  if (!subprocess_alive(&state->bot_processes.items[bot_idx])) {
+  if (!subprocess_alive(state->bots.items[bot_idx].process)) {
     nob_log(NOB_INFO, "Bot %zu has crashed.", bot_idx);
     DisqualifyBot(state, bot_idx);
     return;
   }
-  FILE *bot_stdin = subprocess_stdin(&state->bot_processes.items[bot_idx]);
+  FILE *bot_stdin = subprocess_stdin(state->bots.items[bot_idx].process);
 
   LogToFile("engine > player%zu: ", bot_idx + 1);
 
 #define MoveOwner(Type, entity)                                                \
   Type moved_##entity = *entity;                                               \
   if (bot_idx > 0 && moved_##entity.owner != 0) {                              \
-    moved_##entity.owner = (bot_idx * (state->bot_processes.count - 1) +       \
-                            moved_##entity.owner - 1) %                        \
-                               state->bot_processes.count +                    \
-                           1;                                                  \
+    moved_##entity.owner =                                                     \
+        (bot_idx * (state->bots.count - 1) + moved_##entity.owner - 1) %       \
+            state->bots.count +                                                \
+        1;                                                                     \
   }
 
   nob_da_foreach(Planet, planet, &state->planets) {
@@ -300,11 +323,11 @@ void sendMapToBot(GameState *state, size_t bot_idx) {
 // Return true if everythin went okay. Return false in case bot should be
 // disqualified.
 bool GetBotMessage(GameState *state, Nob_String_Builder *sb, size_t bot_idx) {
-  if (bot_idx >= state->bot_processes.count) {
+  if (bot_idx >= state->bots.count) {
     nob_log(NOB_ERROR, "Tried accessing a bot OOB.");
     exit(1);
   }
-  if (!subprocess_alive(&state->bot_processes.items[bot_idx])) {
+  if (!subprocess_alive(state->bots.items[bot_idx].process)) {
     nob_log(NOB_INFO, "Bot %zu disqualified since it's process crashed.",
             bot_idx);
     sb->count = 0;
@@ -324,7 +347,7 @@ bool GetBotMessage(GameState *state, Nob_String_Builder *sb, size_t bot_idx) {
       sb->count--;
     }
     unsigned int received =
-        subprocess_read_stdout(&state->bot_processes.items[bot_idx],
+        subprocess_read_stdout(state->bots.items[bot_idx].process,
                                sb->items + sb->count, sb->capacity - sb->count);
     if (received == 0) {
       if (nob_nanos_since_unspecified_epoch() - start > MAX_BOT_RESPONSE_TIME) {
@@ -425,12 +448,12 @@ bool ParseBotFleets(GameState *state, Nob_String_View bot_message,
 
 void PrintBotDebugMessages(GameState *state, Nob_String_Builder *sb,
                            size_t bot_idx) {
-  if (bot_idx >= state->bot_processes.count) {
+  if (bot_idx >= state->bots.count) {
     nob_log(NOB_ERROR, "Tried accessing a bot OOB.");
     exit(1);
   }
   if (!TestBit(state->bot_bit_set, bot_idx) ||
-      !subprocess_alive(&state->bot_processes.items[bot_idx])) {
+      !subprocess_alive(state->bots.items[bot_idx].process)) {
     nob_log(NOB_WARNING, "Bot %zu is not active.", bot_idx);
     return;
   }
@@ -447,7 +470,7 @@ void PrintBotDebugMessages(GameState *state, Nob_String_Builder *sb,
       sb->count--;
     }
     unsigned int received =
-        subprocess_read_stderr(&state->bot_processes.items[bot_idx],
+        subprocess_read_stderr(state->bots.items[bot_idx].process,
                                sb->items + sb->count, sb->capacity - sb->count);
     if (received == 0) {
       message_ended = true;
@@ -462,7 +485,7 @@ void PrintBotDebugMessages(GameState *state, Nob_String_Builder *sb,
 
 void RunBotCycle(GameState *state, Nob_String_Builder *bot_message) {
   size_t bot_num = 0;
-  nob_da_foreach(struct subprocess_s, process, &state->bot_processes) {
+  nob_da_foreach(Bot, bot, &state->bots) {
     // Skip disqualified or lost bots.
     if (TestBit(state->bot_bit_set, bot_num)) {
       nob_log(NOB_DEBUG, "sending map to bot %zu", bot_num);
@@ -474,7 +497,7 @@ void RunBotCycle(GameState *state, Nob_String_Builder *bot_message) {
 
   bot_num = 0;
   bool bot_okay = true;
-  nob_da_foreach(struct subprocess_s, process, &state->bot_processes) {
+  nob_da_foreach(Bot, bot, &state->bots) {
     // Skip disqualified or lost bots.
     if (TestBit(state->bot_bit_set, bot_num)) {
       bot_okay = GetBotMessage(state, bot_message, bot_num);
@@ -658,18 +681,6 @@ void RunGame(GameState *state) {
   nob_log(NOB_INFO, "Bot %d won!", winning_bot + 1);
 
   nob_sb_free(bot_message);
-}
-
-void StopAndFreeBots(BotProcesses *bot_processes) {
-  nob_da_foreach(struct subprocess_s, process, bot_processes) {
-    subprocess_terminate(process);
-    subprocess_destroy(process);
-  }
-
-  nob_da_free(*bot_processes);
-  bot_processes->capacity = 0;
-  bot_processes->count = 0;
-  bot_processes->items = NULL;
 }
 
 void UpdateStateFromLogEntry(GameState *state, size_t entry_idx) {

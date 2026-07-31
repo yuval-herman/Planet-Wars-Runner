@@ -1,6 +1,8 @@
 #include "viewer.h"
 
 #include "game.h"
+#include "ini.h"
+#include <src/utils.h>
 
 #define FLAG_IMPLEMENTATION
 #include "flag.h"
@@ -15,68 +17,20 @@
 #include <time.h>
 
 typedef struct {
-  GameLog *items;
-  size_t capacity;
-  size_t count;
-} TournametData;
+  bool *help;
+  bool *write_log;
+  char **config_file;
+  char **map_file;
+  char **bot_commands;
+  int bot_commands_count;
+} CLIArguments;
 
-TournametData tournament = {0};
-
-void RunTournament(const char *map_file_path,
-                   const char *const bot_start_commands[], int bot_count) {
-  char const *playing_bot_commands[2];
-  for (int p1_idx = 0; p1_idx < bot_count - 1; p1_idx++) {
-    for (int p2_idx = p1_idx + 1; p2_idx < bot_count; p2_idx++) {
-      playing_bot_commands[0] = bot_start_commands[p1_idx];
-      playing_bot_commands[1] = bot_start_commands[p2_idx];
-      GameState state = MakeGame(map_file_path, playing_bot_commands, 2, false);
-      nob_minimal_log_level = NOB_WARNING;
-      RunGame(&state);
-      nob_minimal_log_level = NOB_INFO;
-      GameLog game_log_copy = state.game_log;
-      size_t bot_commands_length = 0;
-      for (int i = 0; i < game_log_copy.bot_amount; i++) {
-        // +1 for null terminator
-        bot_commands_length += strlen(state.game_log.bot_commands[i]) + 1;
-      }
-      size_t bot_commands_array_length =
-          game_log_copy.bot_amount * sizeof(char *) +
-          bot_commands_length * sizeof(char);
-      game_log_copy.bot_commands = malloc(bot_commands_array_length);
-      memcpy(game_log_copy.bot_commands, state.game_log.bot_commands,
-             bot_commands_array_length);
-
-      char *str_dest =
-          (char *)(game_log_copy.bot_commands + game_log_copy.bot_amount);
-      for (int i = 0; i < game_log_copy.bot_amount; i++) {
-        game_log_copy.bot_commands[i] = str_dest;
-        str_dest += strlen(str_dest) + 1;
-      }
-
-      game_log_copy.items =
-          malloc(sizeof *game_log_copy.items * game_log_copy.count);
-      game_log_copy.capacity = game_log_copy.count;
-      memcpy(game_log_copy.items, state.game_log.items,
-             game_log_copy.count * sizeof *game_log_copy.items);
-      for (size_t i = 0; i < state.game_log.count; i++) {
-        LogEntry *copy_entry = &game_log_copy.items[i];
-        size_t planets_size =
-            copy_entry->planet_count * sizeof *copy_entry->planets;
-        copy_entry->planets = malloc(planets_size);
-        memcpy(copy_entry->planets, state.game_log.items[i].planets,
-               planets_size);
-        size_t fleets_size =
-            copy_entry->fleet_count * sizeof *copy_entry->fleets;
-        copy_entry->fleets = malloc(fleets_size);
-        memcpy(copy_entry->fleets, state.game_log.items[i].fleets, fleets_size);
-      }
-      // TODO This entire thing is leaking, add a freeing mechanism
-
-      nob_da_append(&tournament, game_log_copy);
-      FreeInnerGameState(state);
-    }
-  }
-}
+// Configuration for the entire system.
+DefineComplexStruct(Configs, {
+  bool write_log;
+  char *map_file;
+  BotsDA bots;
+});
 
 void Usage(FILE *stream) {
   fprintf(stream, "Usage: %s [OPTIONS] [--] [ARGS]\n", flag_program_name());
@@ -84,61 +38,164 @@ void Usage(FILE *stream) {
   flag_print_options(stream);
 }
 
-typedef struct {
-  bool *help;
-  bool *tournament;
-  bool *write_log;
-  char **map_file;
-  char **bot_commands;
-  int bot_commands_count;
-} CLIArguments;
-
 CLIArguments RegisterFlagArguments() {
   CLIArguments args;
   args.help = flag_bool("help", false, "Show this help.");
-  args.tournament =
-      flag_bool("tournament", false,
-                "Activate tournament mode. Tournament mode runs a round-robin "
-                "tournamet between all bots and ranks them based on winnings.");
   args.write_log =
       flag_bool("write_log", false, "Write a log of the game to log.txt");
+  args.config_file =
+      flag_str("config", NULL,
+               "A path to a config file that can be used to run "
+               "tournament or more complex environments. If a config file is "
+               "used all other flags are ignored.");
   args.map_file = flag_str("map", NULL, "The map file bots will play on.");
   args.bot_commands_count = 0;
   args.bot_commands = NULL;
   return args;
 }
 
+Configs DeepCopyConfigs(Configs config) {
+  NOB_UNUSED(config);
+  NOB_UNREACHABLE(
+      "You shouldn't try to copy configs. If you really need to feel free "
+      "to implement this, but your'e probably doing something wrong.");
+}
+
+void FreeInnerConfigs(Configs config) {
+  free(config.map_file);
+  FreeInnerBotsDA(config.bots);
+}
+
+int handler(void *user_data, const char *section, const char *name,
+            const char *value, int lineno) {
+  /* In some places in this function we cast away the const on `value`. This
+   const removal is okay, see ini.h file in the comment above INI_HANDLER_LINENO
+  */
+
+#define MATCH(l, r) strcmp(l, r) == 0
+  Configs *config = (Configs *)user_data;
+
+  if (name == NULL && value == NULL) {
+    // If we start parsing a new bot, reserve it's place
+    if (MATCH(section, "bot")) {
+      nob_da_append(&config->bots, (Bot){0});
+    }
+    return 1;
+  }
+
+  if (MATCH(section, "application")) {
+
+    if (MATCH(name, "write_log")) {
+      if (MATCH(value, "true")) {
+        config->write_log = true;
+      } else if (MATCH(value, "false")) {
+        config->write_log = false;
+      } else {
+        nob_log(NOB_ERROR,
+                "write_log may only be set to `true` or `false`. line %d.",
+                lineno);
+        return 0;
+      }
+    }
+
+  } else if (MATCH(section, "simulation")) {
+
+    if (MATCH(name, "map")) {
+      config->map_file = strdup(value);
+    } else {
+      nob_log(NOB_ERROR, "Unknown simulation config. line %d.", lineno);
+      return 0;
+    }
+
+  } else if (MATCH(section, "bot")) {
+
+    if (MATCH(name, "name")) {
+      nob_da_last(&config->bots).name = strdup(value);
+    } else if (MATCH(name, "command")) {
+      nob_da_last(&config->bots).start_command = strdup(value);
+    } else {
+      nob_log(NOB_ERROR, "Unknown bot config. line %d.", lineno);
+      return 0;
+    }
+
+  } else {
+    nob_log(NOB_ERROR, "Unknown section. line %d.", lineno);
+    return 0;
+  }
+  return 1;
+#undef MATCH
+}
+
+int VerifyConfigs(Configs configs) {
+  if (configs.bots.count == 0) {
+    nob_log(NOB_ERROR, "No bots provided.");
+    return 1;
+  }
+  nob_da_foreach(Bot, bot, &configs.bots) {
+    if (bot->start_command == NULL) {
+      nob_log(NOB_ERROR,
+              "A bot was provided%s without a command. Please supply a "
+              "command, name is potional.",
+              bot->name == NULL
+                  ? ""
+                  : nob_temp_sprintf(" with the name %s but", bot->name));
+      return 1;
+    }
+  }
+
+  if (!configs.map_file) {
+    nob_log(NOB_ERROR, "A map file must be provided.");
+    return 1;
+  }
+  return 0;
+}
+
+bool FillConfigsWithArgs(CLIArguments args, Configs *configs) {
+  if (!*args.map_file) {
+    nob_log(NOB_ERROR, "A map file must be provided.");
+    return false;
+  }
+  configs->write_log = *args.write_log;
+  configs->map_file = strdup(*args.map_file);
+
+  char *const *argv = flag_rest_argv();
+  const int argc = flag_rest_argc();
+  for (int i = 0; i < argc; i++) {
+    Bot bot = {0};
+    bot.start_command = strdup(argv[i]);
+    nob_da_append(&configs->bots, bot);
+  }
+
+  return true;
+}
+
 int main(int argc, char *argv[]) {
+  Configs configs = {0};
   CLIArguments args = RegisterFlagArguments();
   if (!flag_parse(argc, argv)) {
     Usage(stderr);
     flag_print_error(stderr);
-    exit(1);
+    return 1;
   } else if (*args.help) {
     Usage(stderr);
     return 0;
-  } else if (!*args.map_file) {
-    nob_log(NOB_ERROR, "A map file must be provided.");
-    return 1;
+  } else if (*args.config_file) {
+    if (ini_parse(*args.config_file, handler, &configs) < 0) {
+      nob_log(NOB_ERROR, "Failed parsing config file");
+      return 1;
+    }
+  } else {
+    if (!FillConfigsWithArgs(args, &configs))
+      return 1;
   }
 
-  args.bot_commands = flag_rest_argv();
-  args.bot_commands_count = flag_rest_argc();
+  GameState state = MakeGame(configs.map_file, configs.bots, configs.write_log);
 
-  if (*args.tournament) {
-    RunTournament(*args.map_file, (const char *const *)(args.bot_commands),
-                  args.bot_commands_count);
-    nob_da_free(tournament);
-    return 0;
-  }
-
-  GameState state =
-      MakeGame(*args.map_file, (const char *const *)(args.bot_commands),
-               args.bot_commands_count, args.write_log);
   RunGame(&state);
 
   RunViewerForGame(state);
 
   FreeInnerGameState(state);
+  FreeInnerConfigs(configs);
   return 0;
 }
