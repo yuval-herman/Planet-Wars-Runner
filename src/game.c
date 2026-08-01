@@ -283,16 +283,16 @@ void DisqualifyBot(GameState *state, size_t bot_idx) {
 
 static inline void PrintPlanet(FILE *file, Planet planet) {
   char buf[64];
-  int len = stbsp_sprintf(buf, "%s %d %d %d\n", planet.print_prefix,
+  int len = stbsp_sprintf(buf, "%s %hu %hu %hu\n", planet.print_prefix,
                           planet.owner, planet.ships, planet.growth);
   fwrite(buf, sizeof *buf, len, file);
 }
 
 static inline void PrintFleet(FILE *file, Fleet fleet) {
   char buf[64];
-  int len =
-      stbsp_sprintf(buf, "F %d %d %d %d %d %d\n", fleet.owner, fleet.ships,
-                    fleet.src_id, fleet.dst_id, fleet.total, fleet.remaining);
+  int len = stbsp_sprintf(buf, "F %hu %hu %hu %hu %hu %hu\n", fleet.owner,
+                          fleet.ships, fleet.src_id, fleet.dst_id, fleet.total,
+                          fleet.remaining);
   fwrite(buf, sizeof *buf, len, file);
 }
 
@@ -420,16 +420,27 @@ bool ParseBotFleets(GameState *state, Nob_String_View bot_message,
     Fleet fleet;
     fleet.owner = bot_idx + 1;
     const char *start = bot_message.data;
-    if (!(parse_int(&bot_message.data, &fleet.src_id) &&
-          parse_int(&bot_message.data, &fleet.dst_id) &&
-          parse_int(&bot_message.data, &fleet.ships))) {
-      nob_log(NOB_INFO, "Invalid bot command.");
-      return false;
-    }
+    int parsed_int;
+#define PARSE_INT(dst, err_msg)                                                \
+  if (parse_int(&bot_message.data, &parsed_int) && parsed_int > 0 &&           \
+      parsed_int < UINT16_MAX) {                                               \
+    dst = parsed_int;                                                          \
+  } else {                                                                     \
+    nob_log(NOB_INFO, "Invalid bot command. " err_msg);                        \
+    return false;                                                              \
+  }
+    PARSE_INT(fleet.src_id,
+              "Source planet out of bounds or impossible to parse.");
+    PARSE_INT(fleet.dst_id,
+              "Destionation planet out of bounds or impossible to parse.");
+    PARSE_INT(fleet.ships,
+              "Amount of ships is too high, to low, or impossible to parse.");
+#undef PARSE_INT
+
     bot_message.count -= bot_message.data - start;
     bot_message = nob_sv_trim_left(bot_message);
 
-    if (fleet.src_id < 0 || (size_t)fleet.src_id >= state->planets.count) {
+    if ((size_t)fleet.src_id >= state->planets.count) {
       nob_log(NOB_INFO, "Bot tried sending fleet from nonexistent planet.");
       return false;
     }
@@ -446,8 +457,7 @@ bool ParseBotFleets(GameState *state, Nob_String_View bot_message,
       nob_log(NOB_INFO,
               "Bot tried sending fleet from a planet it does not own.");
       return false;
-    } else if (fleet.dst_id < 0 ||
-               (size_t)fleet.dst_id > state->planets.count) {
+    } else if ((size_t)fleet.dst_id > state->planets.count) {
       nob_log(NOB_INFO, "Bot tried sending fleet to nonexistent planet.");
       return false;
     } else if (src->ships < fleet.ships) {

@@ -28,10 +28,10 @@ typedef struct {
 
 // Configuration for the entire system.
 DefineComplexStruct(Configs, {
+  BotsDA bots;
+  char *map_file;
   bool tournament;
   bool write_log;
-  char *map_file;
-  BotsDA bots;
 });
 
 void Usage(FILE *stream) {
