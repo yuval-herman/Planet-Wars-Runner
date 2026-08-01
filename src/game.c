@@ -13,7 +13,7 @@
 #include <time.h>
 
 // ## won't work in MSVC, we will cross that bridge when we get there.
-#define LogToFile(fmt, ...)                                                    \
+#define WriteToLogFile(fmt, ...)                                               \
   do {                                                                         \
     if (state->log_file)                                                       \
       fprintf(state->log_file, fmt, ##__VA_ARGS__);                            \
@@ -308,7 +308,7 @@ void sendMapToBot(GameState *state, size_t bot_idx) {
   }
   FILE *bot_stdin = subprocess_stdin(state->bots.items[bot_idx].process);
 
-  LogToFile("engine > player%zu: ", bot_idx + 1);
+  WriteToLogFile("engine > player%zu: ", bot_idx + 1);
 
 #define MoveOwner(Type, entity)                                                \
   Type moved_##entity = *entity;                                               \
@@ -336,7 +336,7 @@ void sendMapToBot(GameState *state, size_t bot_idx) {
 #undef MoveOwner
 
   fprintf(bot_stdin, MESSAGE_DELIMETER);
-  LogToFile(MESSAGE_DELIMETER "\n");
+  WriteToLogFile(MESSAGE_DELIMETER "\n");
   fflush(bot_stdin);
 }
 
@@ -399,8 +399,8 @@ bool GetBotMessage(GameState *state, Nob_String_Builder *sb, size_t bot_idx) {
   Nob_String_View sv = {sb->count, sb->items};
   while (sv.count > 0) {
     Nob_String_View line = nob_sv_chop_by_delim(&sv, '\n');
-    LogToFile("player%zu > engine: %.*s\n", bot_idx + 1, (int)line.count,
-              line.data);
+    WriteToLogFile("player%zu > engine: %.*s\n", bot_idx + 1, (int)line.count,
+                   line.data);
   }
   return true;
 }
