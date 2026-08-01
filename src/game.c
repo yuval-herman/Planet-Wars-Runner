@@ -696,9 +696,15 @@ void RunGame(GameState *state) {
     nob_da_append(&state->game_log, entry);
   }
   nob_log(NOB_INFO, "Game ended!");
-  uint_fast8_t winning_bot = bit_index(state->bot_bit_set);
-  state->game_log.winning_bot = winning_bot;
-  nob_log(NOB_INFO, "Bot %d won!", winning_bot + 1);
+  int winning_bot = bit_index(state->bot_bit_set);
+  if (winning_bot == -1) {
+    nob_log(NOB_INFO, "It's a draw!");
+    state->game_log.draw = true;
+  } else {
+    state->game_log.winning_bot = winning_bot;
+    state->game_log.draw = false;
+    nob_log(NOB_INFO, "Bot %d won!", winning_bot + 1);
+  }
 
   nob_sb_free(bot_message);
 }

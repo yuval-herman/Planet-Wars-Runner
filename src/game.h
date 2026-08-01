@@ -46,6 +46,7 @@ DefineComplexStruct(GameLog, {
   size_t count;
   size_t capacity;
   uint_fast8_t winning_bot;
+  bool draw; // If no one won (a draw) this will be set true
 });
 
 DefineComplexStruct(GameState, {
