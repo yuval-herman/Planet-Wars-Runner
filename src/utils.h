@@ -17,6 +17,14 @@
 
 // ----- MACROS -----
 
+#if defined(_MSC_VER)
+// For MSVC (Visual Studio / Windows)
+#define BREAKPOINT() __debugbreak()
+#elif defined(__GNUC__) || defined(__clang__)
+// For GCC/Clang
+#define BREAKPOINT() __builtin_trap()
+#endif
+
 #define SetBit(bitset, index)                                                  \
   do {                                                                         \
     bitset |= 1u << (index);                                                   \
