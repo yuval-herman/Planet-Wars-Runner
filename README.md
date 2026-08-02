@@ -8,25 +8,7 @@ This project simulates multi-bot space strategy battles in real time, executing 
 
 ## Getting Started
 
-### Prerequisites
-
-* A standard C compiler (`gcc` or `clang`)
-* Raylib dependencies. Make sure to read raylibs compilation page before this.
-  If you don't want to compile raylib from scratch, you can also download a raylib release from [here](https://github.com/raysan5/raylib/releases) and place the `libraylib.a`(Linux) or `libraylib.lib`(windows) file inside the `build` folder.
-
-### Building the Project
-
-The project uses `nob.c` to compile dependencies, including Raylib, alongside the main target automatically.
-
-1. Bootstrap the build system and compile the project:
-```bash
-gcc -o nob nob.c
-./nob
-```
-
-
-2. Subsequent builds:
-The build script supports auto-rebuilding via `NOB_GO_REBUILD_URSELF`. Execute `./nob` whenever modifications are made to `nob.c` or project source files.
+You can download a release from the [releases page](https://github.com/yuval-herman/Planet-Wars-Runner/releases/latest). Alternatively, you can build the project from source using the instructions at the end of this page. Building this project is incredibly easy and does not require and additional downloads other then a standard c compiler.
 
 ## Running the Simulation
 
@@ -79,6 +61,25 @@ command = node worst_bot.js
 name = Best bot
 command = ./best_bot
 ```
+
+## Building the Project
+
+### Prerequisites
+
+* A standard C compiler (`gcc` or `clang`)
+* Raylib dependencies. Make sure to read raylibs compilation page before this.
+  If you don't want to compile raylib from scratch, you can also download a raylib release from [here](https://github.com/raysan5/raylib/releases) and place the `libraylib.a`(Linux) or `libraylib.lib`(windows) file inside the `build` folder.
+
+The project uses `nob.c` to compile dependencies, including Raylib, alongside the main target automatically.
+
+1. Bootstrap the build system and compile the project:
+```bash
+gcc -o nob nob.c
+./nob
+```
+
+2. Subsequent builds:
+The build script supports auto-rebuilding via `NOB_GO_REBUILD_URSELF`. Execute `./nob` whenever modifications are made to `nob.c` or project source files.
 
 ## License
 
