@@ -3,7 +3,6 @@
 #include "game.h"
 #include "ini.h"
 #include "src/tournament.h"
-#include <src/utils.h>
 
 #define FLAG_IMPLEMENTATION
 #include "flag.h"
