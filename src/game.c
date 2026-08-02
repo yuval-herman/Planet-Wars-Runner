@@ -747,6 +747,22 @@ void WriteGameLogToFile(FILE *file, GameLog game_log) {
   WRITE_16(version);
   WRITE_8(game_log.draw);
   WRITE_8(game_log.winning_bot);
+  WRITE_32(game_log.bots.count);
+  nob_da_foreach(Bot, bot, &game_log.bots) {
+    uint16_t string_length;
+    if (bot->name != NULL) {
+      // We don't write the null terminator
+      string_length = strlen(bot->name);
+      WRITE_16(string_length);
+      fwrite(bot->name, sizeof *bot->name, string_length, file);
+    } else {
+      string_length = 0;
+      WRITE_16(string_length);
+    }
+    string_length = strlen(bot->start_command);
+    WRITE_16(string_length);
+    fwrite(bot->start_command, sizeof *bot->start_command, string_length, file);
+  }
   WRITE_32(game_log.count);
   nob_da_foreach(LogEntry, entry, &game_log) {
     WRITE_32(entry->remaining_bots);
@@ -807,6 +823,24 @@ bool ReadGameLogFromFile(FILE *file, GameLog *game_log) {
   }
   READ_8(game_log->draw);
   READ_8(game_log->winning_bot);
+  READ_32(game_log->bots.count);
+  game_log->bots.items =
+      malloc(sizeof *game_log->bots.items * game_log->bots.count);
+  nob_da_foreach(Bot, bot, &game_log->bots) {
+    uint16_t string_length;
+    READ_16(string_length);
+    if (string_length) {
+      // +1 to add back null terminator
+      bot->name = malloc(sizeof *bot->name * string_length + 1);
+      fread(bot->name, sizeof *bot->name, string_length, file);
+      bot->name[string_length] = '\0';
+    }
+    READ_16(string_length);
+    bot->start_command = malloc(sizeof *bot->start_command * string_length + 1);
+    fread(bot->start_command, sizeof *bot->start_command, string_length, file);
+    bot->start_command[string_length] = '\0';
+    bot->process = NULL;
+  }
   READ_32(game_log->count);
   game_log->items = malloc(sizeof *game_log->items * game_log->count);
   game_log->capacity = game_log->count;
