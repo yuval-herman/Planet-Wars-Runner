@@ -51,6 +51,7 @@ GameLog DeepCopyGameLog(GameLog game_log) {
       .winning_bot = game_log.winning_bot,
       .items = log_entries,
       .bots = DeepCopyBotsDA(game_log.bots),
+      .draw = game_log.draw,
   };
   return new_game_log;
 }

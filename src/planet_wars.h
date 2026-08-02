@@ -18,6 +18,7 @@ typedef struct {
   int ships;
   int growth;
   // Used to save time on printing data that does not change
+  // TODO investigate whether 20 is always enough
   char print_prefix[20];
 } Planet;
 
