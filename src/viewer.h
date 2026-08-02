@@ -15,6 +15,6 @@
 // speed, i.e. how slow can the game run.
 #define MAX_GAME_SPEED_VALUE 20
 
-void RunViewerForGame(GameState state);
+void RunViewerForGame(GameLog state);
 
 #endif // VIEWER_H

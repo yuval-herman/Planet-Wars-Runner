@@ -20,10 +20,12 @@ bool playing_forewards = true;
 
 // Calculates the minimum and maximum coordinates of all planets, used to space
 // planets across the entire screen.
-void ComputeGameSpace(PlanetDA planets) {
-  nob_da_foreach(Planet, planet, &planets) {
-    game_space.min_coords = Vector2Min(planet->coords, game_space.min_coords);
-    game_space.max_coords = Vector2Max(planet->coords, game_space.max_coords);
+void ComputeGameSpace(Planet *planets, unsigned p_count) {
+  for (unsigned i = 0; i < p_count; i++) {
+    game_space.min_coords =
+        Vector2Min(planets[i].coords, game_space.min_coords);
+    game_space.max_coords =
+        Vector2Max(planets[i].coords, game_space.max_coords);
   }
 }
 
@@ -79,11 +81,10 @@ void DrawPlanet(Planet planet) {
   DrawTextCenteredOnPoint(draw_coords, ships_text, font_size, 1, BLACK);
 }
 
-void DrawFleet(GameState state, Fleet fleet) {
-  Vector2 draw_coords =
-      Game2ScreenCoords(Vector2Lerp(state.planets.items[fleet.src_id].coords,
-                                    state.planets.items[fleet.dst_id].coords,
-                                    1 - (float)fleet.remaining / fleet.total));
+void DrawFleet(Planet *planets, Fleet fleet) {
+  Vector2 draw_coords = Game2ScreenCoords(
+      Vector2Lerp(planets[fleet.src_id].coords, planets[fleet.dst_id].coords,
+                  1 - (float)fleet.remaining / fleet.total));
 
   const char *ships_text = TextFormat("%d", fleet.ships);
   const float font_size = SHIP_FONT_SIZE;
@@ -92,7 +93,7 @@ void DrawFleet(GameState state, Fleet fleet) {
                           GetOwnerColor(fleet.owner));
 }
 
-void DrawControls(GameState *state) {
+void DrawControls(GameLog game_log, unsigned *turn) {
   static bool is_scrubber_pressed = false;
   // Values for round rectanlges
   const int segments = 6;
@@ -119,8 +120,7 @@ void DrawControls(GameState *state) {
   const float bar_width = 40;
 
   Rectangle bar = {
-      .x = Remap(state->turn, 0, state->game_log.count - 1,
-                 scrubber.x - bar_width / 2,
+      .x = Remap(*turn, 0, game_log.count - 1, scrubber.x - bar_width / 2,
                  scrubber.x + scrubber.width - bar_width / 2),
       .y = scrubber.y - bar_height / 2 + scrubber.height / 2,
       .width = bar_width,
@@ -137,17 +137,16 @@ void DrawControls(GameState *state) {
     if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
       is_scrubber_pressed = false;
     } else {
-      state->turn = Remap(fmin(scrubber.x + scrubber.width,
-                               fmax(scrubber.x, GetMousePosition().x)),
-                          scrubber.x, scrubber.x + scrubber.width, 0,
-                          state->game_log.count - 1);
-      UpdateStateFromLogEntry(state, state->turn);
+      *turn =
+          Remap(fmin(scrubber.x + scrubber.width,
+                     fmax(scrubber.x, GetMousePosition().x)),
+                scrubber.x, scrubber.x + scrubber.width, 0, game_log.count - 1);
     }
   }
 
   const float font_size = 20;
   const float spacing = 1;
-  const char *turn_text = TextFormat("%d", state->turn);
+  const char *turn_text = TextFormat("%d", *turn);
 
   Vector2 text_measurements =
       MeasureTextEx(font, turn_text, font_size, spacing);
@@ -181,7 +180,7 @@ void DrawControls(GameState *state) {
 
   // Play backwards
   button.x = (GetScreenWidth() - button_row_width) / 2.0f;
-  HandleMousePress(if (state->turn > 0) {
+  HandleMousePress(if (*turn > 0) {
     playing_forewards = false;
     game_running = true;
   });
@@ -208,7 +207,7 @@ void DrawControls(GameState *state) {
 
   // Play forewards
   button.x += button_edge + ui_margin;
-  HandleMousePress(if ((unsigned)state->turn < state->game_log.count) {
+  HandleMousePress(if (*turn < game_log.count) {
     playing_forewards = true;
     game_running = true;
   });
@@ -232,7 +231,7 @@ void DrawControls(GameState *state) {
   text_measurements = MeasureTextEx(font, player_text, font_size, spacing);
   float total_labels_width = (text_measurements.x + indicator_size +
                               text_margin + margin_between_players) *
-                                 state->bots.count -
+                                 game_log.bots.count -
                              margin_between_players;
 
   Rectangle color_indicator = {.x = (GetScreenWidth() - total_labels_width) / 2,
@@ -240,7 +239,7 @@ void DrawControls(GameState *state) {
                                .width = indicator_size,
                                .height = indicator_size};
 
-  for (unsigned i = 0; i < state->bots.count; i++) {
+  for (unsigned i = 0; i < game_log.bots.count; i++) {
     Color player_color = GetOwnerColor(i + 1);
 
     DrawRectangleRec(color_indicator, player_color);
@@ -289,8 +288,11 @@ Shader SetupStarsShader(int screenWidth, int screenHeight) {
   return stars_shader;
 }
 
-void RunViewerForGame(GameState state) {
-  ComputeGameSpace(state.planets);
+void RunViewerForGame(GameLog game_log) {
+  // Set the game to the first turn
+  unsigned turn = 0;
+
+  ComputeGameSpace(game_log.items[0].planets, game_log.items[0].planet_count);
 
   const int screenWidth = 800;
   const int screenHeight = 450;
@@ -306,33 +308,27 @@ void RunViewerForGame(GameState state) {
 
   int timeLoc = GetShaderLocation(stars_shader, "uTime");
 
-  // Set the game to the first turn
-  UpdateStateFromLogEntry(&state, state.turn = 0);
-
   while (!WindowShouldClose()) {
     frame_counter++;
     if (game_running &&
         (game_speed == 0 || frame_counter % abs(game_speed) == 0)) {
-      UpdateStateFromLogEntry(&state, state.turn);
-      if (playing_forewards && (unsigned)state.turn < state.game_log.count)
-        state.turn++;
-      else if (state.turn > 0)
-        state.turn--;
-      if ((unsigned)state.turn >= state.game_log.count - 1 || state.turn == 0)
+      if (playing_forewards && turn < game_log.count - 1)
+        turn++;
+      else if (turn > 0)
+        turn--;
+      if (turn >= game_log.count - 1 || turn == 0)
         game_running = false;
     }
 
     if (IsKeyPressed(KEY_RIGHT)) {
       game_running = false;
-      state.turn++;
-      if ((unsigned)state.turn >= state.game_log.count)
-        state.turn = state.game_log.count - 1;
-      UpdateStateFromLogEntry(&state, state.turn);
+      turn++;
+      if (turn >= game_log.count)
+        turn = game_log.count - 1;
     } else if (IsKeyPressed(KEY_LEFT)) {
       game_running = false;
-      if (state.turn != 0)
-        state.turn--;
-      UpdateStateFromLogEntry(&state, state.turn);
+      if (turn != 0)
+        turn--;
     } else if (IsKeyPressed(KEY_SPACE)) {
       game_running = !game_running;
     }
@@ -355,11 +351,15 @@ void RunViewerForGame(GameState state) {
     DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), WHITE);
     EndShaderMode();
 
-    nob_da_foreach(Planet, planet, &state.planets) { DrawPlanet(*planet); }
+    for (unsigned i = 0; i < game_log.items[turn].planet_count; i++) {
+      DrawPlanet(game_log.items[turn].planets[i]);
+    }
 
-    nob_da_foreach(Fleet, fleet, &state.fleets) { DrawFleet(state, *fleet); }
+    for (unsigned i = 0; i < game_log.items[turn].fleet_count; i++) {
+      DrawFleet(game_log.items[turn].planets, game_log.items[turn].fleets[i]);
+    }
 
-    DrawControls(&state);
+    DrawControls(game_log, &turn);
     EndDrawing();
   }
 
