@@ -93,7 +93,7 @@ int main(int argc, char **argv) {
   nob_cmd_append(&cmd, "-isystem.");
   nob_cmd_append(&cmd, "-lm");
 #ifdef _WIN32
-  nob_cmd_append(&cmd, "-lgdi32", "-lwinmm", "-lshcore");
+  nob_cmd_append(&cmd, "-lgdi32", "-lwinmm", "-lshcore", "-lws2_32");
 #else
   nob_cmd_append(&cmd, "-lX11");
 #endif // _WIN32
