@@ -108,10 +108,12 @@ inline static void SplitStringByDelimEx(Nob_Cmd *split_str, const char *str,
   Nob_String_View view = {0};
   view = nob_sv_from_cstr(str);
 
+  size_t mark = nob_temp_save();
   while (view.count > 0) {
     nob_cmd_append(split_str,
                    nob_temp_sv_to_cstr(nob_sv_chop_by_delim(&view, delim)));
   }
+  nob_temp_rewind(mark);
 }
 
 inline static Nob_Cmd SplitStringByDelim(const char *str, char delim) {

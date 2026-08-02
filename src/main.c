@@ -148,6 +148,7 @@ int VerifyConfigs(Configs configs) {
     nob_log(NOB_ERROR, "No bots provided.");
     return 1;
   }
+  size_t mark = nob_temp_save();
   nob_da_foreach(Bot, bot, &configs.bots) {
     if (bot->start_command == NULL) {
       nob_log(NOB_ERROR,
@@ -159,6 +160,7 @@ int VerifyConfigs(Configs configs) {
       return 1;
     }
   }
+  nob_temp_rewind(mark);
 
   if (!configs.map_file) {
     nob_log(NOB_ERROR, "A map file must be provided.");
