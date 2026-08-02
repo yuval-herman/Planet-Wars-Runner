@@ -759,6 +759,7 @@ void WriteGameLogToFile(FILE *file, GameLog game_log) {
 #define WRITE_32(var) (wrt_32 = htonl(var), WRITE(wrt_32))
 #define WRITE_float(var) (wrt_32_float.f = var, WRITE_32(wrt_32_float.u))
 
+  // TODO write bots data too
   WRITE(magic);
   WRITE_16(version);
   WRITE_8(game_log.draw);
@@ -801,7 +802,7 @@ bool ReadGameLogFromFile(FILE *file, GameLog *game_log) {
 #define READ_8(var) READ(var)
 #define READ_16(var) (READ(read_16), var = ntohs(read_16))
 #define READ_32(var) (READ(read_32), var = ntohl(read_32))
-#define READ_float(var) (READ_32(read_32_float.u), var = read_32_float.u)
+#define READ_float(var) (READ_32(read_32_float.u), var = read_32_float.f)
 
   char read_magic;
   for (unsigned i = 0; i < NOB_ARRAY_LEN(magic); i++) {
