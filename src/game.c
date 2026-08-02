@@ -158,7 +158,13 @@ void StartBot(Bot bot) {
   if (0 != result) {
     // TODO errno is only POSIX, need to add GetLastError for windows here
     nob_log(NOB_ERROR, "ERROR: Failed to launch bot number %d: %s\n%s", 2,
-            bot.start_command, strerror(errno));
+            bot.start_command,
+#ifdef _WIN32
+            nob_win32_error_message(GetLastError())
+#else
+            strerror(errno)
+#endif
+    );
     // See comment on previous exit
     exit(1);
   }
