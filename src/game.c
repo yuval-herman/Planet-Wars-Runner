@@ -804,11 +804,25 @@ bool ReadGameLogFromFile(FILE *file, GameLog *game_log) {
   } read_32_float;
   uint16_t read_16;
   uint32_t read_32;
+
 #define READ(var) fread(&var, sizeof var, 1, file)
-#define READ_8(var) READ(var)
-#define READ_16(var) (READ(read_16), var = ntohs(read_16))
-#define READ_32(var) (READ(read_32), var = ntohl(read_32))
-#define READ_float(var) (READ_32(read_32_float.u), var = read_32_float.f)
+#define READ_ERROR_CHK(read, ret_val)                                          \
+  if (ret_val != read) {                                                       \
+    nob_log(NOB_ERROR, "Reading error while reading from plws file.");         \
+    return false;                                                              \
+  }
+  // fread should always return 1 on success here, since we always set the
+  // number of elements to 1 and only change the size of the element
+#define READ_8(var) READ_ERROR_CHK(READ(var), 1)
+#define READ_16(var)                                                           \
+  READ_ERROR_CHK(READ(read_16), 1);                                            \
+  var = ntohs(read_16)
+#define READ_32(var)                                                           \
+  READ_ERROR_CHK(READ(read_32), 1);                                            \
+  var = ntohl(read_32)
+#define READ_float(var)                                                        \
+  READ_32(read_32_float.u);                                                    \
+  var = read_32_float.f
 
   char read_magic;
   for (unsigned i = 0; i < NOB_ARRAY_LEN(magic); i++) {
@@ -819,6 +833,7 @@ bool ReadGameLogFromFile(FILE *file, GameLog *game_log) {
       return false;
     }
   }
+
   unsigned read_version;
   READ_16(read_version);
   if (read_version != version) {
@@ -839,12 +854,15 @@ bool ReadGameLogFromFile(FILE *file, GameLog *game_log) {
     if (string_length) {
       // +1 to add back null terminator
       bot->name = malloc(sizeof *bot->name * string_length + 1);
-      fread(bot->name, sizeof *bot->name, string_length, file);
+      READ_ERROR_CHK(fread(bot->name, sizeof *bot->name, string_length, file),
+                     string_length);
       bot->name[string_length] = '\0';
     }
     READ_16(string_length);
     bot->start_command = malloc(sizeof *bot->start_command * string_length + 1);
-    fread(bot->start_command, sizeof *bot->start_command, string_length, file);
+    READ_ERROR_CHK(fread(bot->start_command, sizeof *bot->start_command,
+                         string_length, file),
+                   string_length);
     bot->start_command[string_length] = '\0';
     bot->process = NULL;
   }
@@ -873,9 +891,9 @@ bool ReadGameLogFromFile(FILE *file, GameLog *game_log) {
       READ_float(entry->planets[i].coords.y);
     }
   }
-#undef WRITE_32
-#undef WRITE_16
-#undef WRITE_8
-#undef WRITE
+#undef READ_32
+#undef READ_16
+#undef READ_8
+#undef READ
   return true;
 }
