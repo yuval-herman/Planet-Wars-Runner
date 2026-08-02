@@ -53,6 +53,7 @@ This is an example config file with comments explaining everything:
 ```ini
 [application]
 write_log = true             ; Whether to write a log.txt file containing the log of the battle.
+write_save = true ; Whether to write a game.plws file containing a save of the game. You can replay this files using the -load_from CLI argument.
 tournament = true            ; Whether to run a tournament between all supplied bots.
                              ; this requires more bots specified then the map requires.
 
