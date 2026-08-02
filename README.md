@@ -44,6 +44,12 @@ Run the binary to launch the engine and visualizer:
 - **up/down**    - increase/decrease replay speed
 - **space**      - pause/unpause replay
 
+## Save files
+
+After running a simulation between two bots, if you passed the `-write_save` flag, a `game.plws` file will be saved to disk. This file contains the entire simulation, and can be viewed again by passing the `-load_from` flag with the file path. This files are in a binary format and only viewable via the planet_wars software.
+
+After running a tournament, `match_(number).plws` files will be saved for each match in the tournamnet.
+
 ## Configuration file
 
 You can specify a config file by using the `-config` flag and providing a path to a `.ini` file.
