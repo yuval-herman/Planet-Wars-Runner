@@ -12,6 +12,13 @@
 #include <string.h>
 #include <time.h>
 
+// For htonl/ntohl functions
+#ifdef _WIN32
+#include <winsock2.h>
+#else
+#include <arpa/inet.h>
+#endif
+
 // ## won't work in MSVC, we will cross that bridge when we get there.
 #define WriteToLogFile(fmt, ...)                                               \
   do {                                                                         \
@@ -735,3 +742,51 @@ void UpdateStateFromLogEntry(GameState *state, unsigned entry_idx) {
   memcpy(state->planets.items, entry.planets,
          sizeof *state->planets.items * entry.planet_count);
 }
+
+void WriteGameLogToFile(FILE *file, GameLog game_log) {
+  const unsigned version = 0;
+  const char magic[4] = {'p', 'l', 'w', 's'};
+  union {
+    float f;
+    unsigned u;
+  } wrt_32_float;
+  uint16_t wrt_16;
+  uint32_t wrt_32;
+#define WRITE(var) fwrite(&var, sizeof var, 1, file)
+#define WRITE_8(var) WRITE(var)
+#define WRITE_16(var) (wrt_16 = htons(var), WRITE(wrt_16))
+#define WRITE_32(var) (wrt_32 = htonl(var), WRITE(wrt_32))
+#define WRITE_float(var)                                                       \
+  (wrt_32_float.f = var, wrt_32 = htonl(wrt_32_float.u), WRITE(wrt_32))
+
+  WRITE(magic);
+  WRITE_16(version);
+  WRITE_8(game_log.draw);
+  WRITE_8(game_log.winning_bot);
+  WRITE_32(game_log.count);
+  nob_da_foreach(LogEntry, entry, &game_log) {
+    WRITE_32(entry->remaining_bots);
+    WRITE_32(entry->fleet_count);
+    WRITE_32(entry->planet_count);
+    for (unsigned i = 0; i < entry->fleet_count; i++) {
+      WRITE_8(entry->fleets[i].owner);
+      WRITE_8(entry->fleets[i].total);
+      WRITE_8(entry->fleets[i].remaining);
+      WRITE_16(entry->fleets[i].ships);
+      WRITE_16(entry->fleets[i].src_id);
+      WRITE_16(entry->fleets[i].dst_id);
+    }
+    for (unsigned i = 0; i < entry->planet_count; i++) {
+      WRITE_8(entry->planets[i].owner);
+      WRITE_8(entry->planets[i].growth);
+      WRITE_16(entry->planets[i].ships);
+      WRITE_float(entry->planets[i].coords.x);
+      WRITE_float(entry->planets[i].coords.y);
+    }
+  }
+#undef WRITE_32
+#undef WRITE_16
+#undef WRITE_8
+#undef WRITE
+}
+void ReadGameLogFromFile(FILE *file, GameLog game_log) {}
