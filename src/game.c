@@ -12,8 +12,15 @@
 #include <string.h>
 #include <time.h>
 
+// For htonl/ntohl functions
+#ifdef _WIN32
+#include <winsock2.h>
+#else
+#include <arpa/inet.h>
+#endif
+
 // ## won't work in MSVC, we will cross that bridge when we get there.
-#define LogToFile(fmt, ...)                                                    \
+#define WriteToLogFile(fmt, ...)                                               \
   do {                                                                         \
     if (state->log_file)                                                       \
       fprintf(state->log_file, fmt, ##__VA_ARGS__);                            \
@@ -41,7 +48,7 @@ void FreeInnerLogEntry(LogEntry entry) {
 
 GameLog DeepCopyGameLog(GameLog game_log) {
   LogEntry *log_entries = malloc(sizeof *game_log.items * game_log.count);
-  for (size_t i = 0; i < game_log.count; i++) {
+  for (unsigned i = 0; i < game_log.count; i++) {
     log_entries[i] = DeepCopyLogEntry(game_log.items[i]);
   }
 
@@ -57,7 +64,7 @@ GameLog DeepCopyGameLog(GameLog game_log) {
 }
 
 void FreeInnerGameLog(GameLog game_log) {
-  for (size_t i = 0; i < game_log.count; i++) {
+  for (unsigned i = 0; i < game_log.count; i++) {
     FreeInnerLogEntry(game_log.items[i]);
   }
   free(game_log.items);
@@ -108,7 +115,7 @@ BotsDA DeepCopyBotsDA(BotsDA bots) {
       .count = bots.count,
       .capacity = bots.count,
   };
-  for (size_t i = 0; i < bots.count; i++) {
+  for (unsigned i = 0; i < bots.count; i++) {
     new_bots.items[i] = DeepCopyBot(bots.items[i]);
   }
   return new_bots;
@@ -168,13 +175,13 @@ unsigned ParseMapFile(GameState *state, const char *map_path) {
   }
 
   char buf[256];
-  size_t file_line = 0;
+  unsigned file_line = 0;
   int bot_count = 0;
   state->bot_bit_set = 0;
 
   while (fgets(buf, sizeof buf, map_file)) {
     file_line += 1;
-    size_t len = strlen(buf);
+    unsigned len = strlen(buf);
     if (len == sizeof(buf) - 1 && buf[len - 1] != '\n') {
       nob_log(NOB_ERROR,
               "Map file contains lines longer then 256 characters and "
@@ -187,14 +194,14 @@ unsigned ParseMapFile(GameState *state, const char *map_path) {
 
     Planet planet;
     if (!ParsePlanetLine(buf, &planet)) {
-      nob_log(NOB_ERROR, "Invalid map file.\nSyntax error at line %zu.",
+      nob_log(NOB_ERROR, "Invalid map file.\nSyntax error at line %u.",
               file_line);
       exit(1);
     }
     if (planet.owner > MAX_BOT_AMOUNT) {
       nob_log(NOB_ERROR,
               "Map containes more owners then the max bot count. Encountered "
-              "in line: %zu\nOwner found: %d\nMax bot count: %d",
+              "in line: %u\nOwner found: %d\nMax bot count: %d",
               file_line, planet.owner, MAX_BOT_AMOUNT);
       exit(1);
     }
@@ -229,10 +236,10 @@ GameState MakeGame(const char *map_file_path, BotsDA bots, bool log) {
 
   // ----- MAP -----
   nob_log(NOB_INFO, "Loading map file from %s.", map_file_path);
-  size_t owner_count = ParseMapFile(&state, map_file_path);
+  unsigned owner_count = ParseMapFile(&state, map_file_path);
   if (owner_count != bots.count) {
     nob_log(NOB_ERROR,
-            "Provided map requires %zu player, yet %zu bots were given as "
+            "Provided map requires %u player, yet %u bots were given as "
             "arguments.",
             owner_count, bots.count);
     exit(1);
@@ -251,7 +258,7 @@ GameState MakeGame(const char *map_file_path, BotsDA bots, bool log) {
   return state;
 }
 
-void DisqualifyBot(GameState *state, size_t bot_idx) {
+void DisqualifyBot(GameState *state, unsigned bot_idx) {
   if (bot_idx >= state->bots.count) {
     nob_log(NOB_ERROR, "Attempted to disqualify non existent bot");
     exit(1);
@@ -266,12 +273,12 @@ void DisqualifyBot(GameState *state, size_t bot_idx) {
 
   state->remaining_bots--;
   nob_da_foreach(Planet, planet, &state->planets) {
-    if ((size_t)planet->owner == bot_idx + 1) {
+    if ((unsigned)planet->owner == bot_idx + 1) {
       planet->owner = 0;
     }
   }
   nob_da_foreach(Fleet, fleet, &state->fleets) {
-    if ((size_t)fleet->owner == bot_idx + 1) {
+    if ((unsigned)fleet->owner == bot_idx + 1) {
       *fleet = state->fleets.items[--state->fleets.count];
       fleet--;
     }
@@ -279,37 +286,37 @@ void DisqualifyBot(GameState *state, size_t bot_idx) {
 
   UnsetBit(state->bot_bit_set, bot_idx);
 
-  nob_log(NOB_INFO, "Disqualified bot %zu.", bot_idx);
+  nob_log(NOB_INFO, "Disqualified bot %u.", bot_idx);
 }
 
 static inline void PrintPlanet(FILE *file, Planet planet) {
   char buf[64];
-  int len = stbsp_sprintf(buf, "%s %d %d %d\n", planet.print_prefix,
+  int len = stbsp_sprintf(buf, "%s %hu %hu %hu\n", planet.print_prefix,
                           planet.owner, planet.ships, planet.growth);
   fwrite(buf, sizeof *buf, len, file);
 }
 
 static inline void PrintFleet(FILE *file, Fleet fleet) {
   char buf[64];
-  int len =
-      stbsp_sprintf(buf, "F %d %d %d %d %d %d\n", fleet.owner, fleet.ships,
-                    fleet.src_id, fleet.dst_id, fleet.total, fleet.remaining);
+  int len = stbsp_sprintf(buf, "F %hu %hu %hu %hu %hu %hu\n", fleet.owner,
+                          fleet.ships, fleet.src_id, fleet.dst_id, fleet.total,
+                          fleet.remaining);
   fwrite(buf, sizeof *buf, len, file);
 }
 
-void sendMapToBot(GameState *state, size_t bot_idx) {
+void sendMapToBot(GameState *state, unsigned bot_idx) {
   if (bot_idx >= state->bots.count) {
     nob_log(NOB_ERROR, "ERROR: Attempting access to non-existent bot process");
     exit(1);
   }
   if (!subprocess_alive(state->bots.items[bot_idx].process)) {
-    nob_log(NOB_INFO, "Bot %zu has crashed.", bot_idx);
+    nob_log(NOB_INFO, "Bot %u has crashed.", bot_idx);
     DisqualifyBot(state, bot_idx);
     return;
   }
   FILE *bot_stdin = subprocess_stdin(state->bots.items[bot_idx].process);
 
-  LogToFile("engine > player%zu: ", bot_idx + 1);
+  WriteToLogFile("engine > player%u: ", bot_idx + 1);
 
 #define MoveOwner(Type, entity)                                                \
   Type moved_##entity = *entity;                                               \
@@ -337,25 +344,25 @@ void sendMapToBot(GameState *state, size_t bot_idx) {
 #undef MoveOwner
 
   fprintf(bot_stdin, MESSAGE_DELIMETER);
-  LogToFile(MESSAGE_DELIMETER "\n");
+  WriteToLogFile(MESSAGE_DELIMETER "\n");
   fflush(bot_stdin);
 }
 
 // Return true if everythin went okay. Return false in case bot should be
 // disqualified.
-bool GetBotMessage(GameState *state, Nob_String_Builder *sb, size_t bot_idx) {
+bool GetBotMessage(GameState *state, Nob_String_Builder *sb, unsigned bot_idx) {
   if (bot_idx >= state->bots.count) {
     nob_log(NOB_ERROR, "Tried accessing a bot OOB.");
     exit(1);
   }
   if (!subprocess_alive(state->bots.items[bot_idx].process)) {
-    nob_log(NOB_INFO, "Bot %zu disqualified since it's process crashed.",
+    nob_log(NOB_INFO, "Bot %u disqualified since it's process crashed.",
             bot_idx);
     sb->count = 0;
     return false;
   }
 
-  const size_t max_chunk_length = 512;
+  const unsigned max_chunk_length = 512;
   sb->count = 0;
   bool message_ended = false;
 
@@ -372,7 +379,7 @@ bool GetBotMessage(GameState *state, Nob_String_Builder *sb, size_t bot_idx) {
                                sb->items + sb->count, sb->capacity - sb->count);
     if (received == 0) {
       if (nob_nanos_since_unspecified_epoch() - start > MAX_BOT_RESPONSE_TIME) {
-        nob_log(NOB_INFO, "Bot %zu disqualified for taking too long to reply.",
+        nob_log(NOB_INFO, "Bot %u disqualified for taking too long to reply.",
                 bot_idx);
         sb->count = 0;
         return false;
@@ -382,26 +389,26 @@ bool GetBotMessage(GameState *state, Nob_String_Builder *sb, size_t bot_idx) {
     }
     sb->count += received;
 
-    nob_log(NOB_DEBUG, "bot %zu sent: |%.*s|", bot_idx, (unsigned)sb->count,
+    nob_log(NOB_DEBUG, "bot %u sent: |%.*s|", bot_idx, (unsigned)sb->count,
             sb->items);
 
     // Excluding null terminator
-    const size_t delimeter_length = NOB_ARRAY_LEN(MESSAGE_DELIMETER) - 1;
+    const unsigned delimeter_length = NOB_ARRAY_LEN(MESSAGE_DELIMETER) - 1;
     // We need to check sb.count is at least `delimeter_length` to make sure
     // memcmp does not access OOB memory
     if (sb->count >= delimeter_length &&
         memcmp(sb->items + sb->count - delimeter_length, MESSAGE_DELIMETER,
                delimeter_length) == 0) {
       message_ended = true;
-      nob_log(NOB_DEBUG, "bot %zu message ended", bot_idx);
+      nob_log(NOB_DEBUG, "bot %u message ended", bot_idx);
     }
   }
 
   Nob_String_View sv = {sb->count, sb->items};
   while (sv.count > 0) {
     Nob_String_View line = nob_sv_chop_by_delim(&sv, '\n');
-    LogToFile("player%zu > engine: %.*s\n", bot_idx + 1, (int)line.count,
-              line.data);
+    WriteToLogFile("player%u > engine: %.*s\n", bot_idx + 1, (int)line.count,
+                   line.data);
   }
   return true;
 }
@@ -409,7 +416,7 @@ bool GetBotMessage(GameState *state, Nob_String_Builder *sb, size_t bot_idx) {
 // Return true if everythin went okay. Return false in case bot should be
 // disqualified.
 bool ParseBotFleets(GameState *state, Nob_String_View bot_message,
-                    size_t bot_idx) {
+                    unsigned bot_idx) {
   if (bot_message.count < 2 ||
       (bot_message.data[0] == 'g' && bot_message.data[1] == 'o')) {
     return true;
@@ -417,20 +424,31 @@ bool ParseBotFleets(GameState *state, Nob_String_View bot_message,
 
   while (bot_message.count > 1 && bot_message.data[0] != 'g' &&
          bot_message.data[1] != 'o') {
-    nob_log(NOB_DEBUG, "parsing bot %zu fleets", bot_idx);
+    nob_log(NOB_DEBUG, "parsing bot %u fleets", bot_idx);
     Fleet fleet;
     fleet.owner = bot_idx + 1;
     const char *start = bot_message.data;
-    if (!(parse_int(&bot_message.data, &fleet.src_id) &&
-          parse_int(&bot_message.data, &fleet.dst_id) &&
-          parse_int(&bot_message.data, &fleet.ships))) {
-      nob_log(NOB_INFO, "Invalid bot command.");
-      return false;
-    }
+    int parsed_int;
+#define PARSE_INT(dst, err_msg)                                                \
+  if (parse_int(&bot_message.data, &parsed_int) && parsed_int > 0 &&           \
+      parsed_int < UINT16_MAX) {                                               \
+    dst = parsed_int;                                                          \
+  } else {                                                                     \
+    nob_log(NOB_INFO, "Invalid bot command. " err_msg);                        \
+    return false;                                                              \
+  }
+    PARSE_INT(fleet.src_id,
+              "Source planet out of bounds or impossible to parse.");
+    PARSE_INT(fleet.dst_id,
+              "Destionation planet out of bounds or impossible to parse.");
+    PARSE_INT(fleet.ships,
+              "Amount of ships is too high, to low, or impossible to parse.");
+#undef PARSE_INT
+
     bot_message.count -= bot_message.data - start;
     bot_message = nob_sv_trim_left(bot_message);
 
-    if (fleet.src_id < 0 || (size_t)fleet.src_id >= state->planets.count) {
+    if ((unsigned)fleet.src_id >= state->planets.count) {
       nob_log(NOB_INFO, "Bot tried sending fleet from nonexistent planet.");
       return false;
     }
@@ -447,8 +465,7 @@ bool ParseBotFleets(GameState *state, Nob_String_View bot_message,
       nob_log(NOB_INFO,
               "Bot tried sending fleet from a planet it does not own.");
       return false;
-    } else if (fleet.dst_id < 0 ||
-               (size_t)fleet.dst_id > state->planets.count) {
+    } else if ((unsigned)fleet.dst_id > state->planets.count) {
       nob_log(NOB_INFO, "Bot tried sending fleet to nonexistent planet.");
       return false;
     } else if (src->ships < fleet.ships) {
@@ -463,23 +480,23 @@ bool ParseBotFleets(GameState *state, Nob_String_View bot_message,
 
     nob_da_append(&state->fleets, fleet);
   }
-  nob_log(NOB_DEBUG, "done parsing bot %zu fleets", bot_idx);
+  nob_log(NOB_DEBUG, "done parsing bot %u fleets", bot_idx);
   return true;
 }
 
 void PrintBotDebugMessages(GameState *state, Nob_String_Builder *sb,
-                           size_t bot_idx) {
+                           unsigned bot_idx) {
   if (bot_idx >= state->bots.count) {
     nob_log(NOB_ERROR, "Tried accessing a bot OOB.");
     exit(1);
   }
   if (!TestBit(state->bot_bit_set, bot_idx) ||
       !subprocess_alive(state->bots.items[bot_idx].process)) {
-    nob_log(NOB_WARNING, "Bot %zu is not active.", bot_idx);
+    nob_log(NOB_WARNING, "Bot %u is not active.", bot_idx);
     return;
   }
 
-  const size_t max_chunk_length = 512;
+  const unsigned max_chunk_length = 512;
   sb->count = 0;
   bool message_ended = false;
 
@@ -500,16 +517,16 @@ void PrintBotDebugMessages(GameState *state, Nob_String_Builder *sb,
   }
 
   if (sb->count)
-    nob_log(NOB_INFO, "bot %zu says: |%.*s|", bot_idx, (unsigned)sb->count,
+    nob_log(NOB_INFO, "bot %u says: |%.*s|", bot_idx, (unsigned)sb->count,
             sb->items);
 }
 
 void RunBotCycle(GameState *state, Nob_String_Builder *bot_message) {
-  size_t bot_num = 0;
+  unsigned bot_num = 0;
   nob_da_foreach(Bot, bot, &state->bots) {
     // Skip disqualified or lost bots.
     if (TestBit(state->bot_bit_set, bot_num)) {
-      nob_log(NOB_DEBUG, "sending map to bot %zu", bot_num);
+      nob_log(NOB_DEBUG, "sending map to bot %u", bot_num);
 
       sendMapToBot(state, bot_num);
     }
@@ -533,7 +550,7 @@ void RunBotCycle(GameState *state, Nob_String_Builder *bot_message) {
       if (!bot_okay)
         DisqualifyBot(state, bot_num);
 
-      nob_log(NOB_DEBUG, "done with bot %zu, advancing to bot %zu", bot_num,
+      nob_log(NOB_DEBUG, "done with bot %u, advancing to bot %u", bot_num,
               bot_num + 1);
     }
     bot_num++;
@@ -656,7 +673,7 @@ int AdvanceTurn(GameState *state) {
   }
   // We do this after processing becuase we need to keep fleet order while
   // processing them.
-  for (size_t i = 0; i < state->fleets.count; i++) {
+  for (unsigned i = 0; i < state->fleets.count; i++) {
     if (state->fleets.items[i].remaining == 0) {
       nob_da_remove_unordered(&state->fleets, i);
       // Remove unordered replaces the current fleet with the last one,
@@ -710,19 +727,149 @@ void RunGame(GameState *state) {
   nob_sb_free(bot_message);
 }
 
-void UpdateStateFromLogEntry(GameState *state, size_t entry_idx) {
-  if (entry_idx >= state->game_log.count) {
-    nob_log(NOB_WARNING, "Attempted accessing OOB game log entry.");
-    return;
+const unsigned version = 0;
+const char magic[4] = {'p', 'l', 'w', 's'};
+
+void WriteGameLogToFile(FILE *file, GameLog game_log) {
+  union {
+    float f;
+    unsigned u;
+  } wrt_32_float;
+  uint16_t wrt_16;
+  uint32_t wrt_32;
+#define WRITE(var) fwrite(&var, sizeof var, 1, file)
+#define WRITE_8(var) WRITE(var)
+#define WRITE_16(var) (wrt_16 = htons(var), WRITE(wrt_16))
+#define WRITE_32(var) (wrt_32 = htonl(var), WRITE(wrt_32))
+#define WRITE_float(var) (wrt_32_float.f = var, WRITE_32(wrt_32_float.u))
+
+  // TODO write bots data too
+  WRITE(magic);
+  WRITE_16(version);
+  WRITE_8(game_log.draw);
+  WRITE_8(game_log.winning_bot);
+  WRITE_32(game_log.bots.count);
+  nob_da_foreach(Bot, bot, &game_log.bots) {
+    uint16_t string_length;
+    if (bot->name != NULL) {
+      // We don't write the null terminator
+      string_length = strlen(bot->name);
+      WRITE_16(string_length);
+      fwrite(bot->name, sizeof *bot->name, string_length, file);
+    } else {
+      string_length = 0;
+      WRITE_16(string_length);
+    }
+    string_length = strlen(bot->start_command);
+    WRITE_16(string_length);
+    fwrite(bot->start_command, sizeof *bot->start_command, string_length, file);
   }
+  WRITE_32(game_log.count);
+  nob_da_foreach(LogEntry, entry, &game_log) {
+    WRITE_32(entry->remaining_bots);
+    WRITE_32(entry->fleet_count);
+    WRITE_32(entry->planet_count);
+    for (unsigned i = 0; i < entry->fleet_count; i++) {
+      WRITE_8(entry->fleets[i].owner);
+      WRITE_8(entry->fleets[i].total);
+      WRITE_8(entry->fleets[i].remaining);
+      WRITE_16(entry->fleets[i].ships);
+      WRITE_16(entry->fleets[i].src_id);
+      WRITE_16(entry->fleets[i].dst_id);
+    }
+    for (unsigned i = 0; i < entry->planet_count; i++) {
+      WRITE_8(entry->planets[i].owner);
+      WRITE_8(entry->planets[i].growth);
+      WRITE_16(entry->planets[i].ships);
+      WRITE_float(entry->planets[i].coords.x);
+      WRITE_float(entry->planets[i].coords.y);
+    }
+  }
+#undef WRITE_32
+#undef WRITE_16
+#undef WRITE_8
+#undef WRITE
+}
 
-  LogEntry entry = state->game_log.items[entry_idx];
-  state->remaining_bots = entry.remaining_bots;
+bool ReadGameLogFromFile(FILE *file, GameLog *game_log) {
+  union {
+    float f;
+    unsigned u;
+  } read_32_float;
+  uint16_t read_16;
+  uint32_t read_32;
+#define READ(var) fread(&var, sizeof var, 1, file)
+#define READ_8(var) READ(var)
+#define READ_16(var) (READ(read_16), var = ntohs(read_16))
+#define READ_32(var) (READ(read_32), var = ntohl(read_32))
+#define READ_float(var) (READ_32(read_32_float.u), var = read_32_float.f)
 
-  state->fleets.count = entry.fleet_count;
-  memcpy(state->fleets.items, entry.fleets,
-         sizeof *state->fleets.items * entry.fleet_count);
-  state->planets.count = entry.planet_count;
-  memcpy(state->planets.items, entry.planets,
-         sizeof *state->planets.items * entry.planet_count);
+  char read_magic;
+  for (unsigned i = 0; i < NOB_ARRAY_LEN(magic); i++) {
+    READ_8(read_magic);
+    if (read_magic != magic[i]) {
+      nob_log(NOB_ERROR,
+              "Provided file is not a Planet Wars serialization file.");
+      return false;
+    }
+  }
+  unsigned read_version;
+  READ_16(read_version);
+  if (read_version != version) {
+    nob_log(NOB_ERROR,
+            "Serialization file version is unsupported. File version is %u and "
+            "reader version is %u",
+            read_version, version);
+    return false;
+  }
+  READ_8(game_log->draw);
+  READ_8(game_log->winning_bot);
+  READ_32(game_log->bots.count);
+  game_log->bots.items =
+      malloc(sizeof *game_log->bots.items * game_log->bots.count);
+  nob_da_foreach(Bot, bot, &game_log->bots) {
+    uint16_t string_length;
+    READ_16(string_length);
+    if (string_length) {
+      // +1 to add back null terminator
+      bot->name = malloc(sizeof *bot->name * string_length + 1);
+      fread(bot->name, sizeof *bot->name, string_length, file);
+      bot->name[string_length] = '\0';
+    }
+    READ_16(string_length);
+    bot->start_command = malloc(sizeof *bot->start_command * string_length + 1);
+    fread(bot->start_command, sizeof *bot->start_command, string_length, file);
+    bot->start_command[string_length] = '\0';
+    bot->process = NULL;
+  }
+  READ_32(game_log->count);
+  game_log->items = malloc(sizeof *game_log->items * game_log->count);
+  game_log->capacity = game_log->count;
+  nob_da_foreach(LogEntry, entry, game_log) {
+    READ_32(entry->remaining_bots);
+    READ_32(entry->fleet_count);
+    READ_32(entry->planet_count);
+    entry->fleets = malloc(sizeof *entry->fleets * entry->fleet_count);
+    entry->planets = malloc(sizeof *entry->planets * entry->planet_count);
+    for (unsigned i = 0; i < entry->fleet_count; i++) {
+      READ_8(entry->fleets[i].owner);
+      READ_8(entry->fleets[i].total);
+      READ_8(entry->fleets[i].remaining);
+      READ_16(entry->fleets[i].ships);
+      READ_16(entry->fleets[i].src_id);
+      READ_16(entry->fleets[i].dst_id);
+    }
+    for (unsigned i = 0; i < entry->planet_count; i++) {
+      READ_8(entry->planets[i].owner);
+      READ_8(entry->planets[i].growth);
+      READ_16(entry->planets[i].ships);
+      READ_float(entry->planets[i].coords.x);
+      READ_float(entry->planets[i].coords.y);
+    }
+  }
+#undef WRITE_32
+#undef WRITE_16
+#undef WRITE_8
+#undef WRITE
+  return true;
 }

@@ -10,37 +10,38 @@
 
 #define MAX_BOT_AMOUNT 32
 
-// TODO change owner, growth, src_id, etc. to uint8_t/uint16_t. Add max start
-// count for this
+// TODO Add verification when accepting data, like parsing maps, that all values
+// are within the limits we use here. For example allowing up to 255 turns for a
+// fleet get to its destination might be a bit too extreme.
 typedef struct {
   Vector2 coords;
-  int owner;
-  int ships;
-  int growth;
   // Used to save time on printing data that does not change
   // TODO investigate whether 20 is always enough
   char print_prefix[20];
+  uint8_t owner;
+  uint8_t growth;
+  uint16_t ships;
 } Planet;
 
 typedef struct {
-  int owner;
-  int ships;
-  int src_id;
-  int dst_id;
-  int total;
-  int remaining;
+  uint8_t owner;
+  uint8_t total;
+  uint8_t remaining;
+  uint16_t ships;
+  uint16_t src_id;
+  uint16_t dst_id;
 } Fleet;
 
 typedef struct {
   Planet *items;
-  size_t count;
-  size_t capacity;
+  unsigned count;
+  unsigned capacity;
 } PlanetDA;
 
 typedef struct {
   Fleet *items;
-  size_t count;
-  size_t capacity;
+  unsigned count;
+  unsigned capacity;
 } FleetsDA;
 
 // Parses a float, advances s to the end of the parsed string, sets out to the
