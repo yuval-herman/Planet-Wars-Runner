@@ -743,9 +743,10 @@ void UpdateStateFromLogEntry(GameState *state, unsigned entry_idx) {
          sizeof *state->planets.items * entry.planet_count);
 }
 
+const unsigned version = 0;
+const char magic[4] = {'p', 'l', 'w', 's'};
+
 void WriteGameLogToFile(FILE *file, GameLog game_log) {
-  const unsigned version = 0;
-  const char magic[4] = {'p', 'l', 'w', 's'};
   union {
     float f;
     unsigned u;
@@ -756,8 +757,7 @@ void WriteGameLogToFile(FILE *file, GameLog game_log) {
 #define WRITE_8(var) WRITE(var)
 #define WRITE_16(var) (wrt_16 = htons(var), WRITE(wrt_16))
 #define WRITE_32(var) (wrt_32 = htonl(var), WRITE(wrt_32))
-#define WRITE_float(var)                                                       \
-  (wrt_32_float.f = var, wrt_32 = htonl(wrt_32_float.u), WRITE(wrt_32))
+#define WRITE_float(var) (wrt_32_float.f = var, WRITE_32(wrt_32_float.u))
 
   WRITE(magic);
   WRITE_16(version);
@@ -789,4 +789,68 @@ void WriteGameLogToFile(FILE *file, GameLog game_log) {
 #undef WRITE_8
 #undef WRITE
 }
-void ReadGameLogFromFile(FILE *file, GameLog game_log) {}
+
+bool ReadGameLogFromFile(FILE *file, GameLog *game_log) {
+  union {
+    float f;
+    unsigned u;
+  } read_32_float;
+  uint16_t read_16;
+  uint32_t read_32;
+#define READ(var) fread(&var, sizeof var, 1, file)
+#define READ_8(var) READ(var)
+#define READ_16(var) (READ(read_16), var = ntohs(read_16))
+#define READ_32(var) (READ(read_32), var = ntohl(read_32))
+#define READ_float(var) (READ_32(read_32_float.u), var = read_32_float.u)
+
+  char read_magic;
+  for (unsigned i = 0; i < NOB_ARRAY_LEN(magic); i++) {
+    READ_8(read_magic);
+    if (read_magic != magic[i]) {
+      nob_log(NOB_ERROR,
+              "Provided file is not a Planet Wars serialization file.");
+      return false;
+    }
+  }
+  unsigned read_version;
+  READ_16(read_version);
+  if (read_version != version) {
+    nob_log(NOB_ERROR,
+            "Serialization file version is unsupported. File version is %u and "
+            "reader version is %u",
+            read_version, version);
+    return false;
+  }
+  READ_8(game_log->draw);
+  READ_8(game_log->winning_bot);
+  READ_32(game_log->count);
+  game_log->items = malloc(sizeof *game_log->items * game_log->count);
+  game_log->capacity = game_log->count;
+  nob_da_foreach(LogEntry, entry, game_log) {
+    READ_32(entry->remaining_bots);
+    READ_32(entry->fleet_count);
+    READ_32(entry->planet_count);
+    entry->fleets = malloc(sizeof *entry->fleets * entry->fleet_count);
+    entry->planets = malloc(sizeof *entry->planets * entry->planet_count);
+    for (unsigned i = 0; i < entry->fleet_count; i++) {
+      READ_8(entry->fleets[i].owner);
+      READ_8(entry->fleets[i].total);
+      READ_8(entry->fleets[i].remaining);
+      READ_16(entry->fleets[i].ships);
+      READ_16(entry->fleets[i].src_id);
+      READ_16(entry->fleets[i].dst_id);
+    }
+    for (unsigned i = 0; i < entry->planet_count; i++) {
+      READ_8(entry->planets[i].owner);
+      READ_8(entry->planets[i].growth);
+      READ_16(entry->planets[i].ships);
+      READ_float(entry->planets[i].coords.x);
+      READ_float(entry->planets[i].coords.y);
+    }
+  }
+#undef WRITE_32
+#undef WRITE_16
+#undef WRITE_8
+#undef WRITE
+  return true;
+}
