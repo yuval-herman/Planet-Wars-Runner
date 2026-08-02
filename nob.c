@@ -27,7 +27,7 @@ bool compile_raylib() {
 
   for (size_t i = 0; i < NOB_ARRAY_LEN(module_names); i++) {
     size_t mark = nob_temp_save();
-    nob_cmd_append(&cmd, "gcc");
+    nob_cc(&cmd);
 
     nob_cmd_append(&cmd, "-c");
     nob_cmd_append(&cmd,
@@ -50,7 +50,14 @@ bool compile_raylib() {
 
     nob_cmd_append(&cmd, "-fno-strict-aliasing");
     nob_cmd_append(&cmd, "-std=c99");
-    nob_cmd_append(&cmd, "-flto=auto", "-O2");
+    nob_cmd_append(&cmd, "-O2");
+
+#if !defined(_WIN32) || defined(__clang__)
+    nob_cmd_append(&cmd, "-flto=auto");
+#if defined(__clang__)
+    nob_cmd_append(&cmd, "-fuse-ld=lld");
+#endif // defined(__clang__)
+#endif
 
     nob_cmd_append(&cmd, "-Iexternal/raylib");
     nob_cmd_append(&cmd, "-Iexternal/raylib/external/glfw/include");
@@ -63,7 +70,15 @@ bool compile_raylib() {
 
   if (!nob_procs_flush(&procs))
     return false;
+
+#if defined(__clang__)
+  nob_cmd_append(&cmd, "llvm-ar", "rcs", RAYLIB_LIB);
+#elif defined(__GNUC__)
   nob_cmd_append(&cmd, "gcc-ar", "rcs", RAYLIB_LIB);
+#else
+  nob_cmd_append(&cmd, "ar", "rcs", RAYLIB_LIB);
+#endif // __clang__
+
   for (size_t i = 0; i < NOB_ARRAY_LEN(module_names); i++) {
     nob_cmd_append(&cmd, nob_temp_sprintf(BUILD_DIR "/%s.o", module_names[i]));
   }
@@ -110,7 +125,7 @@ int main(int argc, char **argv) {
 
   Nob_Cmd cmd = {0};
   nob_cc(&cmd);
-  nob_cmd_append(&cmd, "-Wall", "-Wextra"
+  nob_cmd_append(&cmd, "-Wall", "-Wextra", "-Wno-unused-function"
                  // , "-Wpadded"
   );
   nob_cmd_append(&cmd, "src/main.c", "src/game.c", "src/tournament.c", );
@@ -130,13 +145,16 @@ int main(int argc, char **argv) {
   nob_cmd_append(&cmd, "-isystemexternal/inih");
   nob_cmd_append(&cmd, "-isystemexternal");
   nob_cmd_append(&cmd, "-isystem.");
+#if !defined(_WIN32) || defined(__GNUC__)
   nob_cmd_append(&cmd, "-lm");
+#endif
 #ifdef _WIN32
   nob_cmd_append(&cmd, "-lws2_32");
 #endif // _WIN32
   if (!*headless_flag) {
 #ifdef _WIN32
-    nob_cmd_append(&cmd, "-lgdi32", "-lwinmm", "-lshcore");
+    nob_cmd_append(&cmd, "-lgdi32", "-lwinmm", "-lshcore", "-luser32",
+                   "-lshell32");
 #else
     nob_cmd_append(&cmd, "-lX11");
 #endif // _WIN32
@@ -146,9 +164,19 @@ int main(int argc, char **argv) {
     nob_log(NOB_WARNING, "Compiling program in debug mode");
     nob_cmd_append(&cmd, "-fsanitize=address,undefined", "-g", "-O0");
   } else {
-    nob_cmd_append(&cmd, "-flto=auto", "-O2");
+#if !defined(_WIN32) || defined(__clang__)
+    nob_cmd_append(&cmd, "-flto=auto");
+#if defined(__clang__)
+    nob_cmd_append(&cmd, "-fuse-ld=lld");
+#endif // defined(__clang__)
+#endif
+    nob_cmd_append(&cmd, "-O2");
   }
+#ifdef _WIN32
+  nob_cc_output(&cmd, "planet_wars.exe");
+#else
   nob_cc_output(&cmd, "planet_wars");
+#endif // _WIN32
 
   FILE *compile_flags_file = fopen("compile_flags.txt", "w");
   if (!compile_flags_file) {
