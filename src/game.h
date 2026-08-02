@@ -23,9 +23,9 @@ _Static_assert(MAX_BOT_AMOUNT <= sizeof(BotBitset) * CHAR_BIT,
 DefineComplexStruct(LogEntry, {
   Fleet *fleets;
   Planet *planets;
-  size_t planet_count;
-  size_t fleet_count;
-  int remaining_bots;
+  unsigned planet_count;
+  unsigned fleet_count;
+  unsigned remaining_bots;
 });
 
 DefineComplexStruct(Bot, {
@@ -36,16 +36,16 @@ DefineComplexStruct(Bot, {
 
 DefineComplexStruct(BotsDA, {
   Bot *items;
-  size_t count;
-  size_t capacity;
+  unsigned count;
+  unsigned capacity;
 });
 
 DefineComplexStruct(GameLog, {
-  BotsDA bots;
   LogEntry *items;
-  size_t count;
-  size_t capacity;
-  uint_fast8_t winning_bot;
+  BotsDA bots;
+  unsigned count;
+  unsigned capacity;
+  uint8_t winning_bot;
   bool draw; // If no one won (a draw) this will be set true
 });
 
@@ -56,14 +56,15 @@ DefineComplexStruct(GameState, {
   BotsDA bots;
   FILE *log_file;
   BotBitset bot_bit_set;
-  int remaining_bots;
-  int turn;
+  unsigned remaining_bots;
+  unsigned turn;
 });
 
 GameState MakeGame(const char *map_file_path, BotsDA bots, bool log);
 void StopBot(Bot bot);
 void StartBot(Bot bot);
 void RunGame(GameState *state);
-void UpdateStateFromLogEntry(GameState *state, size_t entry_idx);
+void WriteGameLogToFile(FILE *file, GameLog game_log);
+bool ReadGameLogFromFile(FILE *file, GameLog *game_log);
 
 #endif // GAME_H

@@ -20,18 +20,21 @@
 typedef struct {
   bool *help;
   bool *write_log;
+  bool *write_save;
   char **config_file;
   char **map_file;
+  char **from_save_file;
   char **bot_commands;
   int bot_commands_count;
 } CLIArguments;
 
 // Configuration for the entire system.
 DefineComplexStruct(Configs, {
+  BotsDA bots;
+  char *map_file;
   bool tournament;
   bool write_log;
-  char *map_file;
-  BotsDA bots;
+  bool write_save;
 });
 
 void Usage(FILE *stream) {
@@ -45,12 +48,18 @@ CLIArguments RegisterFlagArguments() {
   args.help = flag_bool("help", false, "Show this help.");
   args.write_log =
       flag_bool("write_log", false, "Write a log of the game to log.txt");
+  args.write_save = flag_bool("write_save", false,
+                              "Write a save file of the game to game.plws");
   args.config_file =
       flag_str("config", NULL,
                "A path to a config file that can be used to run "
                "tournament or more complex environments. If a config file is "
                "used all other flags are ignored.");
   args.map_file = flag_str("map", NULL, "The map file bots will play on.");
+  args.from_save_file =
+      flag_str("load_from", NULL,
+               "A path to a .plws file to read a game from. If this option is "
+               "given, the rest of the options are ignored.");
   args.bot_commands_count = 0;
   args.bot_commands = NULL;
   return args;
@@ -98,6 +107,9 @@ int handler(void *user_data, const char *section, const char *name,
 
     if (MATCH(name, "write_log")) {
       SET_BOOL(config->write_log);
+    }
+    if (MATCH(name, "write_save")) {
+      SET_BOOL(config->write_save);
     }
     if (MATCH(name, "tournament")) {
       SET_BOOL(config->tournament);
@@ -162,6 +174,7 @@ bool FillConfigsWithArgs(CLIArguments args, Configs *configs) {
   }
   configs->write_log = *args.write_log;
   configs->map_file = strdup(*args.map_file);
+  configs->write_save = *args.write_save;
 
   char *const *argv = flag_rest_argv();
   const int argc = flag_rest_argc();
@@ -184,6 +197,16 @@ int main(int argc, char *argv[]) {
   } else if (*args.help) {
     Usage(stderr);
     return 0;
+  } else if (*args.from_save_file != NULL) {
+    GameLog game_log = {0};
+
+    FILE *file = fopen(*args.from_save_file, "rb");
+    if (!ReadGameLogFromFile(file, &game_log))
+      return 1;
+    fclose(file);
+    RunViewerForGame(game_log);
+    FreeInnerGameLog(game_log);
+    return 0;
   } else if (*args.config_file) {
     if (ini_parse(*args.config_file, handler, &configs) < 0) {
       nob_log(NOB_ERROR, "Failed parsing config file");
@@ -203,7 +226,13 @@ int main(int argc, char *argv[]) {
 
     RunGame(&state);
 
-    RunViewerForGame(state);
+    if (configs.write_save) {
+      FILE *file = fopen("game.plws", "wb");
+      WriteGameLogToFile(file, state.game_log);
+      fclose(file);
+    }
+
+    RunViewerForGame(state.game_log);
 
     FreeInnerGameState(state);
   }
