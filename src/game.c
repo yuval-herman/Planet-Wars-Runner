@@ -726,23 +726,6 @@ void RunGame(GameState *state) {
   nob_sb_free(bot_message);
 }
 
-void UpdateStateFromLogEntry(GameState *state, unsigned entry_idx) {
-  if (entry_idx >= state->game_log.count) {
-    nob_log(NOB_WARNING, "Attempted accessing OOB game log entry.");
-    return;
-  }
-
-  LogEntry entry = state->game_log.items[entry_idx];
-  state->remaining_bots = entry.remaining_bots;
-
-  state->fleets.count = entry.fleet_count;
-  memcpy(state->fleets.items, entry.fleets,
-         sizeof *state->fleets.items * entry.fleet_count);
-  state->planets.count = entry.planet_count;
-  memcpy(state->planets.items, entry.planets,
-         sizeof *state->planets.items * entry.planet_count);
-}
-
 const unsigned version = 0;
 const char magic[4] = {'p', 'l', 'w', 's'};
 

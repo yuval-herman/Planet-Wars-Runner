@@ -64,7 +64,6 @@ GameState MakeGame(const char *map_file_path, BotsDA bots, bool log);
 void StopBot(Bot bot);
 void StartBot(Bot bot);
 void RunGame(GameState *state);
-void UpdateStateFromLogEntry(GameState *state, unsigned entry_idx);
 void WriteGameLogToFile(FILE *file, GameLog game_log);
 bool ReadGameLogFromFile(FILE *file, GameLog *game_log);
 
