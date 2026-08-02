@@ -33,14 +33,14 @@ typedef struct {
 
 typedef struct {
   Planet *items;
-  size_t count;
-  size_t capacity;
+  unsigned count;
+  unsigned capacity;
 } PlanetDA;
 
 typedef struct {
   Fleet *items;
-  size_t count;
-  size_t capacity;
+  unsigned count;
+  unsigned capacity;
 } FleetsDA;
 
 // Parses a float, advances s to the end of the parsed string, sets out to the

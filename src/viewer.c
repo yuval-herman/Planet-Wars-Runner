@@ -208,7 +208,7 @@ void DrawControls(GameState *state) {
 
   // Play forewards
   button.x += button_edge + ui_margin;
-  HandleMousePress(if ((size_t)state->turn < state->game_log.count) {
+  HandleMousePress(if ((unsigned)state->turn < state->game_log.count) {
     playing_forewards = true;
     game_running = true;
   });
@@ -240,14 +240,14 @@ void DrawControls(GameState *state) {
                                .width = indicator_size,
                                .height = indicator_size};
 
-  for (size_t i = 0; i < state->bots.count; i++) {
+  for (unsigned i = 0; i < state->bots.count; i++) {
     Color player_color = GetOwnerColor(i + 1);
 
     DrawRectangleRec(color_indicator, player_color);
     // Indicator border
     DrawRectangleLinesEx(color_indicator, 1.0f, RAYWHITE);
 
-    const char *player_text = TextFormat("P%zu", i + 1);
+    const char *player_text = TextFormat("P%u", i + 1);
     Vector2 text_measurements =
         MeasureTextEx(font, player_text, font_size, spacing);
 
@@ -314,25 +314,24 @@ void RunViewerForGame(GameState state) {
     if (game_running &&
         (game_speed == 0 || frame_counter % abs(game_speed) == 0)) {
       UpdateStateFromLogEntry(&state, state.turn);
-      if (playing_forewards && (size_t)state.turn < state.game_log.count)
+      if (playing_forewards && (unsigned)state.turn < state.game_log.count)
         state.turn++;
       else if (state.turn > 0)
         state.turn--;
-      if ((size_t)state.turn >= state.game_log.count - 1 || state.turn == 0)
+      if ((unsigned)state.turn >= state.game_log.count - 1 || state.turn == 0)
         game_running = false;
     }
 
     if (IsKeyPressed(KEY_RIGHT)) {
       game_running = false;
       state.turn++;
-      if ((size_t)state.turn >= state.game_log.count)
+      if ((unsigned)state.turn >= state.game_log.count)
         state.turn = state.game_log.count - 1;
       UpdateStateFromLogEntry(&state, state.turn);
     } else if (IsKeyPressed(KEY_LEFT)) {
       game_running = false;
-      state.turn--;
-      if (state.turn < 0)
-        state.turn = 0;
+      if (state.turn != 0)
+        state.turn--;
       UpdateStateFromLogEntry(&state, state.turn);
     } else if (IsKeyPressed(KEY_SPACE)) {
       game_running = !game_running;

@@ -121,18 +121,18 @@ inline static Nob_Cmd SplitStringByDelim(const char *str, char delim) {
   return split_str;
 }
 
-inline static char **DupeMultiDString(char const *const *md_str, size_t dim) {
+inline static char **DupeMultiDString(char const *const *md_str, unsigned dim) {
   char **new_md_str = malloc(sizeof *new_md_str * dim);
-  for (size_t i = 0; i < dim; i++) {
-    size_t cmd_len = strlen(md_str[i]) + 1;
+  for (unsigned i = 0; i < dim; i++) {
+    unsigned cmd_len = strlen(md_str[i]) + 1;
     new_md_str[i] = malloc(sizeof *new_md_str[i] * cmd_len);
     memcpy(new_md_str[i], md_str[i], cmd_len);
   }
   return new_md_str;
 }
 
-inline static void FreeMultiDString(char **md_str, size_t dim) {
-  for (size_t i = 0; i < dim; i++) {
+inline static void FreeMultiDString(char **md_str, unsigned dim) {
+  for (unsigned i = 0; i < dim; i++) {
     free(md_str[i]);
   }
   free(md_str);

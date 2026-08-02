@@ -5,8 +5,8 @@
 
 DefineComplexStruct(TournametData, {
   GameLog *items;
-  size_t capacity;
-  size_t count;
+  unsigned capacity;
+  unsigned count;
 });
 
 TournametData RunTournament(const char *map_file_path, BotsDA bots);
