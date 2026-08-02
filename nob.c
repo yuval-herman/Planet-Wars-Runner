@@ -100,6 +100,12 @@ int main(int argc, char **argv) {
                 "Enable debug mode compilation. This adds debug symbols and "
                 "sanitizers and reduces optimizations.");
 
+  const bool *profile_flag =
+      flag_bool("profile", false,
+                "Enable profiling mode compilation. This adds debug symbols "
+                "but leaves optimizations on, as well as setting other flags "
+                "to help clean profiling.");
+
   const bool *headless_flag =
       flag_bool("headless", false,
                 "Enable headless mode compilation. This compiles the "
@@ -114,6 +120,11 @@ int main(int argc, char **argv) {
   } else if (*help_flag) {
     Usage(stderr);
     return 0;
+  }
+  if (*debug_flag && *profile_flag) {
+    nob_log(NOB_ERROR, "Debug and profile flags are mutually exclusive. You "
+                       "may specify only one.");
+    return 1;
   }
 
   nob_mkdir_if_not_exists(BUILD_DIR);
@@ -159,10 +170,12 @@ int main(int argc, char **argv) {
     nob_cmd_append(&cmd, "-lX11");
 #endif // _WIN32
   }
-  // Enable debug mode
   if (*debug_flag) {
     nob_log(NOB_WARNING, "Compiling program in debug mode");
     nob_cmd_append(&cmd, "-fsanitize=address,undefined", "-g", "-O0");
+  } else if (*profile_flag) {
+    nob_log(NOB_WARNING, "Compiling program in profiling mode");
+    nob_cmd_append(&cmd, "-g", "-O2", "-fno-omit-frame-pointer");
   } else {
 #if !defined(_WIN32) || defined(__clang__)
     nob_cmd_append(&cmd, "-flto=auto");
