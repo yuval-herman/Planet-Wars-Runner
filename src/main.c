@@ -1,4 +1,6 @@
+#ifndef HEADLESS_MODE
 #include "viewer.h"
+#endif // HEADLESS_MODE
 
 #include "game.h"
 #include "ini.h"
@@ -22,7 +24,9 @@ typedef struct {
   bool *write_save;
   char **config_file;
   char **map_file;
+#ifndef HEADLESS_MODE
   char **from_save_file;
+#endif // HEADLESS_MODE
   char **bot_commands;
   int bot_commands_count;
 } CLIArguments;
@@ -55,10 +59,12 @@ CLIArguments RegisterFlagArguments() {
                "tournament or more complex environments. If a config file is "
                "used all other flags are ignored.");
   args.map_file = flag_str("map", NULL, "The map file bots will play on.");
+#ifndef HEADLESS_MODE
   args.from_save_file =
       flag_str("load_from", NULL,
                "A path to a .plws file to read a game from. If this option is "
                "given, the rest of the options are ignored.");
+#endif // HEADLESS_MODE
   args.bot_commands_count = 0;
   args.bot_commands = NULL;
   return args;
@@ -171,6 +177,7 @@ int VerifyConfigs(Configs configs) {
 bool FillConfigsWithArgs(CLIArguments args, Configs *configs) {
   if (!*args.map_file) {
     nob_log(NOB_ERROR, "A map file must be provided.");
+    Usage(stderr);
     return false;
   }
   configs->write_log = *args.write_log;
@@ -198,7 +205,9 @@ int main(int argc, char *argv[]) {
   } else if (*args.help) {
     Usage(stderr);
     return 0;
-  } else if (*args.from_save_file != NULL) {
+  }
+#ifndef HEADLESS_MODE
+  else if (*args.from_save_file != NULL) {
     GameLog game_log = {0};
 
     FILE *file = fopen(*args.from_save_file, "rb");
@@ -208,7 +217,9 @@ int main(int argc, char *argv[]) {
     RunViewerForGame(game_log);
     FreeInnerGameLog(game_log);
     return 0;
-  } else if (*args.config_file) {
+  }
+#endif // HEADLESS_MODE
+  else if (*args.config_file) {
     if (ini_parse(*args.config_file, handler, &configs) < 0) {
       nob_log(NOB_ERROR, "Failed parsing config file");
       return 1;
@@ -233,7 +244,9 @@ int main(int argc, char *argv[]) {
       fclose(file);
     }
 
+#ifndef HEADLESS_MODE
     RunViewerForGame(state.game_log);
+#endif // HEADLESS_MODE
 
     FreeInnerGameState(state);
   }

@@ -1,5 +1,9 @@
 #include <stdio.h>
 #include <string.h>
+
+#define FLAG_IMPLEMENTATION
+#include "external/flag.h"
+
 #define NOB_IMPLEMENTATION
 #include "nob.h"
 
@@ -67,38 +71,78 @@ bool compile_raylib() {
   return nob_cmd_run(&cmd);
 }
 
+void Usage(FILE *stream) {
+  fprintf(stream, "Usage: %s [OPTIONS] [--] [ARGS]\n", flag_program_name());
+  fprintf(stream, "OPTIONS:\n");
+  flag_print_options(stream);
+}
+
 int main(int argc, char **argv) {
   NOB_GO_REBUILD_URSELF(argc, argv);
 
+  const bool *debug_flag =
+      flag_bool("debug", false,
+                "Enable debug mode compilation. This adds debug symbols and "
+                "sanitizers and reduces optimizations.");
+
+  const bool *headless_flag =
+      flag_bool("headless", false,
+                "Enable headless mode compilation. This compiles the "
+                "executable without raylib and without UI support at all. This "
+                "functionality is meant for server use.");
+
+  const bool *help_flag = flag_bool("help", false, "Show help.");
+  if (!flag_parse(argc, argv)) {
+    Usage(stderr);
+    flag_print_error(stderr);
+    return 1;
+  } else if (*help_flag) {
+    Usage(stderr);
+    return 0;
+  }
+
   nob_mkdir_if_not_exists(BUILD_DIR);
 
-  if (!nob_file_exists(RAYLIB_LIB))
-    compile_raylib();
+  if (!*headless_flag) {
+    if (!nob_file_exists(RAYLIB_LIB))
+      compile_raylib();
+  }
 
   Nob_Cmd cmd = {0};
   nob_cc(&cmd);
   nob_cmd_append(&cmd, "-Wall", "-Wextra"
                  // , "-Wpadded"
   );
-  nob_cmd_append(&cmd, "src/main.c", "src/game.c", "src/viewer.c",
-                 "src/tournament.c", );
+  nob_cmd_append(&cmd, "src/main.c", "src/game.c", "src/tournament.c", );
+  if (!*headless_flag) {
+    nob_cmd_append(&cmd, "src/viewer.c");
+  } else {
+    nob_cmd_append(&cmd, "-DHEADLESS_MODE");
+  }
   nob_cmd_append(&cmd, "-DINI_ALLOW_MULTILINE=0", "-DINI_STOP_ON_FIRST_ERROR=1",
                  "-DINI_HANDLER_LINENO=1",
                  "-DINI_CALL_HANDLER_ON_NEW_SECTION=1", "-DINI_MAX_LINE=1000",
                  "external/inih/ini.c");
-  nob_cmd_append(&cmd, RAYLIB_LIB);
+  if (!*headless_flag) {
+    nob_cmd_append(&cmd, RAYLIB_LIB);
+  }
   nob_cmd_append(&cmd, "-isystemexternal/raylib");
   nob_cmd_append(&cmd, "-isystemexternal/inih");
   nob_cmd_append(&cmd, "-isystemexternal");
   nob_cmd_append(&cmd, "-isystem.");
   nob_cmd_append(&cmd, "-lm");
 #ifdef _WIN32
-  nob_cmd_append(&cmd, "-lgdi32", "-lwinmm", "-lshcore", "-lws2_32");
-#else
-  nob_cmd_append(&cmd, "-lX11");
+  nob_cmd_append(&cmd, "-lws2_32");
 #endif // _WIN32
+  if (!*headless_flag) {
+#ifdef _WIN32
+    nob_cmd_append(&cmd, "-lgdi32", "-lwinmm", "-lshcore");
+#else
+    nob_cmd_append(&cmd, "-lX11");
+#endif // _WIN32
+  }
   // Enable debug mode
-  if (argc > 1) {
+  if (*debug_flag) {
     nob_log(NOB_WARNING, "Compiling program in debug mode");
     nob_cmd_append(&cmd, "-fsanitize=address,undefined", "-g", "-O0");
   } else {
