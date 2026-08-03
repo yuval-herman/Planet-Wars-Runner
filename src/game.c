@@ -94,8 +94,8 @@ void FreeInnerGameState(GameState state) {
 // the bot, you must do so manually.
 Bot DeepCopyBot(Bot bot) {
   Bot new_bot = {
-      .name = bot.name ? strdup(bot.name) : NULL,
-      .start_command = strdup(bot.start_command),
+      .name = bot.name ? DupeString(bot.name) : NULL,
+      .start_command = DupeString(bot.start_command),
       .process = NULL,
   };
   return new_bot;
