@@ -1,6 +1,6 @@
 #include "tournament.h"
-#include "src/game.h"
-#include <stdlib.h>
+
+#include <threads.h>
 
 TournametData DeepCopyTournametData(TournametData tournament) {
   TournametData new_tournament = {
