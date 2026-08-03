@@ -156,6 +156,7 @@ int main(int argc, char **argv) {
   nob_cmd_append(&cmd, "-isystemexternal/inih");
   nob_cmd_append(&cmd, "-isystemexternal");
   nob_cmd_append(&cmd, "-isystem.");
+  nob_cmd_append(&cmd, "-std=c11");
 #if !defined(_WIN32) || defined(__GNUC__)
   nob_cmd_append(&cmd, "-lm");
 #endif
