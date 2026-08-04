@@ -211,6 +211,11 @@ int main(int argc, char *argv[]) {
     GameLog game_log = {0};
 
     FILE *file = fopen(*args.from_save_file, "rb");
+    if (!file) {
+      perror("Failed loading save file");
+      exit(1);
+    }
+
     if (!ReadGameLogFromFile(file, &game_log))
       return 1;
     fclose(file);
