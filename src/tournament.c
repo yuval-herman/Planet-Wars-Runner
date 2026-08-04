@@ -40,6 +40,28 @@ typedef struct {
   TournametData *tournament_data;
 } MatchRunnerArgs;
 
+static bool AdvancePlayerIndex(MatchRunnerArgs *args, unsigned *out_p1,
+                               unsigned *out_p2) {
+  mtx_lock(args->idx_mtx);
+
+  if (args->p1_idx >= args->bots.count - 1) {
+    mtx_unlock(args->idx_mtx);
+    return false;
+  }
+
+  *out_p1 = args->p1_idx;
+  *out_p2 = args->p2_idx;
+
+  args->p2_idx++;
+  if (args->p2_idx >= args->bots.count) {
+    args->p1_idx++;
+    args->p2_idx = args->p1_idx + 1;
+  }
+
+  mtx_unlock(args->idx_mtx);
+  return true;
+}
+
 int ThrdMatchRunner(void *args) {
   MatchRunnerArgs *match_args = args;
   Nob_String_Builder sb = {0};
@@ -49,28 +71,12 @@ int ThrdMatchRunner(void *args) {
   playing_bots.capacity = playing_bots.count;
   playing_bots.items = malloc(sizeof *playing_bots.items * playing_bots.count);
 
-  while (true) {
+  unsigned p1_idx;
+  unsigned p2_idx;
+
+  while (AdvancePlayerIndex(match_args, &p1_idx, &p2_idx)) {
     sb.count = 0;
     temp_sb.count = 0;
-    mtx_lock(match_args->idx_mtx);
-    const unsigned p1_idx = match_args->p1_idx;
-    const unsigned p2_idx = match_args->p2_idx;
-
-    if (match_args->p2_idx == match_args->bots.count - 1) {
-      if (match_args->p1_idx < match_args->bots.count - 2) {
-        match_args->p1_idx++;
-        match_args->p2_idx = match_args->p1_idx + 1;
-      } else {
-        mtx_unlock(match_args->idx_mtx);
-        nob_da_free(playing_bots);
-        nob_sb_free(sb);
-        nob_sb_free(temp_sb);
-        return 0;
-      }
-    } else {
-      match_args->p2_idx++;
-    }
-    mtx_unlock(match_args->idx_mtx);
 
     nob_sb_append_cstr(&sb, "match:\n");
     sbAppendBotName(&sb, p1_idx);
@@ -126,6 +132,10 @@ int ThrdMatchRunner(void *args) {
     fwrite(sb.items, 1, sb.count, match_args->tournament_data_file);
     mtx_unlock(match_args->file_write_mtx);
   }
+  nob_da_free(playing_bots);
+  nob_sb_free(sb);
+  nob_sb_free(temp_sb);
+  return 0;
 }
 
 TournametData RunTournament(const char *map_file_path, BotsDA bots) {
