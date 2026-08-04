@@ -12,7 +12,7 @@ TournametData DeepCopyTournametData(TournametData tournament) {
   for (unsigned i = 0; i < tournament.count; i++) {
     new_tournament.items[i] = DeepCopyGameLog(tournament.items[i]);
   }
-  return tournament;
+  return new_tournament;
 }
 
 void FreeInnerTournametData(TournametData tournament) {
