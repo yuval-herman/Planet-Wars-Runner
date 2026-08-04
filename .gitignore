@@ -8,3 +8,4 @@
 /planet_wars.exe
 /config.ini
 /*.plws
+/src/shaders.c
