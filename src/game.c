@@ -133,11 +133,9 @@ void FreeInnerBotsDA(BotsDA bots) {
 void StopBot(Bot bot) {
   if (bot.process == NULL)
     return;
-  if (subprocess_terminate(bot.process) != 0) {
-    nob_log(NOB_WARNING, "Failed terminating bot process: %s.",
-            bot.name ? bot.name : bot.start_command);
-  } else {
-    if (subprocess_join(bot.process, NULL) != 0) {
+  if (subprocess_alive(bot.process)) {
+    if (subprocess_terminate(bot.process) != 0 ||
+        subprocess_join(bot.process, NULL) != 0) {
       nob_log(NOB_WARNING, "Failed terminating bot process: %s.",
               bot.name ? bot.name : bot.start_command);
     }
@@ -282,9 +280,7 @@ void DisqualifyBot(GameState *state, unsigned bot_idx) {
   // We don't remove the bot from the dynamic array because we use the DA index
   // to address different bots. Instead it should be marked as disqualified and
   // not used.
-  if (subprocess_alive(state->bots.items[bot_idx].process))
-    subprocess_terminate(state->bots.items[bot_idx].process);
-  subprocess_destroy(state->bots.items[bot_idx].process);
+  StopBot(state->bots.items[bot_idx]);
 
   state->remaining_bots--;
   nob_da_foreach(Planet, planet, &state->planets) {
