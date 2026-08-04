@@ -1,6 +1,9 @@
 #ifndef PLANET_WARS_H
 #define PLANET_WARS_H
+
+#include "ffc.h"
 #include "raymath.h"
+
 #include <errno.h>
 #include <limits.h>
 #include <stdbool.h>
@@ -44,51 +47,51 @@ typedef struct {
   unsigned capacity;
 } FleetsDA;
 
-// Parses a float, advances s to the end of the parsed string, sets out to the
-// parsed value. Returns true on success false otherwise.
-static bool parse_float(const char **s, float *out) {
-  char *end;
-  errno = 0;
-  // TODO make custom parser that will accept a string view without a null
-  // terminator.
-  float v = strtof(*s, &end);
-  if (end == *s || errno == ERANGE || !isfinite(v))
-    return false;
-  *s = end;
-  *out = v;
-  return true;
-}
-
-// Parses a int, advances s to the end of the parsed string, sets out to the
-// parsed value. Returns true on success false otherwise.
-static bool parse_int(const char **s, int *out) {
-  char *end;
-  // TODO make custom parser that will accept a string view without a null
-  // terminator.
-  long v = strtol(*s, &end, 10);
-  if (end == *s || v < INT_MIN || v > INT_MAX)
-    return false;
-  *s = end;
-  *out = (int)v;
-  return true;
-}
-
-static bool ParsePlanetLine(char *line, Planet *planet) {
+static bool ParsePlanetLine(const char *line, unsigned line_len,
+                            Planet *planet) {
   if (line[0] != 'P')
     return false;
 
+  // Skip the first 'P'
   const char *s_idx = line + 1;
-  Vector2 coords;
-  int owner;
-  int ships;
-  int growth;
-  if (!(parse_float(&s_idx, &coords.x) && parse_float(&s_idx, &coords.y) &&
-        parse_int(&s_idx, &owner) && parse_int(&s_idx, &ships) &&
-        parse_int(&s_idx, &growth))) {
-    return false;
-  }
+  const char *e_idx = line + line_len;
 
-  if (owner < 0 || owner > MAX_BOT_AMOUNT) {
+  Vector2 coords;
+  unsigned owner;
+  unsigned ships;
+  unsigned growth;
+  ffc_result result;
+  ffc_parse_options parse_options = ffc_parse_options_default();
+  parse_options.format |= FFC_FORMAT_FLAG_SKIP_WHITE_SPACE;
+
+#define ParseFloat(output)                                                     \
+  result = ffc_from_chars_float_options(s_idx, e_idx, &output, parse_options); \
+  if (result.outcome != FFC_OUTCOME_OK) {                                      \
+    fprintf(stderr, "failed parsing " #output "\n");                           \
+    return false;                                                              \
+  }                                                                            \
+  s_idx = result.ptr;
+
+#define ParseUint(output)                                                      \
+  result =                                                                     \
+      ffc_from_chars_u32_options(s_idx, e_idx, 10, &output, parse_options);    \
+  if (result.outcome != FFC_OUTCOME_OK || output > UINT16_MAX) {               \
+    fprintf(stderr, "failed parsing " #output "\n");                           \
+    return false;                                                              \
+  }                                                                            \
+  s_idx = result.ptr;
+
+  ParseFloat(coords.x);
+  ParseFloat(coords.y);
+
+  ParseUint(owner);
+  ParseUint(ships);
+  ParseUint(growth);
+
+#undef ParseFloat
+#undef ParseUint
+
+  if (owner > MAX_BOT_AMOUNT) {
     fprintf(stderr,
             "Invalid number of player owned planets. There must be "
             "between 1 to %d players.\n",
