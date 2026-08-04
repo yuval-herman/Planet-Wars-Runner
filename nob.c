@@ -92,6 +92,59 @@ void Usage(FILE *stream) {
   flag_print_options(stream);
 }
 
+#ifdef _WIN32
+#define PATH_SEPERATOR "\\"
+#else
+#define PATH_SEPERATOR "/"
+#endif
+
+bool embed_files_walker(Nob_Walk_Entry entry) {
+  FILE *shaders_file = entry.data;
+  Nob_String_Builder sb = {0};
+  if (entry.type == NOB_FILE_REGULAR) {
+    nob_read_entire_file(entry.path, &sb);
+    Nob_String_View sv = {.data = entry.path, .count = strlen(entry.path)};
+    // Remove path, leaving only the filename
+    unsigned i = 0;
+    while (i < sv.count && PATH_SEPERATOR[0] != sv.data[sv.count - 1 - i]) {
+      i += 1;
+    }
+    sv.data += sv.count - i;
+    sv.count = i;
+
+    // Remove file extension
+    sv = nob_sv_chop_by_delim(&sv, '.');
+
+    fprintf(shaders_file, "const char %.*s_shader_source[] = ", (int)sv.count, sv.data);
+
+    sv.data = sb.items;
+    sv.count = sb.count;
+
+    while (sv.count > 0) {
+      Nob_String_View line_sv = nob_sv_chop_by_delim(&sv, '\n');
+      fprintf(shaders_file, "\"%.*s\\n\"\n", (int)line_sv.count, line_sv.data);
+    }
+    fputc(';', shaders_file);
+
+    nob_log(NOB_INFO, "Embedded %s.", entry.path);
+  }
+  // The first directory we walk is the directory we want to traverse, so we
+  // only skip after level 1
+  else if (entry.level > 1) {
+    nob_log(NOB_WARNING, "While traversing directory to embedd files, "
+                         "encountered a non regular file. Skipping.");
+    *entry.action = NOB_WALK_SKIP;
+  }
+  nob_sb_free(sb);
+  return true;
+}
+
+void EmbedShaders() {
+  FILE *shaders_file = fopen("src/shaders.c", "w");
+  nob_walk_dir("shaders", embed_files_walker, .data = shaders_file);
+  fclose(shaders_file);
+}
+
 int main(int argc, char **argv) {
   NOB_GO_REBUILD_URSELF(argc, argv);
 
@@ -126,6 +179,8 @@ int main(int argc, char **argv) {
                        "may specify only one.");
     return 1;
   }
+
+  EmbedShaders();
 
   nob_mkdir_if_not_exists(BUILD_DIR);
 
