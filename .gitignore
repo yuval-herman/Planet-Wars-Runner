@@ -9,3 +9,5 @@
 /config.ini
 /*.plws
 /src/shaders.c
+/.cache
+/compile_commands.json
