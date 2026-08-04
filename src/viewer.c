@@ -1,5 +1,6 @@
 #include "raylib.h"
 
+#include "shaders.c"
 #include "nob.h"
 #include "planet_wars.h"
 #include "viewer.h"
@@ -262,7 +263,7 @@ void DrawControls(GameLog game_log, unsigned *turn) {
 }
 
 Shader SetupStarsShader(int screenWidth, int screenHeight) {
-  Shader stars_shader = LoadShader(0, "shaders/stars.fs");
+  Shader stars_shader = LoadShaderFromMemory(NULL, stars_shader_source);
 
   int resLoc = GetShaderLocation(stars_shader, "uResolution");
   int starSizeLoc = GetShaderLocation(stars_shader, "uStarSize");
