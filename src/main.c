@@ -123,7 +123,7 @@ int handler(void *user_data, const char *section, const char *name,
   } else if (MATCH(section, "simulation")) {
 
     if (MATCH(name, "map")) {
-      config->map_file = strdup(value);
+      config->map_file = DupeString(value);
     } else {
       nob_log(NOB_ERROR, "Unknown simulation config. line %d.", lineno);
       return 0;
@@ -132,9 +132,9 @@ int handler(void *user_data, const char *section, const char *name,
   } else if (MATCH(section, "bot")) {
 
     if (MATCH(name, "name")) {
-      nob_da_last(&config->bots).name = strdup(value);
+      nob_da_last(&config->bots).name = DupeString(value);
     } else if (MATCH(name, "command")) {
-      nob_da_last(&config->bots).start_command = strdup(value);
+      nob_da_last(&config->bots).start_command = DupeString(value);
     } else {
       nob_log(NOB_ERROR, "Unknown bot config. line %d.", lineno);
       return 0;
@@ -181,14 +181,14 @@ bool FillConfigsWithArgs(CLIArguments args, Configs *configs) {
     return false;
   }
   configs->write_log = *args.write_log;
-  configs->map_file = strdup(*args.map_file);
+  configs->map_file = DupeString(*args.map_file);
   configs->write_save = *args.write_save;
 
   char *const *argv = flag_rest_argv();
   const int argc = flag_rest_argc();
   for (int i = 0; i < argc; i++) {
     Bot bot = {0};
-    bot.start_command = strdup(argv[i]);
+    bot.start_command = DupeString(argv[i]);
     nob_da_append(&configs->bots, bot);
   }
 

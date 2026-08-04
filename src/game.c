@@ -4,6 +4,7 @@
 
 #define STB_SPRINTF_NOFLOAT
 #define STB_SPRINTF_IMPLEMENTATION
+#define STB_SPRINTF_NOUNALIGNED
 #include "stb_sprintf.h"
 
 #include <stdint.h>
@@ -94,8 +95,8 @@ void FreeInnerGameState(GameState state) {
 // the bot, you must do so manually.
 Bot DeepCopyBot(Bot bot) {
   Bot new_bot = {
-      .name = bot.name ? strdup(bot.name) : NULL,
-      .start_command = strdup(bot.start_command),
+      .name = bot.name ? DupeString(bot.name) : NULL,
+      .start_command = DupeString(bot.start_command),
       .process = NULL,
   };
   return new_bot;
@@ -132,7 +133,13 @@ void FreeInnerBotsDA(BotsDA bots) {
 void StopBot(Bot bot) {
   if (bot.process == NULL)
     return;
-  subprocess_terminate(bot.process);
+  if (subprocess_alive(bot.process)) {
+    if (subprocess_terminate(bot.process) != 0 ||
+        subprocess_join(bot.process, NULL) != 0) {
+      nob_log(NOB_WARNING, "Failed terminating bot process: %s.",
+              bot.name ? bot.name : bot.start_command);
+    }
+  }
   subprocess_destroy(bot.process);
 }
 
@@ -273,9 +280,7 @@ void DisqualifyBot(GameState *state, unsigned bot_idx) {
   // We don't remove the bot from the dynamic array because we use the DA index
   // to address different bots. Instead it should be marked as disqualified and
   // not used.
-  if (subprocess_alive(state->bots.items[bot_idx].process))
-    subprocess_terminate(state->bots.items[bot_idx].process);
-  subprocess_destroy(state->bots.items[bot_idx].process);
+  StopBot(state->bots.items[bot_idx]);
 
   state->remaining_bots--;
   nob_da_foreach(Planet, planet, &state->planets) {
