@@ -476,7 +476,7 @@ bool ParseBotFleets(GameState *state, Nob_String_View bot_message,
       nob_log(NOB_INFO,
               "Bot tried sending fleet from a planet it does not own.");
       return false;
-    } else if ((unsigned)fleet.dst_id > state->planets.count) {
+    } else if (fleet.dst_id >= state->planets.count) {
       nob_log(NOB_INFO, "Bot tried sending fleet to nonexistent planet.");
       return false;
     } else if (src->ships < fleet.ships) {
