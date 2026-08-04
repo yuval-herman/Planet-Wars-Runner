@@ -183,6 +183,7 @@ TournametData RunTournament(const char *map_file_path, BotsDA bots) {
       .tournament_data_file = tournament_data_file,
   };
 
+  nob_log(NOB_INFO, "Running tournament between %u bots. This will run %u matches.", bots.count, bots.count*(bots.count-1)/2);
   // All normal logging must stop as this functions are not thread-safe
   nob_minimal_log_level = NOB_WARNING;
   for (unsigned i = 0; i < thread_count; i++) {
@@ -192,6 +193,7 @@ TournametData RunTournament(const char *map_file_path, BotsDA bots) {
     thrd_join(thread_pool[i], NULL);
   }
   nob_minimal_log_level = NOB_INFO;
+  nob_log(NOB_INFO, "Tournament finished, data is saved in `tournament` directory.");
 
   fclose(tournament_data_file);
   free(thread_pool);
