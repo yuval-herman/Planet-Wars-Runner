@@ -96,6 +96,8 @@ int ThrdMatchRunner(void *args) {
     RunGame(&state);
 
     GameLog game_log_copy = DeepCopyGameLog(state.game_log);
+    // Free as soon as possible to destroy bot threads
+    FreeInnerGameState(state);
 
     if (game_log_copy.draw) {
       // nob_log(NOB_INFO, "Game ended in a draw");
@@ -120,13 +122,12 @@ int ThrdMatchRunner(void *args) {
     nob_sb_appendf(&sb, "save file name: %s\n", save_file_name);
 
     FILE *save_file = fopen(save_file_name, "wb");
-    WriteGameLogToFile(save_file, state.game_log);
+    WriteGameLogToFile(save_file, game_log_copy);
     fclose(save_file);
 
     mtx_lock(match_args->tournament_data_mtx);
     nob_da_append(match_args->tournament_data, game_log_copy);
     mtx_unlock(match_args->tournament_data_mtx);
-    FreeInnerGameState(state);
 
     mtx_lock(match_args->file_write_mtx);
     fwrite(sb.items, 1, sb.count, match_args->tournament_data_file);
