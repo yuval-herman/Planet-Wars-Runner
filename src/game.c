@@ -133,7 +133,15 @@ void FreeInnerBotsDA(BotsDA bots) {
 void StopBot(Bot bot) {
   if (bot.process == NULL)
     return;
-  subprocess_terminate(bot.process);
+  if (subprocess_terminate(bot.process) != 0) {
+    nob_log(NOB_WARNING, "Failed terminating bot process: %s.",
+            bot.name ? bot.name : bot.start_command);
+  } else {
+    if (subprocess_join(bot.process, NULL) != 0) {
+      nob_log(NOB_WARNING, "Failed terminating bot process: %s.",
+              bot.name ? bot.name : bot.start_command);
+    }
+  }
   subprocess_destroy(bot.process);
 }
 
