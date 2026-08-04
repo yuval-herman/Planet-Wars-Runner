@@ -86,6 +86,19 @@ bool compile_raylib() {
   return nob_cmd_run(&cmd);
 }
 
+bool compile_ini_c() {
+  Nob_Cmd cmd = {0};
+  nob_cc(&cmd);
+  nob_cmd_append(&cmd, "-c");
+  nob_cmd_append(&cmd, "-DINI_ALLOW_MULTILINE=0", "-DINI_STOP_ON_FIRST_ERROR=1",
+                 "-DINI_HANDLER_LINENO=1",
+                 "-DINI_CALL_HANDLER_ON_NEW_SECTION=1", "-DINI_MAX_LINE=1000",
+                 "external/inih/ini.c", "-o", "build/ini.o", "-O2");
+  bool ret = cmd_run(&cmd);
+  nob_cmd_free(cmd);
+  return ret;
+}
+
 void Usage(FILE *stream) {
   fprintf(stream, "Usage: %s [OPTIONS] [--] [ARGS]\n", flag_program_name());
   fprintf(stream, "OPTIONS:\n");
@@ -146,6 +159,86 @@ void EmbedShaders() {
   fclose(shaders_file);
 }
 
+char *c_to_o_path(const char *source_file_path) {
+  return nob_temp_sprintf("build/%.*s.o", (int)strlen(source_file_path + 4) - 2,
+                          source_file_path + 4);
+}
+
+void AddCompileModeFlags(Nob_Cmd *cmd, bool headless, bool debug,
+                         bool profile) {
+  if (debug) {
+    nob_log(NOB_WARNING, "Compiling program in debug mode");
+    nob_cmd_append(cmd, "-fsanitize=address,undefined", "-g", "-O0",
+                   "-fno-omit-frame-pointer");
+  } else if (profile) {
+    nob_log(NOB_WARNING, "Compiling program in profiling mode");
+    nob_cmd_append(cmd, "-g", "-O2", "-fno-omit-frame-pointer");
+  } else {
+#if defined(__clang__)
+    nob_cmd_append(cmd, "-flto=auto");
+    nob_cmd_append(cmd, "-fuse-ld=lld");
+#elif !defined(_WIN32)
+    nob_cmd_append(cmd, "-flto=auto");
+#endif
+    nob_cmd_append(cmd, "-O2");
+  }
+}
+
+bool CompileFile(Nob_Cmd *cmd, Nob_Procs *procs, FILE *compile_commands_file,
+                 const char *file_path, bool headless, bool debug,
+                 bool profile) {
+  const char *output_path = c_to_o_path(file_path);
+
+  nob_cc(cmd);
+  nob_cmd_append(cmd, "-c");
+  nob_cmd_append(cmd, "-Wall", "-Wextra", "-Wno-unused-function",
+                 "-DINI_HANDLER_LINENO=1");
+
+  nob_cmd_append(cmd, "-o");
+  nob_cmd_append(cmd, output_path);
+
+  nob_cmd_append(cmd, file_path);
+
+  if (headless)
+    nob_cmd_append(cmd, "-DHEADLESS_MODE");
+
+  nob_cmd_append(cmd, "-isystemexternal/raylib");
+  nob_cmd_append(cmd, "-isystemexternal/inih");
+  nob_cmd_append(cmd, "-isystemexternal");
+  nob_cmd_append(cmd, "-isystem.");
+
+  nob_cmd_append(cmd, "-std=gnu11");
+
+#ifdef _WIN32
+  nob_cmd_append(cmd, "-lws2_32");
+#endif // _WIN32
+
+  if (!headless) {
+#ifdef _WIN32
+    nob_cmd_append(cmd, "-lgdi32", "-lwinmm", "-lshcore", "-luser32",
+                   "-lshell32");
+#else
+    nob_cmd_append(cmd, "-lX11");
+#endif // _WIN32
+  }
+
+  AddCompileModeFlags(cmd, headless, debug, profile);
+
+  // Add data to compilation database
+  fprintf(compile_commands_file,
+          "{\"directory\":\"%s\","
+          "\"file\":\"%s\","
+          "\"output\":\"%s\","
+          "\"arguments\":[",
+          nob_get_current_dir_temp(), file_path, output_path);
+  nob_da_foreach(const char *, argument, cmd) {
+    fprintf(compile_commands_file, "\"%s\",", *argument);
+  }
+  fprintf(compile_commands_file, "]},");
+
+  return nob_cmd_run(cmd, .async = procs);
+}
+
 int main(int argc, char **argv) {
   NOB_GO_REBUILD_URSELF(argc, argv);
 
@@ -181,6 +274,19 @@ int main(int argc, char **argv) {
     return 1;
   }
 
+  FILE *compile_commands_file = fopen("compile_commands.json", "w");
+  if (!compile_commands_file) {
+    nob_log(NOB_WARNING, "Failed creating compile_flags.txt file: %s",
+            strerror(errno));
+  } else {
+    fprintf(compile_commands_file, "[");
+  }
+  // {
+  //   nob_da_foreach(const char *, line, &cmd) {
+  //     fprintf(compile_commands_file, "%s\n", *line);
+  //   }
+  // }
+
   EmbedShaders();
 
   nob_mkdir_if_not_exists(BUILD_DIR);
@@ -190,76 +296,58 @@ int main(int argc, char **argv) {
       compile_raylib();
   }
 
+  if (!compile_ini_c())
+    return 1;
+
   Nob_Cmd cmd = {0};
-  nob_cc(&cmd);
-  nob_cmd_append(&cmd, "-Wall", "-Wextra", "-Wno-unused-function"
-                 // , "-Wpadded"
-  );
-  nob_cmd_append(&cmd, "src/main.c", "src/game.c", "src/tournament.c", );
-  if (!*headless_flag) {
-    nob_cmd_append(&cmd, "src/viewer.c");
-  } else {
-    nob_cmd_append(&cmd, "-DHEADLESS_MODE");
+  Nob_Procs procs = {0};
+  const char *source_files[] = {"src/main.c", "src/game.c", "src/tournament.c"};
+  const char *headed_source_files[] = {"src/viewer.c"};
+
+  for (unsigned i = 0; i < NOB_ARRAY_LEN(source_files); i++) {
+    if (!CompileFile(&cmd, &procs, compile_commands_file, source_files[i],
+                     *headless_flag, *debug_flag, *profile_flag))
+      return 1;
   }
-  nob_cmd_append(&cmd, "-DINI_ALLOW_MULTILINE=0", "-DINI_STOP_ON_FIRST_ERROR=1",
-                 "-DINI_HANDLER_LINENO=1",
-                 "-DINI_CALL_HANDLER_ON_NEW_SECTION=1", "-DINI_MAX_LINE=1000",
-                 "external/inih/ini.c");
+
   if (!*headless_flag) {
+    for (unsigned i = 0; i < NOB_ARRAY_LEN(headed_source_files); i++) {
+      if (!CompileFile(&cmd, &procs, compile_commands_file,
+                       headed_source_files[i], *headless_flag, *debug_flag,
+                       *profile_flag))
+        return 1;
+    }
+  }
+  nob_procs_flush(&procs);
+
+  nob_cc(&cmd);
+  for (unsigned i = 0; i < NOB_ARRAY_LEN(source_files); i++) {
+    nob_cmd_append(&cmd, c_to_o_path(source_files[i]));
+  }
+
+  nob_cmd_append(&cmd, "build/ini.o");
+
+  if (!*headless_flag) {
+    for (unsigned i = 0; i < NOB_ARRAY_LEN(headed_source_files); i++) {
+      nob_cmd_append(&cmd, c_to_o_path(headed_source_files[i]));
+    }
     nob_cmd_append(&cmd, RAYLIB_LIB);
   }
-  nob_cmd_append(&cmd, "-isystemexternal/raylib");
-  nob_cmd_append(&cmd, "-isystemexternal/inih");
-  nob_cmd_append(&cmd, "-isystemexternal");
-  nob_cmd_append(&cmd, "-isystem.");
-  nob_cmd_append(&cmd, "-std=gnu11");
+
+  AddCompileModeFlags(&cmd, *headless_flag, *debug_flag, *profile_flag);
+
 #if !defined(_WIN32) || defined(__GNUC__)
   nob_cmd_append(&cmd, "-lm");
 #endif
-#ifdef _WIN32
-  nob_cmd_append(&cmd, "-lws2_32");
-#endif // _WIN32
-  if (!*headless_flag) {
-#ifdef _WIN32
-    nob_cmd_append(&cmd, "-lgdi32", "-lwinmm", "-lshcore", "-luser32",
-                   "-lshell32");
-#else
-    nob_cmd_append(&cmd, "-lX11");
-#endif // _WIN32
-  }
-  if (*debug_flag) {
-    nob_log(NOB_WARNING, "Compiling program in debug mode");
-    nob_cmd_append(&cmd, "-fsanitize=address,undefined", "-g", "-O0",
-                   "-fno-omit-frame-pointer");
-  } else if (*profile_flag) {
-    nob_log(NOB_WARNING, "Compiling program in profiling mode");
-    nob_cmd_append(&cmd, "-g", "-O2", "-fno-omit-frame-pointer");
-  } else {
-#if defined(__clang__)
-    nob_cmd_append(&cmd, "-flto=auto");
-    nob_cmd_append(&cmd, "-fuse-ld=lld");
-#elif !defined(_WIN32)
-    nob_cmd_append(&cmd, "-flto=auto");
-#endif
-    nob_cmd_append(&cmd, "-O2");
-  }
+
 #ifdef _WIN32
   nob_cc_output(&cmd, "planet_wars.exe");
 #else
   nob_cc_output(&cmd, "planet_wars");
 #endif // _WIN32
 
-  FILE *compile_flags_file = fopen("compile_flags.txt", "w");
-  if (!compile_flags_file) {
-    nob_log(NOB_WARNING, "Failed creating compile_flags.txt file: %s",
-            strerror(errno));
-  } else {
-    nob_da_foreach(const char *, line, &cmd) {
-      fprintf(compile_flags_file, "%s\n", *line);
-    }
-    fclose(compile_flags_file);
-  }
-
+  fprintf(compile_commands_file, "]");
+  fclose(compile_commands_file);
   if (!nob_cmd_run(&cmd))
     return 1;
   return 0;
