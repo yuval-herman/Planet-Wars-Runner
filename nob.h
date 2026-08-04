@@ -791,18 +791,14 @@ NOBDEF char *nob_temp_running_executable_path(void);
 // or not use them at all and create your own abstraction on top of Nob_Cmd.
 
 #ifndef nob_cc
-#  if _WIN32
-#    if defined(__GNUC__)
-#       define nob_cc(cmd) nob_cmd_append(cmd, "gcc")
-#    elif defined(__clang__)
-#       define nob_cc(cmd) nob_cmd_append(cmd, "clang")
-#    elif defined(_MSC_VER)
-#       define nob_cc(cmd) nob_cmd_append(cmd, "cl.exe")
-#    elif defined(__TINYC__)
-#       define nob_cc(cmd) nob_cmd_append(cmd, "tcc")
-#    endif
-#  else
-#    define nob_cc(cmd) nob_cmd_append(cmd, "cc")
+#  if defined(__clang__)
+#     define nob_cc(cmd) nob_cmd_append(cmd, "clang")
+#  elif defined(__GNUC__)
+#     define nob_cc(cmd) nob_cmd_append(cmd, "gcc")
+#  elif defined(_MSC_VER)
+#     define nob_cc(cmd) nob_cmd_append(cmd, "cl.exe")
+#  elif defined(__TINYC__)
+#     define nob_cc(cmd) nob_cmd_append(cmd, "tcc")
 #  endif
 #endif // nob_cc
 

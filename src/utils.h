@@ -108,12 +108,13 @@ inline static void SplitStringByDelimEx(Nob_Cmd *split_str, const char *str,
   Nob_String_View view = {0};
   view = nob_sv_from_cstr(str);
 
-  size_t mark = nob_temp_save();
   while (view.count > 0) {
-    nob_cmd_append(split_str,
-                   nob_temp_sv_to_cstr(nob_sv_chop_by_delim(&view, delim)));
+    Nob_String_View chop = nob_sv_chop_by_delim(&view, delim);
+    char *chop_str = malloc(sizeof *chop_str * chop.count + 1);
+    memcpy(chop_str, chop.data, chop.count);
+    chop_str[chop.count] = '\0';
+    nob_cmd_append(split_str, chop_str);
   }
-  nob_temp_rewind(mark);
 }
 
 inline static Nob_Cmd SplitStringByDelim(const char *str, char delim) {
@@ -123,12 +124,17 @@ inline static Nob_Cmd SplitStringByDelim(const char *str, char delim) {
   return split_str;
 }
 
+inline static char *DupeString(const char *str) {
+  unsigned len = strlen(str) + 1;
+  char *new_str = malloc(sizeof *new_str * len);
+  memcpy(new_str, str, len);
+  return new_str;
+}
+
 inline static char **DupeMultiDString(char const *const *md_str, unsigned dim) {
   char **new_md_str = malloc(sizeof *new_md_str * dim);
   for (unsigned i = 0; i < dim; i++) {
-    unsigned cmd_len = strlen(md_str[i]) + 1;
-    new_md_str[i] = malloc(sizeof *new_md_str[i] * cmd_len);
-    memcpy(new_md_str[i], md_str[i], cmd_len);
+    new_md_str[i] = DupeString(md_str[i]);
   }
   return new_md_str;
 }

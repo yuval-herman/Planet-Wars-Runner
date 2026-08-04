@@ -52,11 +52,11 @@ bool compile_raylib() {
     nob_cmd_append(&cmd, "-std=c99");
     nob_cmd_append(&cmd, "-O2");
 
-#if !defined(_WIN32) || defined(__clang__)
-    nob_cmd_append(&cmd, "-flto=auto");
 #if defined(__clang__)
+    nob_cmd_append(&cmd, "-flto=auto");
     nob_cmd_append(&cmd, "-fuse-ld=lld");
-#endif // defined(__clang__)
+#elif !defined(_WIN32)
+    nob_cmd_append(&cmd, "-flto=auto");
 #endif
 
     nob_cmd_append(&cmd, "-Iexternal/raylib");
@@ -211,6 +211,7 @@ int main(int argc, char **argv) {
   nob_cmd_append(&cmd, "-isystemexternal/inih");
   nob_cmd_append(&cmd, "-isystemexternal");
   nob_cmd_append(&cmd, "-isystem.");
+  nob_cmd_append(&cmd, "-std=gnu11");
 #if !defined(_WIN32) || defined(__GNUC__)
   nob_cmd_append(&cmd, "-lm");
 #endif
@@ -232,11 +233,11 @@ int main(int argc, char **argv) {
     nob_log(NOB_WARNING, "Compiling program in profiling mode");
     nob_cmd_append(&cmd, "-g", "-O2", "-fno-omit-frame-pointer");
   } else {
-#if !defined(_WIN32) || defined(__clang__)
-    nob_cmd_append(&cmd, "-flto=auto");
 #if defined(__clang__)
+    nob_cmd_append(&cmd, "-flto=auto");
     nob_cmd_append(&cmd, "-fuse-ld=lld");
-#endif // defined(__clang__)
+#elif !defined(_WIN32)
+    nob_cmd_append(&cmd, "-flto=auto");
 #endif
     nob_cmd_append(&cmd, "-O2");
   }
