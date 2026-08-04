@@ -115,7 +115,8 @@ bool embed_files_walker(Nob_Walk_Entry entry) {
     // Remove file extension
     sv = nob_sv_chop_by_delim(&sv, '.');
 
-    fprintf(shaders_file, "const char %.*s_shader_source[] = ", (int)sv.count, sv.data);
+    fprintf(shaders_file, "const char %.*s_shader_source[] = ", (int)sv.count,
+            sv.data);
 
     sv.data = sb.items;
     sv.count = sb.count;
@@ -228,7 +229,8 @@ int main(int argc, char **argv) {
   }
   if (*debug_flag) {
     nob_log(NOB_WARNING, "Compiling program in debug mode");
-    nob_cmd_append(&cmd, "-fsanitize=address,undefined", "-g", "-O0");
+    nob_cmd_append(&cmd, "-fsanitize=address,undefined", "-g", "-O0",
+                   "-fno-omit-frame-pointer");
   } else if (*profile_flag) {
     nob_log(NOB_WARNING, "Compiling program in profiling mode");
     nob_cmd_append(&cmd, "-g", "-O2", "-fno-omit-frame-pointer");
