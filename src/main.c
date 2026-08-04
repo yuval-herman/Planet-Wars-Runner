@@ -6,6 +6,7 @@
 #include "ini.h"
 #include "src/tournament.h"
 
+
 #define FLAG_IMPLEMENTATION
 #include "flag.h"
 
@@ -41,7 +42,7 @@ DefineComplexStruct(Configs, {
 });
 
 void Usage(FILE *stream) {
-  fprintf(stream, "Usage: %s [OPTIONS] [--] [ARGS]\n", flag_program_name());
+  fprintf(stream, "Usage: %s [OPTIONS] [--] [BOTS]\n", flag_program_name());
   fprintf(stream, "OPTIONS:\n");
   flag_print_options(stream);
 }

@@ -1,3 +1,4 @@
+#define FFC_IMPL
 #include "game.h"
 #include "subprocess.h"
 #include "utils.h"
@@ -176,7 +177,7 @@ void StartBot(Bot bot) {
     exit(1);
   }
 
-  FreeMultiDString((char**)split_command.items, split_command.count);
+  FreeMultiDString((char **)split_command.items, split_command.count);
 }
 
 // Parse map file, saving the map into the game state and returning the amount
@@ -195,8 +196,8 @@ unsigned ParseMapFile(GameState *state, const char *map_path) {
 
   while (fgets(buf, sizeof buf, map_file)) {
     file_line += 1;
-    unsigned len = strlen(buf);
-    if (len == sizeof(buf) - 1 && buf[len - 1] != '\n') {
+    const unsigned buf_len = strlen(buf);
+    if (buf_len == sizeof(buf) - 1 && buf[buf_len - 1] != '\n') {
       nob_log(NOB_ERROR,
               "Map file contains lines longer then 256 characters and "
               "cannot be read.");
@@ -207,7 +208,7 @@ unsigned ParseMapFile(GameState *state, const char *map_path) {
       continue;
 
     Planet planet;
-    if (!ParsePlanetLine(buf, &planet)) {
+    if (!ParsePlanetLine(buf, buf_len, &planet)) {
       nob_log(NOB_ERROR, "Invalid map file.\nSyntax error at line %u.",
               file_line);
       exit(1);
@@ -439,16 +440,23 @@ bool ParseBotFleets(GameState *state, Nob_String_View bot_message,
     nob_log(NOB_DEBUG, "parsing bot %u fleets", bot_idx);
     Fleet fleet;
     fleet.owner = bot_idx + 1;
-    const char *start = bot_message.data;
-    int parsed_int;
-#define PARSE_INT(dst, err_msg)                                                \
-  if (parse_int(&bot_message.data, &parsed_int) && parsed_int > 0 &&           \
-      parsed_int < UINT16_MAX) {                                               \
-    dst = parsed_int;                                                          \
-  } else {                                                                     \
+    unsigned parsed_uint;
+    ffc_result result;
+    char *p_end = bot_message.data + bot_message.count;
+    ffc_parse_options parse_options = ffc_parse_options_default();
+    parse_options.format |= FFC_FORMAT_FLAG_SKIP_WHITE_SPACE;
+
+#define PARSE_INT(output, err_msg)                                             \
+  result = ffc_from_chars_u32_options(bot_message.data, p_end, 10,             \
+                                      &parsed_uint, parse_options);            \
+  if (result.outcome != FFC_OUTCOME_OK || parsed_uint > UINT16_MAX) {          \
     nob_log(NOB_INFO, "Invalid bot command. " err_msg);                        \
     return false;                                                              \
-  }
+  }                                                                            \
+  output = parsed_uint;                                                        \
+  bot_message.count -= result.ptr - bot_message.data;                          \
+  bot_message.data = result.ptr;
+
     PARSE_INT(fleet.src_id,
               "Source planet out of bounds or impossible to parse.");
     PARSE_INT(fleet.dst_id,
@@ -457,7 +465,6 @@ bool ParseBotFleets(GameState *state, Nob_String_View bot_message,
               "Amount of ships is too high, to low, or impossible to parse.");
 #undef PARSE_INT
 
-    bot_message.count -= bot_message.data - start;
     bot_message = nob_sv_trim_left(bot_message);
 
     if ((unsigned)fleet.src_id >= state->planets.count) {
