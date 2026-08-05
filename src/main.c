@@ -3,9 +3,14 @@
 #endif // HEADLESS_MODE
 
 #include "game.h"
-#include "ini.h"
 #include "src/tournament.h"
 
+#define INI_ALLOW_MULTILINE 0
+#define INI_STOP_ON_FIRST_ERROR 1
+#define INI_HANDLER_LINENO 1
+#define INI_CALL_HANDLER_ON_NEW_SECTION 1
+#define INI_MAX_LINE 1000
+#include "ini.c"
 
 #define FLAG_IMPLEMENTATION
 #include "flag.h"

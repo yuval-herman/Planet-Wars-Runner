@@ -86,19 +86,6 @@ bool compile_raylib() {
   return nob_cmd_run(&cmd);
 }
 
-bool compile_ini_c() {
-  Nob_Cmd cmd = {0};
-  nob_cc(&cmd);
-  nob_cmd_append(&cmd, "-c");
-  nob_cmd_append(&cmd, "-DINI_ALLOW_MULTILINE=0", "-DINI_STOP_ON_FIRST_ERROR=1",
-                 "-DINI_HANDLER_LINENO=1",
-                 "-DINI_CALL_HANDLER_ON_NEW_SECTION=1", "-DINI_MAX_LINE=1000",
-                 "external/inih/ini.c", "-o", "build/ini.o", "-O2");
-  bool ret = cmd_run(&cmd);
-  nob_cmd_free(cmd);
-  return ret;
-}
-
 void Usage(FILE *stream) {
   fprintf(stream, "Usage: %s [OPTIONS] [--] [ARGS]\n", flag_program_name());
   fprintf(stream, "OPTIONS:\n");
@@ -204,6 +191,7 @@ bool CompileFile(Nob_Cmd *cmd, Nob_Procs *procs, FILE *compile_commands_file,
 
   nob_cmd_append(cmd, "-isystemexternal/raylib");
   nob_cmd_append(cmd, "-isystemexternal/inih");
+  nob_cmd_append(cmd, "-isystemexternal/miniz");
   nob_cmd_append(cmd, "-isystemexternal");
   nob_cmd_append(cmd, "-isystem.");
 
@@ -281,11 +269,6 @@ int main(int argc, char **argv) {
   } else {
     fprintf(compile_commands_file, "[");
   }
-  // {
-  //   nob_da_foreach(const char *, line, &cmd) {
-  //     fprintf(compile_commands_file, "%s\n", *line);
-  //   }
-  // }
 
   EmbedShaders();
 
@@ -295,9 +278,6 @@ int main(int argc, char **argv) {
     if (!nob_file_exists(RAYLIB_LIB))
       compile_raylib();
   }
-
-  if (!compile_ini_c())
-    return 1;
 
   Nob_Cmd cmd = {0};
   Nob_Procs procs = {0};
@@ -324,8 +304,6 @@ int main(int argc, char **argv) {
   for (unsigned i = 0; i < NOB_ARRAY_LEN(source_files); i++) {
     nob_cmd_append(&cmd, c_to_o_path(source_files[i]));
   }
-
-  nob_cmd_append(&cmd, "build/ini.o");
 
   if (!*headless_flag) {
     for (unsigned i = 0; i < NOB_ARRAY_LEN(headed_source_files); i++) {
