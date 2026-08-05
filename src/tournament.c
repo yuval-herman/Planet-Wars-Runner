@@ -159,10 +159,13 @@ TournametData RunTournament(const char *map_file_path, BotsDA bots) {
 
   TournametData tournament = {0};
 
+  unsigned match_count = bots.count * (bots.count - 1) / 2;
   // Could be nob_nprocs()-1 because we use the current thread to manage it all,
   // but this thread doesn't do a lot of work, mainly waits around, so I think
   // it fine that way.
-  const unsigned thread_count = nob_nprocs();
+  const unsigned proc_count = nob_nprocs();
+  const unsigned thread_count =
+      match_count < proc_count ? match_count : proc_count;
   thrd_t *thread_pool = malloc(sizeof *thread_pool * thread_count);
 
   mtx_t file_write_mtx;
@@ -184,7 +187,9 @@ TournametData RunTournament(const char *map_file_path, BotsDA bots) {
       .tournament_data_file = tournament_data_file,
   };
 
-  nob_log(NOB_INFO, "Running tournament between %u bots. This will run %u matches.", bots.count, bots.count*(bots.count-1)/2);
+  nob_log(NOB_INFO,
+          "Running tournament between %u bots. This will run %u matches.",
+          bots.count, match_count);
   // All normal logging must stop as this functions are not thread-safe
   nob_minimal_log_level = NOB_WARNING;
   for (unsigned i = 0; i < thread_count; i++) {
@@ -194,7 +199,8 @@ TournametData RunTournament(const char *map_file_path, BotsDA bots) {
     thrd_join(thread_pool[i], NULL);
   }
   nob_minimal_log_level = NOB_INFO;
-  nob_log(NOB_INFO, "Tournament finished, data is saved in `tournament` directory.");
+  nob_log(NOB_INFO,
+          "Tournament finished, data is saved in `tournament` directory.");
 
   fclose(tournament_data_file);
   free(thread_pool);
