@@ -8,6 +8,10 @@
 #define STB_SPRINTF_NOUNALIGNED
 #include "stb_sprintf.h"
 
+#define COMPRESSESOR_BUF_SIZE (1024 * 1024)
+#define MINIZ_NO_ZLIB_COMPATIBLE_NAMES
+#include "miniz.h"
+
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -746,48 +750,225 @@ void RunGame(GameState *state) {
   nob_sb_free(bot_message);
 }
 
-const unsigned version = 0;
+const unsigned version = 1;
 const char magic[4] = {'p', 'l', 'w', 's'};
 
+// ============================================================================
+// Compression Helpers for Writing
+// ============================================================================
+
+typedef struct {
+  FILE *file;
+  mz_stream stream;
+  unsigned char in_buf[COMPRESSESOR_BUF_SIZE];
+  unsigned char out_buf[COMPRESSESOR_BUF_SIZE];
+} CompressedWriter;
+
+static bool InitCompressedWriter(CompressedWriter *cw, FILE *file) {
+  memset(cw, 0, sizeof(*cw));
+  cw->file = file;
+  cw->stream.next_in = cw->in_buf;
+  cw->stream.avail_in = 0;
+  cw->stream.next_out = cw->out_buf;
+  cw->stream.avail_out = COMPRESSESOR_BUF_SIZE;
+
+  if (mz_deflateInit(&cw->stream, MZ_UBER_COMPRESSION) != MZ_OK) {
+    return false;
+  }
+  return true;
+}
+
+static void FlushDeflateBuffer(CompressedWriter *cw, int flush) {
+  cw->stream.next_in = cw->in_buf;
+  while (1) {
+    cw->stream.next_out = cw->out_buf;
+    cw->stream.avail_out = COMPRESSESOR_BUF_SIZE;
+
+    int status = mz_deflate(&cw->stream, flush);
+    if (status != MZ_OK && status != MZ_STREAM_END && status != MZ_BUF_ERROR) {
+      nob_log(NOB_ERROR, "deflate() failed with status %d.", status);
+      exit(1);
+    }
+
+    size_t produced = COMPRESSESOR_BUF_SIZE - cw->stream.avail_out;
+    if (produced > 0) {
+      if (fwrite(cw->out_buf, 1, produced, cw->file) != produced) {
+        nob_log(NOB_ERROR, "Failed writing to save file.");
+        exit(1);
+      }
+    }
+
+    if (flush == MZ_FINISH) {
+      if (status == MZ_STREAM_END) break;
+    } else {
+      if (cw->stream.avail_in == 0) break;
+    }
+  }
+  cw->stream.avail_in = 0;
+  cw->stream.next_in = cw->in_buf;
+}
+
+static void WriteCompressed(CompressedWriter *cw, const void *data, size_t size) {
+  const unsigned char *src = (const unsigned char *)data;
+  while (size > 0) {
+    if (cw->stream.avail_in == COMPRESSESOR_BUF_SIZE) {
+      FlushDeflateBuffer(cw, MZ_NO_FLUSH);
+    }
+    size_t to_copy = COMPRESSESOR_BUF_SIZE - cw->stream.avail_in;
+    if (to_copy > size) to_copy = size;
+    memcpy(cw->in_buf + cw->stream.avail_in, src, to_copy);
+    cw->stream.avail_in += (unsigned int)to_copy;
+    src += to_copy;
+    size -= to_copy;
+  }
+}
+
+static void FinishCompressedWriter(CompressedWriter *cw) {
+  FlushDeflateBuffer(cw, MZ_FINISH);
+  if (mz_deflateEnd(&cw->stream) != MZ_OK) {
+    nob_log(NOB_ERROR, "deflateEnd() failed.");
+    exit(1);
+  }
+}
+
+// ============================================================================
+// Decompression Helpers for Reading
+// ============================================================================
+
+typedef struct {
+  FILE *file;
+  mz_stream stream;
+  unsigned char in_buf[COMPRESSESOR_BUF_SIZE];
+  unsigned char out_buf[COMPRESSESOR_BUF_SIZE];
+  size_t out_pos;
+  size_t out_avail;
+} CompressedReader;
+
+static bool InitCompressedReader(CompressedReader *cr, FILE *file) {
+  memset(cr, 0, sizeof(*cr));
+  cr->file = file;
+  if (mz_inflateInit(&cr->stream) != MZ_OK) {
+    nob_log(NOB_ERROR, "inflateInit() failed!");
+    return false;
+  }
+  return true;
+}
+
+static void FreeCompressedReader(CompressedReader *cr) {
+  mz_inflateEnd(&cr->stream);
+}
+
+static bool ReadCompressed(CompressedReader *cr, void *dest, size_t size) {
+  unsigned char *dst = (unsigned char *)dest;
+  while (size > 0) {
+    if (cr->out_avail > 0) {
+      size_t to_copy = cr->out_avail < size ? cr->out_avail : size;
+      memcpy(dst, cr->out_buf + cr->out_pos, to_copy);
+      cr->out_pos += to_copy;
+      cr->out_avail -= to_copy;
+      dst += to_copy;
+      size -= to_copy;
+      if (size == 0) return true;
+    }
+
+    if (cr->stream.avail_in == 0) {
+      size_t n = fread(cr->in_buf, 1, COMPRESSESOR_BUF_SIZE, cr->file);
+      if (n == 0) {
+        nob_log(NOB_ERROR, "Unexpected end of file while decompressing log.");
+        return false;
+      }
+      cr->stream.next_in = cr->in_buf;
+      cr->stream.avail_in = (unsigned int)n;
+    }
+
+    cr->stream.next_out = cr->out_buf;
+    cr->stream.avail_out = COMPRESSESOR_BUF_SIZE;
+    cr->out_pos = 0;
+
+    int status = mz_inflate(&cr->stream, MZ_NO_FLUSH);
+    if (status != MZ_OK && status != MZ_STREAM_END) {
+      nob_log(NOB_ERROR, "inflate() failed with status %d.", status);
+      return false;
+    }
+
+    cr->out_avail = COMPRESSESOR_BUF_SIZE - cr->stream.avail_out;
+    if (cr->out_avail == 0 && status == MZ_STREAM_END) {
+      nob_log(NOB_ERROR, "Reached end of compressed stream unexpectedly.");
+      return false;
+    }
+  }
+  return true;
+}
+
+// ============================================================================
+// Main Serialization Functions
+// ============================================================================
+
 void WriteGameLogToFile(FILE *file, GameLog game_log) {
+  // 1. Write uncompressed header (Magic & Version)
+  fwrite(magic, 1, sizeof(magic), file);
+  uint16_t version_net = htons((uint16_t)version);
+  fwrite(&version_net, sizeof(version_net), 1, file);
+
+  // 2. Initialize compressed stream writer
+  CompressedWriter cw;
+  if (!InitCompressedWriter(&cw, file)) {
+    nob_log(NOB_ERROR, "deflateInit() failed!\n");
+    exit(1);
+  }
+
   union {
     float f;
-    unsigned u;
+    uint32_t u;
   } wrt_32_float;
   uint16_t wrt_16;
   uint32_t wrt_32;
-#define WRITE(var) fwrite(&var, sizeof var, 1, file)
-#define WRITE_8(var) WRITE(var)
-#define WRITE_16(var) (wrt_16 = htons(var), WRITE(wrt_16))
-#define WRITE_32(var) (wrt_32 = htonl(var), WRITE(wrt_32))
-#define WRITE_float(var) (wrt_32_float.f = var, WRITE_32(wrt_32_float.u))
 
-  // TODO write bots data too
-  WRITE(magic);
-  WRITE_16(version);
+#define WRITE(var) WriteCompressed(&cw, &(var), sizeof(var))
+#define WRITE_8(var) WRITE(var)
+#define WRITE_16(var)                                                          \
+  do {                                                                         \
+    wrt_16 = htons((uint16_t)(var));                                           \
+    WRITE(wrt_16);                                                             \
+  } while (0)
+#define WRITE_32(var)                                                          \
+  do {                                                                         \
+    wrt_32 = htonl((uint32_t)(var));                                           \
+    WRITE(wrt_32);                                                             \
+  } while (0)
+#define WRITE_float(var)                                                       \
+  do {                                                                         \
+    wrt_32_float.f = (float)(var);                                             \
+    WRITE_32(wrt_32_float.u);                                                  \
+  } while (0)
+
   WRITE_8(game_log.draw);
   WRITE_8(game_log.winning_bot);
   WRITE_32(game_log.bots.count);
+
   nob_da_foreach(Bot, bot, &game_log.bots) {
     uint16_t string_length;
-    if (bot->name != NULL) {
-      // We don't write the null terminator
-      string_length = strlen(bot->name);
-      WRITE_16(string_length);
-      fwrite(bot->name, sizeof *bot->name, string_length, file);
-    } else {
-      string_length = 0;
-      WRITE_16(string_length);
-    }
-    string_length = strlen(bot->start_command);
+
+    string_length = bot->name ? (uint16_t)strlen(bot->name) : 0;
     WRITE_16(string_length);
-    fwrite(bot->start_command, sizeof *bot->start_command, string_length, file);
+    for (uint16_t i = 0; i < string_length; i++) {
+      WRITE_8(bot->name[i]);
+    }
+
+    string_length = (uint16_t)strlen(bot->start_command);
+    WRITE_16(string_length);
+    for (uint16_t i = 0; i < string_length; i++) {
+      WRITE_8(bot->start_command[i]);
+    }
   }
+
   WRITE_32(game_log.count);
+
   nob_da_foreach(LogEntry, entry, &game_log) {
     WRITE_32(entry->remaining_bots);
     WRITE_32(entry->fleet_count);
     WRITE_32(entry->planet_count);
+
     for (unsigned i = 0; i < entry->fleet_count; i++) {
       WRITE_8(entry->fleets[i].owner);
       WRITE_8(entry->fleets[i].total);
@@ -796,6 +977,7 @@ void WriteGameLogToFile(FILE *file, GameLog game_log) {
       WRITE_16(entry->fleets[i].src_id);
       WRITE_16(entry->fleets[i].dst_id);
     }
+
     for (unsigned i = 0; i < entry->planet_count; i++) {
       WRITE_8(entry->planets[i].owner);
       WRITE_8(entry->planets[i].growth);
@@ -804,6 +986,10 @@ void WriteGameLogToFile(FILE *file, GameLog game_log) {
       WRITE_float(entry->planets[i].coords.y);
     }
   }
+
+  FinishCompressedWriter(&cw);
+
+#undef WRITE_float
 #undef WRITE_32
 #undef WRITE_16
 #undef WRITE_8
@@ -811,44 +997,23 @@ void WriteGameLogToFile(FILE *file, GameLog game_log) {
 }
 
 bool ReadGameLogFromFile(FILE *file, GameLog *game_log) {
-  union {
-    float f;
-    unsigned u;
-  } read_32_float;
-  uint16_t read_16;
-  uint32_t read_32;
-
-#define READ(var) fread(&var, sizeof var, 1, file)
-#define READ_ERROR_CHK(read, ret_val)                                          \
-  if (ret_val != read) {                                                       \
-    nob_log(NOB_ERROR, "Reading error while reading from plws file.");         \
-    return false;                                                              \
+  // 1. Read and verify uncompressed header (Magic & Version)
+  char read_magic[sizeof(magic)];
+  if (fread(read_magic, 1, sizeof(read_magic), file) != sizeof(read_magic)) {
+    nob_log(NOB_ERROR, "Failed to read magic header.");
+    return false;
   }
-  // fread should always return 1 on success here, since we always set the
-  // number of elements to 1 and only change the size of the element
-#define READ_8(var) READ_ERROR_CHK(READ(var), 1)
-#define READ_16(var)                                                           \
-  READ_ERROR_CHK(READ(read_16), 1);                                            \
-  var = ntohs(read_16)
-#define READ_32(var)                                                           \
-  READ_ERROR_CHK(READ(read_32), 1);                                            \
-  var = ntohl(read_32)
-#define READ_float(var)                                                        \
-  READ_32(read_32_float.u);                                                    \
-  var = read_32_float.f
-
-  char read_magic;
-  for (unsigned i = 0; i < NOB_ARRAY_LEN(magic); i++) {
-    READ_8(read_magic);
-    if (read_magic != magic[i]) {
-      nob_log(NOB_ERROR,
-              "Provided file is not a Planet Wars serialization file.");
-      return false;
-    }
+  if (memcmp(read_magic, magic, sizeof(magic)) != 0) {
+    nob_log(NOB_ERROR, "Provided file is not a Planet Wars serialization file.");
+    return false;
   }
 
-  unsigned read_version;
-  READ_16(read_version);
+  uint16_t read_version;
+  if (fread(&read_version, sizeof(read_version), 1, file) != 1) {
+    nob_log(NOB_ERROR, "Failed to read version.");
+    return false;
+  }
+  read_version = ntohs(read_version);
   if (read_version != version) {
     nob_log(NOB_ERROR,
             "Serialization file version is unsupported. File version is %u and "
@@ -856,38 +1021,81 @@ bool ReadGameLogFromFile(FILE *file, GameLog *game_log) {
             read_version, version);
     return false;
   }
+
+  // 2. Initialize compressed stream reader
+  CompressedReader cr;
+  if (!InitCompressedReader(&cr, file)) {
+    return false;
+  }
+
+  union {
+    float f;
+    uint32_t u;
+  } read_32_float;
+  uint16_t read_16;
+  uint32_t read_32;
+
+#define READ(var) ReadCompressed(&cr, &(var), sizeof(var))
+#define READ_ERROR_CHK(cond)                                                   \
+  do {                                                                         \
+    if (!(cond)) {                                                             \
+      nob_log(NOB_ERROR, "Reading error while reading from plws file.");       \
+      FreeCompressedReader(&cr);                                              \
+      return false;                                                            \
+    }                                                                          \
+  } while (0)
+
+#define READ_8(var) READ_ERROR_CHK(READ(var))
+#define READ_16(var)                                                           \
+  do {                                                                         \
+    READ_ERROR_CHK(READ(read_16));                                            \
+    var = ntohs(read_16);                                                      \
+  } while (0)
+#define READ_32(var)                                                           \
+  do {                                                                         \
+    READ_ERROR_CHK(READ(read_32));                                            \
+    var = ntohl(read_32);                                                      \
+  } while (0)
+#define READ_float(var)                                                        \
+  do {                                                                         \
+    READ_32(read_32_float.u);                                                  \
+    var = read_32_float.f;                                                     \
+  } while (0)
+
   READ_8(game_log->draw);
   READ_8(game_log->winning_bot);
   READ_32(game_log->bots.count);
-  game_log->bots.items =
-      malloc(sizeof *game_log->bots.items * game_log->bots.count);
+
+  game_log->bots.items = malloc(sizeof *game_log->bots.items * game_log->bots.count);
   nob_da_foreach(Bot, bot, &game_log->bots) {
     uint16_t string_length;
     READ_16(string_length);
-    if (string_length) {
-      // +1 to add back null terminator
-      bot->name = malloc(sizeof *bot->name * string_length + 1);
-      READ_ERROR_CHK(fread(bot->name, sizeof *bot->name, string_length, file),
-                     string_length);
+    if (string_length > 0) {
+      bot->name = malloc(sizeof *bot->name * (string_length + 1));
+      READ_ERROR_CHK(ReadCompressed(&cr, bot->name, string_length));
       bot->name[string_length] = '\0';
+    } else {
+      bot->name = NULL;
     }
+
     READ_16(string_length);
-    bot->start_command = malloc(sizeof *bot->start_command * string_length + 1);
-    READ_ERROR_CHK(fread(bot->start_command, sizeof *bot->start_command,
-                         string_length, file),
-                   string_length);
+    bot->start_command = malloc(sizeof *bot->start_command * (string_length + 1));
+    READ_ERROR_CHK(ReadCompressed(&cr, bot->start_command, string_length));
     bot->start_command[string_length] = '\0';
     bot->process = NULL;
   }
+
   READ_32(game_log->count);
   game_log->items = malloc(sizeof *game_log->items * game_log->count);
   game_log->capacity = game_log->count;
+
   nob_da_foreach(LogEntry, entry, game_log) {
     READ_32(entry->remaining_bots);
     READ_32(entry->fleet_count);
     READ_32(entry->planet_count);
     entry->fleets = malloc(sizeof *entry->fleets * entry->fleet_count);
     entry->planets = malloc(sizeof *entry->planets * entry->planet_count);
+
     for (unsigned i = 0; i < entry->fleet_count; i++) {
       READ_8(entry->fleets[i].owner);
       READ_8(entry->fleets[i].total);
@@ -896,6 +1104,7 @@ bool ReadGameLogFromFile(FILE *file, GameLog *game_log) {
       READ_16(entry->fleets[i].src_id);
       READ_16(entry->fleets[i].dst_id);
     }
+
     for (unsigned i = 0; i < entry->planet_count; i++) {
       READ_8(entry->planets[i].owner);
       READ_8(entry->planets[i].growth);
@@ -904,9 +1113,15 @@ bool ReadGameLogFromFile(FILE *file, GameLog *game_log) {
       READ_float(entry->planets[i].coords.y);
     }
   }
+
+  FreeCompressedReader(&cr);
+
+#undef READ_float
 #undef READ_32
 #undef READ_16
 #undef READ_8
+#undef READ_ERROR_CHK
 #undef READ
+
   return true;
 }

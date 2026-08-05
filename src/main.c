@@ -5,6 +5,8 @@
 #include "game.h"
 #include "src/tournament.h"
 
+#include "miniz.c"
+
 #define INI_ALLOW_MULTILINE 0
 #define INI_STOP_ON_FIRST_ERROR 1
 #define INI_HANDLER_LINENO 1
