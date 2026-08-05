@@ -224,7 +224,17 @@ bool CompileFile(Nob_Cmd *cmd, Nob_Procs *procs, FILE *compile_commands_file,
   }
   fprintf(compile_commands_file, "]},");
 
-  return nob_cmd_run(cmd, .async = procs);
+  if (nob_needs_rebuild1(output_path, file_path)) {
+    return nob_cmd_run(cmd, .async = procs);
+  } else {
+    nob_log(NOB_INFO,
+            "Skipped building %s, to force total rebuild, delete the build "
+            "directory. If you only want to rebuild the source files, delete "
+            "all .o files in the build directory.",
+            file_path);
+    cmd->count = 0;
+    return true;
+  }
 }
 
 int main(int argc, char **argv) {
