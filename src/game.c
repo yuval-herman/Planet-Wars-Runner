@@ -446,7 +446,7 @@ bool ParseBotFleets(GameState *state, Nob_String_View bot_message,
     fleet.owner = bot_idx + 1;
     unsigned parsed_uint;
     ffc_result result;
-    char *p_end = bot_message.data + bot_message.count;
+    const char *p_end = bot_message.data + bot_message.count;
     ffc_parse_options parse_options = ffc_parse_options_default();
     parse_options.format |= FFC_FORMAT_FLAG_SKIP_WHITE_SPACE;
 
