@@ -11,3 +11,4 @@
 /src/shaders.c
 /.cache
 /compile_commands.json
+/prev-comp.txt

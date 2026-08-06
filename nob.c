@@ -172,8 +172,8 @@ void AddCompileModeFlags(Nob_Cmd *cmd, bool headless, bool debug,
 }
 
 bool CompileFile(Nob_Cmd *cmd, Nob_Procs *procs, FILE *compile_commands_file,
-                 const char *file_path, bool headless, bool debug,
-                 bool profile) {
+                 const char *file_path, bool headless, bool debug, bool profile,
+                 bool force_recompile) {
   const char *output_path = c_to_o_path(file_path);
 
   nob_cc(cmd);
@@ -224,17 +224,47 @@ bool CompileFile(Nob_Cmd *cmd, Nob_Procs *procs, FILE *compile_commands_file,
   }
   fprintf(compile_commands_file, "]},");
 
-  if (nob_needs_rebuild1(output_path, file_path)) {
+  if (force_recompile || nob_needs_rebuild1(output_path, file_path)) {
     return nob_cmd_run(cmd, .async = procs);
   } else {
     nob_log(NOB_INFO,
-            "Skipped building %s, to force total rebuild, delete the build "
-            "directory. If you only want to rebuild the source files, delete "
-            "all .o files in the build directory.",
+            "Skipped building %s",
             file_path);
     cmd->count = 0;
     return true;
   }
+}
+
+// Return true if all files should be recompiled.
+// Checks if the compilation flags changed since last time.
+bool ShouldRecompileAll(bool headless, bool debug, bool profile) {
+  const char *flag_file_path = "prev-comp.txt";
+  Nob_String_Builder prev_flags_sb = {0};
+  Nob_String_Builder current_flags_sb = {0};
+  bool ret = false;
+
+  if (!nob_file_exists(flag_file_path))
+    ret = true;
+  if (!nob_read_entire_file(flag_file_path, &prev_flags_sb))
+    ret = true;
+
+  nob_sb_appendf(&current_flags_sb, "headless=%s\n", headless ? "true" : "false");
+  nob_sb_appendf(&current_flags_sb, "debug=%s\n", debug ? "true" : "false");
+  nob_sb_appendf(&current_flags_sb, "profile=%s\n", profile ? "true" : "false");
+
+  nob_write_entire_file(flag_file_path, current_flags_sb.items,
+                        current_flags_sb.count);
+
+  // ret is true when compilation IS required, so if this are equal, we return false, not true
+  if (!ret)
+    ret = prev_flags_sb.count != current_flags_sb.count;
+  if (!ret)
+    ret = 0 != memcmp(prev_flags_sb.items, current_flags_sb.items,
+                      prev_flags_sb.count);
+
+  nob_sb_free(current_flags_sb);
+  nob_sb_free(prev_flags_sb);
+  return ret;
 }
 
 int main(int argc, char **argv) {
@@ -257,6 +287,12 @@ int main(int argc, char **argv) {
                 "executable without raylib and without UI support at all. This "
                 "functionality is meant for server use.");
 
+  const bool *force_flag = flag_bool(
+      "force", false,
+      "Force recompilation of project file, even if they are unchanged. This "
+      "does not force recompilation of library files, if you want to recompile "
+      "everything completely, simply delete the build directory.");
+
   const bool *help_flag = flag_bool("help", false, "Show help.");
   if (!flag_parse(argc, argv)) {
     Usage(stderr);
@@ -271,6 +307,13 @@ int main(int argc, char **argv) {
                        "may specify only one.");
     return 1;
   }
+
+  // function comes first because we want it to run every time, even if force
+  // flag is passed. This is because this function saves the compilation flags
+  // used in a file.
+  bool force_rebuild =
+      ShouldRecompileAll(*headless_flag, *debug_flag, *profile_flag) ||
+      *force_flag;
 
   FILE *compile_commands_file = fopen("compile_commands.json", "w");
   if (!compile_commands_file) {
@@ -296,7 +339,7 @@ int main(int argc, char **argv) {
 
   for (unsigned i = 0; i < NOB_ARRAY_LEN(source_files); i++) {
     if (!CompileFile(&cmd, &procs, compile_commands_file, source_files[i],
-                     *headless_flag, *debug_flag, *profile_flag))
+                     *headless_flag, *debug_flag, *profile_flag, force_rebuild))
       return 1;
   }
 
@@ -304,7 +347,7 @@ int main(int argc, char **argv) {
     for (unsigned i = 0; i < NOB_ARRAY_LEN(headed_source_files); i++) {
       if (!CompileFile(&cmd, &procs, compile_commands_file,
                        headed_source_files[i], *headless_flag, *debug_flag,
-                       *profile_flag))
+                       *profile_flag, force_rebuild))
         return 1;
     }
   }
