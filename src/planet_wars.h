@@ -4,12 +4,11 @@
 #include "ffc.h"
 #include "raymath.h"
 
-#include <errno.h>
 #include <limits.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <stdlib.h>
+
 
 #define MAX_BOT_AMOUNT 32
 
