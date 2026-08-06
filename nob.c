@@ -147,8 +147,14 @@ void EmbedShaders() {
 }
 
 char *c_to_o_path(const char *source_file_path) {
-  return nob_temp_sprintf("build/%.*s.o", (int)strlen(source_file_path + 4) - 2,
-                          source_file_path + 4);
+  size_t str_len = strlen(source_file_path) - 1;
+  size_t i = str_len;
+  while (i > 0 && source_file_path[i] != PATH_SEPERATOR[0]) {
+    i--;
+  }
+
+  return nob_temp_sprintf("build/%.*s.o", (int)(str_len - i - 2),
+                          source_file_path + i + 1);
 }
 
 void AddCompileModeFlags(Nob_Cmd *cmd, bool headless, bool debug,
@@ -169,6 +175,9 @@ void AddCompileModeFlags(Nob_Cmd *cmd, bool headless, bool debug,
 #endif
     nob_cmd_append(cmd, "-O2");
   }
+
+  if (headless)
+    nob_cmd_append(cmd, "-DHEADLESS_MODE");
 }
 
 bool CompileFile(Nob_Cmd *cmd, Nob_Procs *procs, FILE *compile_commands_file,
@@ -185,9 +194,6 @@ bool CompileFile(Nob_Cmd *cmd, Nob_Procs *procs, FILE *compile_commands_file,
   nob_cmd_append(cmd, output_path);
 
   nob_cmd_append(cmd, file_path);
-
-  if (headless)
-    nob_cmd_append(cmd, "-DHEADLESS_MODE");
 
   nob_cmd_append(cmd, "-isystemexternal/raylib");
   nob_cmd_append(cmd, "-isystemexternal/inih");
@@ -227,9 +233,7 @@ bool CompileFile(Nob_Cmd *cmd, Nob_Procs *procs, FILE *compile_commands_file,
   if (force_recompile || nob_needs_rebuild1(output_path, file_path)) {
     return nob_cmd_run(cmd, .async = procs);
   } else {
-    nob_log(NOB_INFO,
-            "Skipped building %s",
-            file_path);
+    nob_log(NOB_INFO, "Skipped building %s", file_path);
     cmd->count = 0;
     return true;
   }
@@ -248,14 +252,16 @@ bool ShouldRecompileAll(bool headless, bool debug, bool profile) {
   if (!nob_read_entire_file(flag_file_path, &prev_flags_sb))
     ret = true;
 
-  nob_sb_appendf(&current_flags_sb, "headless=%s\n", headless ? "true" : "false");
+  nob_sb_appendf(&current_flags_sb, "headless=%s\n",
+                 headless ? "true" : "false");
   nob_sb_appendf(&current_flags_sb, "debug=%s\n", debug ? "true" : "false");
   nob_sb_appendf(&current_flags_sb, "profile=%s\n", profile ? "true" : "false");
 
   nob_write_entire_file(flag_file_path, current_flags_sb.items,
                         current_flags_sb.count);
 
-  // ret is true when compilation IS required, so if this are equal, we return false, not true
+  // ret is true when compilation IS required, so if this are equal, we return
+  // false, not true
   if (!ret)
     ret = prev_flags_sb.count != current_flags_sb.count;
   if (!ret)
