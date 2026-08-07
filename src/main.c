@@ -1,5 +1,5 @@
 #ifndef HEADLESS_MODE
-#include "viewer.h"
+#include "ui/viewer.h"
 #endif // HEADLESS_MODE
 
 #include "game.h"
@@ -217,6 +217,7 @@ int main(int argc, char *argv[]) {
 #ifndef HEADLESS_MODE
   else if (*args.from_save_file != NULL) {
     GameLog game_log = {0};
+    UIInit(SCREEN_VIEWER);
 
     FILE *file = fopen(*args.from_save_file, "rb");
     if (!file) {

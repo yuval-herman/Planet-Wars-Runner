@@ -1,8 +1,7 @@
 #include "raylib.h"
 
 #include "shaders.c"
-#include "nob.h"
-#include "planet_wars.h"
+
 #include "viewer.h"
 
 typedef struct {
@@ -289,81 +288,87 @@ Shader SetupStarsShader(int screenWidth, int screenHeight) {
   return stars_shader;
 }
 
-void RunViewerForGame(GameLog game_log) {
-  // Set the game to the first turn
-  unsigned turn = 0;
+void ViewerInit(UIState *ui_state, GameLog game_log) {
+  ViewerState *viewer_state = &ui_state->screen_data.viewer;
+  viewer_state->turn = 0;
+  viewer_state->game_log = game_log;
 
-  ComputeGameSpace(game_log.items[0].planets, game_log.items[0].planet_count);
+  ComputeGameSpace(viewer_state->game_log.items[0].planets,
+                   viewer_state->game_log.items[0].planet_count);
 
-  const int screenWidth = 800;
-  const int screenHeight = 450;
-
-  SetTraceLogLevel(LOG_WARNING);
-  SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_MSAA_4X_HINT);
-  InitWindow(screenWidth, screenHeight, "Planet Wars Viewer");
   font = GetFontDefault();
 
   SetTargetFPS(60);
 
-  Shader stars_shader = SetupStarsShader(screenWidth, screenHeight);
+  viewer_state->stars_shader =
+      SetupStarsShader(GetScreenWidth(), GetScreenHeight());
 
-  int timeLoc = GetShaderLocation(stars_shader, "uTime");
+  viewer_state->star_shader_time_loc =
+      GetShaderLocation(viewer_state->stars_shader, "uTime");
+}
 
-  while (!WindowShouldClose()) {
-    frame_counter++;
-    if (game_running &&
-        (game_speed == 0 || frame_counter % abs(game_speed) == 0)) {
-      if (playing_forewards && turn < game_log.count - 1)
-        turn++;
-      else if (turn > 0)
-        turn--;
-      if (turn >= game_log.count - 1 || turn == 0)
-        game_running = false;
-    }
-
-    if (IsKeyPressed(KEY_RIGHT)) {
+void ViewerDraw(UIState *ui_state) {
+  ViewerState *viewer_state = &ui_state->screen_data.viewer;
+  frame_counter++;
+  if (game_running &&
+      (game_speed == 0 || frame_counter % abs(game_speed) == 0)) {
+    if (playing_forewards &&
+        viewer_state->turn < viewer_state->game_log.count - 1)
+      viewer_state->turn++;
+    else if (viewer_state->turn > 0)
+      viewer_state->turn--;
+    if (viewer_state->turn >= viewer_state->game_log.count - 1 ||
+        viewer_state->turn == 0)
       game_running = false;
-      turn++;
-      if (turn >= game_log.count)
-        turn = game_log.count - 1;
-    } else if (IsKeyPressed(KEY_LEFT)) {
-      game_running = false;
-      if (turn != 0)
-        turn--;
-    } else if (IsKeyPressed(KEY_SPACE)) {
-      game_running = !game_running;
-    }
-    if (IsKeyPressed(KEY_UP) && game_speed > 0) {
-      game_speed--;
-    } else if (IsKeyPressed(KEY_DOWN) && game_speed < MAX_GAME_SPEED_VALUE) {
-      game_speed++;
-    }
-
-    float time = (float)GetTime();
-    SetShaderValue(stars_shader, timeLoc, &time, SHADER_UNIFORM_FLOAT);
-
-    BeginDrawing();
-
-    ClearBackground(BLACK);
-    // 5. Activate the shader to affect the canvas drawings
-    BeginShaderMode(stars_shader);
-    // Draw a blank canvas area covering your screen size
-    // The fragment shader fills this rectangle area
-    DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), WHITE);
-    EndShaderMode();
-
-    for (unsigned i = 0; i < game_log.items[turn].planet_count; i++) {
-      DrawPlanet(game_log.items[turn].planets[i]);
-    }
-
-    for (unsigned i = 0; i < game_log.items[turn].fleet_count; i++) {
-      DrawFleet(game_log.items[turn].planets, game_log.items[turn].fleets[i]);
-    }
-
-    DrawControls(game_log, &turn);
-    EndDrawing();
   }
 
-  UnloadShader(stars_shader);
-  CloseWindow();
+  if (IsKeyPressed(KEY_RIGHT)) {
+    game_running = false;
+    viewer_state->turn++;
+    if (viewer_state->turn >= viewer_state->game_log.count)
+      viewer_state->turn = viewer_state->game_log.count - 1;
+  } else if (IsKeyPressed(KEY_LEFT)) {
+    game_running = false;
+    if (viewer_state->turn != 0)
+      viewer_state->turn--;
+  } else if (IsKeyPressed(KEY_SPACE)) {
+    game_running = !game_running;
+  }
+  if (IsKeyPressed(KEY_UP) && game_speed > 0) {
+    game_speed--;
+  } else if (IsKeyPressed(KEY_DOWN) && game_speed < MAX_GAME_SPEED_VALUE) {
+    game_speed++;
+  }
+
+  float time = (float)GetTime();
+  SetShaderValue(viewer_state->stars_shader, viewer_state->star_shader_time_loc,
+                 &time, SHADER_UNIFORM_FLOAT);
+
+  BeginDrawing();
+
+  ClearBackground(BLACK);
+  // 5. Activate the shader to affect the canvas drawings
+  BeginShaderMode(viewer_state->stars_shader);
+  // Draw a blank canvas area covering your screen size
+  // The fragment shader fills this rectangle area
+  DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), WHITE);
+  EndShaderMode();
+
+  for (unsigned i = 0;
+       i < viewer_state->game_log.items[viewer_state->turn].planet_count; i++) {
+    DrawPlanet(viewer_state->game_log.items[viewer_state->turn].planets[i]);
+  }
+
+  for (unsigned i = 0;
+       i < viewer_state->game_log.items[viewer_state->turn].fleet_count; i++) {
+    DrawFleet(viewer_state->game_log.items[viewer_state->turn].planets,
+              viewer_state->game_log.items[viewer_state->turn].fleets[i]);
+  }
+
+  DrawControls(viewer_state->game_log, &viewer_state->turn);
+  EndDrawing();
+}
+
+void ViewerDestroy(UIState *ui_state) {
+  UnloadShader(ui_state->screen_data.viewer.stars_shader);
 }

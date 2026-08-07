@@ -98,7 +98,7 @@ void Usage(FILE *stream) {
 #define PATH_SEPERATOR "/"
 #endif
 
-bool embed_files_walker(Nob_Walk_Entry entry) {
+bool embed_shaders_files_walker(Nob_Walk_Entry entry) {
   FILE *shaders_file = entry.data;
   Nob_String_Builder sb = {0};
   if (entry.type == NOB_FILE_REGULAR) {
@@ -141,8 +141,8 @@ bool embed_files_walker(Nob_Walk_Entry entry) {
 }
 
 void EmbedShaders() {
-  FILE *shaders_file = fopen("src/shaders.c", "w");
-  nob_walk_dir("shaders", embed_files_walker, .data = shaders_file);
+  FILE *shaders_file = fopen("src/ui/shaders.c", "w");
+  nob_walk_dir("shaders", embed_shaders_files_walker, .data = shaders_file);
   fclose(shaders_file);
 }
 
@@ -160,11 +160,9 @@ char *c_to_o_path(const char *source_file_path) {
 void AddCompileModeFlags(Nob_Cmd *cmd, bool headless, bool debug,
                          bool profile) {
   if (debug) {
-    nob_log(NOB_WARNING, "Compiling program in debug mode");
     nob_cmd_append(cmd, "-fsanitize=address,undefined", "-g", "-O0",
                    "-fno-omit-frame-pointer");
   } else if (profile) {
-    nob_log(NOB_WARNING, "Compiling program in profiling mode");
     nob_cmd_append(cmd, "-g", "-O2", "-fno-omit-frame-pointer");
   } else {
 #if defined(__clang__)
@@ -314,6 +312,11 @@ int main(int argc, char **argv) {
     return 1;
   }
 
+  if (*debug_flag) {
+    nob_log(NOB_WARNING, "Compiling program in debug mode");
+  } else if (*profile_flag) {
+    nob_log(NOB_WARNING, "Compiling program in profiling mode");
+  }
   // function comes first because we want it to run every time, even if force
   // flag is passed. This is because this function saves the compilation flags
   // used in a file.
@@ -341,7 +344,7 @@ int main(int argc, char **argv) {
   Nob_Cmd cmd = {0};
   Nob_Procs procs = {0};
   const char *source_files[] = {"src/main.c", "src/game.c", "src/tournament.c"};
-  const char *headed_source_files[] = {"src/viewer.c"};
+  const char *headed_source_files[] = {"src/ui/ui.c", "src/ui/viewer.c"};
 
   for (unsigned i = 0; i < NOB_ARRAY_LEN(source_files); i++) {
     if (!CompileFile(&cmd, &procs, compile_commands_file, source_files[i],
