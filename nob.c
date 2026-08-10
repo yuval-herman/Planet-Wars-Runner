@@ -227,9 +227,7 @@ bool CompileFile(Nob_Cmd *cmd, Nob_Procs *procs, FILE *compile_commands_file,
   if (force_recompile || nob_needs_rebuild1(output_path, file_path)) {
     return nob_cmd_run(cmd, .async = procs);
   } else {
-    nob_log(NOB_INFO,
-            "Skipped building %s",
-            file_path);
+    nob_log(NOB_INFO, "Skipped building %s", file_path);
     cmd->count = 0;
     return true;
   }
@@ -248,14 +246,16 @@ bool ShouldRecompileAll(bool headless, bool debug, bool profile) {
   if (!nob_read_entire_file(flag_file_path, &prev_flags_sb))
     ret = true;
 
-  nob_sb_appendf(&current_flags_sb, "headless=%s\n", headless ? "true" : "false");
+  nob_sb_appendf(&current_flags_sb, "headless=%s\n",
+                 headless ? "true" : "false");
   nob_sb_appendf(&current_flags_sb, "debug=%s\n", debug ? "true" : "false");
   nob_sb_appendf(&current_flags_sb, "profile=%s\n", profile ? "true" : "false");
 
   nob_write_entire_file(flag_file_path, current_flags_sb.items,
                         current_flags_sb.count);
 
-  // ret is true when compilation IS required, so if this are equal, we return false, not true
+  // ret is true when compilation IS required, so if this are equal, we return
+  // false, not true
   if (!ret)
     ret = prev_flags_sb.count != current_flags_sb.count;
   if (!ret)
@@ -334,7 +334,8 @@ int main(int argc, char **argv) {
 
   Nob_Cmd cmd = {0};
   Nob_Procs procs = {0};
-  const char *source_files[] = {"src/main.c", "src/game.c", "src/tournament.c"};
+  const char *source_files[] = {"src/main.c", "src/game.c", "src/tournament.c",
+                                "src/configs.c"};
   const char *headed_source_files[] = {"src/viewer.c"};
 
   for (unsigned i = 0; i < NOB_ARRAY_LEN(source_files); i++) {
