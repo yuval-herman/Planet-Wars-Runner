@@ -139,3 +139,24 @@ bool GetBotMessage(Bot bot, Nob_String_Builder *sb) {
 
   return true;
 }
+
+void GetBotDebugMessage(Bot bot, Nob_String_Builder *sb) {
+  const unsigned max_chunk_length = 512;
+  sb->count = 0;
+  bool message_ended = false;
+
+  while (!message_ended) {
+    nob_da_reserve(sb, sb->count + max_chunk_length);
+    // Remove null terminator if it exists
+    if (sb->count > 0 && nob_da_last(sb) == '\0') {
+      nob_log(NOB_DEBUG, "removed null terminator");
+      sb->count--;
+    }
+    unsigned int received = subprocess_read_stderr(
+        bot.process, sb->items + sb->count, sb->capacity - sb->count);
+    if (received == 0) {
+      message_ended = true;
+    }
+    sb->count += received;
+  }
+}

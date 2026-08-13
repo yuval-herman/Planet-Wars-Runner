@@ -1,7 +1,7 @@
 #ifndef BOT_H
 #define BOT_H
-#include "utils.h"
 #include "subprocess.h"
+#include "utils.h"
 
 // Time in nanoseconds, currently set to 100ms
 #define MAX_BOT_RESPONSE_TIME (1000 * 1000 * 100)
@@ -28,6 +28,11 @@ void StartBot(Bot bot);
 // Return true if everythin went okay. Return false in case bot should be
 // disqualified.
 bool GetBotMessage(Bot bot, Nob_String_Builder *sb);
-
+// Write into `sb` from the stderr stream of the bot.
+// The original protocol does not specify how a debug message should end, as
+// such, we have no way of knowing for sure when a bot message is finished, or
+// if a bot is even intending to send a message. We therefore rely on the fact
+// bots usually send debug message while processing their next response, even
+// though they can technically send them whenever they wish.
+void GetBotDebugMessage(Bot bot, Nob_String_Builder *sb);
 #endif // BOT_H
-
