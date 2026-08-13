@@ -183,8 +183,7 @@ bool CompileFile(Nob_Cmd *cmd, Nob_Procs *procs, FILE *compile_commands_file,
 
   nob_cc(cmd);
   nob_cmd_append(cmd, "-c");
-  nob_cmd_append(cmd, "-Wall", "-Wextra", "-Wno-unused-function",
-                 "-DINI_HANDLER_LINENO=1");
+  nob_cmd_append(cmd, "-Wall", "-Wextra", "-Wno-unused-function");
 
   nob_cmd_append(cmd, "-o");
   nob_cmd_append(cmd, output_path);
@@ -364,7 +363,8 @@ int main(int argc, char **argv) {
         return 1;
     }
   }
-  if(!nob_procs_flush(&procs)) return 1;
+  if (!nob_procs_flush(&procs))
+    return 1;
 
   nob_cc(&cmd);
   for (unsigned i = 0; i < NOB_ARRAY_LEN(source_files); i++) {
