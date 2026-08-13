@@ -279,28 +279,27 @@ void sendMapToBot(GameState *state, Nob_String_Builder *sb, unsigned bot_idx) {
         1;                                                                     \
   }
 
+  sb->count = 0;
   nob_da_foreach(Planet, planet, &state->planets) {
     // Each bot should see itself as bot number 1.
     MoveOwner(Planet, planet);
-    sb->count = 0;
     PrintPlanet(sb, moved_planet);
-    fwrite(sb->items, sizeof *sb->items, sb->count, bot_stdin);
-    if (state->log_file)
-      fwrite(sb->items, sizeof *sb->items, sb->count, state->log_file);
   }
+
   nob_da_foreach(Fleet, fleet, &state->fleets) {
     MoveOwner(Fleet, fleet);
-    sb->count = 0;
     PrintFleet(sb, moved_fleet);
-    if (state->log_file)
-      fwrite(sb->items, sizeof *sb->items, sb->count, state->log_file);
   }
 
-#undef MoveOwner
-
-  fprintf(bot_stdin, MESSAGE_DELIMETER);
-  WriteToLogFile(MESSAGE_DELIMETER "\n");
+  nob_sb_append_cstr(sb, MESSAGE_DELIMETER);
+  fwrite(sb->items, sizeof *sb->items, sb->count, bot_stdin);
   fflush(bot_stdin);
+
+  if (state->log_file) {
+    nob_sb_append(sb, '\n');
+    fwrite(sb->items, sizeof *sb->items, sb->count, state->log_file);
+  }
+#undef MoveOwner
 }
 
 // Return true if everythin went okay. Return false in case bot should be
