@@ -1,9 +1,9 @@
 #ifndef GAME_H
 #define GAME_H
+#include "bot.h"
 #include "nob.h"
 #include "planet_wars.h"
 #include "utils.h"
-#include "bot.h"
 
 #include <stdint.h>
 #include <stdio.h>
@@ -43,7 +43,14 @@ DefineComplexStruct(GameState, {
 });
 
 GameState MakeGame(const char *map_file_path, BotsDA bots, bool log);
+
 void RunGame(GameState *state);
+// Get map representation for a specific player. Each player should see itself
+// as player 1 according to the protocol. This function takes care of that. If
+// `player_idx` is 0 the real map is returned with no modification.
+void GetMapRepresentation(GameState *state, Nob_String_Builder *sb,
+                          unsigned player_idx);
+
 void WriteGameLogToFile(FILE *file, GameLog game_log);
 bool ReadGameLogFromFile(FILE *file, GameLog *game_log);
 

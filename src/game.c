@@ -256,18 +256,17 @@ static inline void PrintFleet(Nob_String_Builder *sb, Fleet fleet) {
             fleet.src_id, fleet.dst_id, fleet.total, fleet.remaining);
 }
 
-void sendMapToBot(GameState *state, Nob_String_Builder *sb, unsigned bot_idx) {
-  if (bot_idx >= state->bots.count) {
+void GetMapRepresentation(GameState *state, Nob_String_Builder *sb,
+                          unsigned player_idx) {
+  if (player_idx >= state->bots.count) {
     nob_log(NOB_ERROR, "ERROR: Attempting access to non-existent bot process");
     exit(1);
   }
-  WriteToLogFile("engine > player%u: ", bot_idx + 1);
-
 #define MoveOwner(Type, entity)                                                \
   Type moved_##entity = *entity;                                               \
-  if (bot_idx > 0 && moved_##entity.owner != 0) {                              \
+  if (player_idx > 0 && moved_##entity.owner != 0) {                           \
     moved_##entity.owner =                                                     \
-        (bot_idx * (state->bots.count - 1) + moved_##entity.owner - 1) %       \
+        (player_idx * (state->bots.count - 1) + moved_##entity.owner - 1) %    \
             state->bots.count +                                                \
         1;                                                                     \
   }
@@ -285,13 +284,24 @@ void sendMapToBot(GameState *state, Nob_String_Builder *sb, unsigned bot_idx) {
   }
 
   nob_sb_append_cstr(sb, MESSAGE_DELIMETER);
+
+#undef MoveOwner
+}
+
+void sendMapToBot(GameState *state, Nob_String_Builder *sb, unsigned bot_idx) {
+  if (bot_idx >= state->bots.count) {
+    nob_log(NOB_ERROR, "ERROR: Attempting access to non-existent bot process");
+    exit(1);
+  }
+  WriteToLogFile("engine > player%u: ", bot_idx + 1);
+
+  GetMapRepresentation(state, sb, bot_idx);
   SendMessageToBot(state->bots.items[bot_idx], sb->items, sb->count);
 
   if (state->log_file) {
     nob_sb_append(sb, '\n');
     fwrite(sb->items, sizeof *sb->items, sb->count, state->log_file);
   }
-#undef MoveOwner
 }
 
 // Return true if everythin went okay. Return false in case bot should be
