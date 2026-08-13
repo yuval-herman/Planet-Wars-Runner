@@ -231,7 +231,8 @@ int vsb_printf(Nob_String_Builder *sb, char const *fmt, va_list va) {
   // Make sure we have enough memory for at least `STB_SPRINTF_MIN` in the
   // initial write.
   nob_da_reserve(sb, STB_SPRINTF_MIN + sb->count);
-  return stbsp_vsprintfcb(sb_printf_callback, sb, sb->items, fmt, va);
+  return stbsp_vsprintfcb(sb_printf_callback, sb, sb->items + sb->count, fmt,
+                          va);
 }
 
 int sb_printf(Nob_String_Builder *sb, char const *fmt, ...) {
