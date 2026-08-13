@@ -217,19 +217,42 @@ void DisqualifyBot(GameState *state, unsigned bot_idx) {
   nob_log(NOB_INFO, "Disqualified bot %u.", bot_idx);
 }
 
-static inline void PrintPlanet(FILE *file, Planet planet) {
-  char buf[64];
-  int len = stbsp_sprintf(buf, "%s %hu %hu %hu\n", planet.print_prefix,
-                          planet.owner, planet.ships, planet.growth);
-  fwrite(buf, sizeof *buf, len, file);
+static char *sb_printf_callback(const char *buf, void *user, int len) {
+  NOB_UNUSED(buf);
+  Nob_String_Builder *sb = user;
+
+  sb->count += len;
+  nob_da_reserve(sb, STB_SPRINTF_MIN + sb->count);
+
+  return sb->items + sb->count;
 }
 
-static inline void PrintFleet(FILE *file, Fleet fleet) {
-  char buf[64];
-  int len = stbsp_sprintf(buf, "F %hu %hu %hu %hu %hu %hu\n", fleet.owner,
-                          fleet.ships, fleet.src_id, fleet.dst_id, fleet.total,
-                          fleet.remaining);
-  fwrite(buf, sizeof *buf, len, file);
+int vsb_printf(Nob_String_Builder *sb, char const *fmt, va_list va) {
+  // Make sure we have enough memory for at least `STB_SPRINTF_MIN` in the
+  // initial write.
+  nob_da_reserve(sb, STB_SPRINTF_MIN + sb->count);
+  return stbsp_vsprintfcb(sb_printf_callback, sb, sb->items, fmt, va);
+}
+
+int sb_printf(Nob_String_Builder *sb, char const *fmt, ...) {
+  int result;
+  va_list va;
+  va_start(va, fmt);
+
+  result = vsb_printf(sb, fmt, va);
+  va_end(va);
+
+  return result;
+}
+
+static inline void PrintPlanet(Nob_String_Builder *sb, Planet planet) {
+  sb_printf(sb, "%s %hu %hu %hu\n", planet.print_prefix, planet.owner,
+            planet.ships, planet.growth);
+}
+
+static inline void PrintFleet(Nob_String_Builder *sb, Fleet fleet) {
+  sb_printf(sb, "F %hu %hu %hu %hu %hu %hu\n", fleet.owner, fleet.ships,
+            fleet.src_id, fleet.dst_id, fleet.total, fleet.remaining);
 }
 
 void sendMapToBot(GameState *state, unsigned bot_idx) {
@@ -255,24 +278,29 @@ void sendMapToBot(GameState *state, unsigned bot_idx) {
         1;                                                                     \
   }
 
+  Nob_String_Builder sb = {0};
   nob_da_foreach(Planet, planet, &state->planets) {
     // Each bot should see itself as bot number 1.
     MoveOwner(Planet, planet);
-    PrintPlanet(bot_stdin, moved_planet);
+    sb.count = 0;
+    PrintPlanet(&sb, moved_planet);
+    fwrite(sb.items, sizeof *sb.items, sb.count, bot_stdin);
     if (state->log_file)
-      PrintPlanet(state->log_file, moved_planet);
+      fwrite(sb.items, sizeof *sb.items, sb.count, state->log_file);
   }
   nob_da_foreach(Fleet, fleet, &state->fleets) {
     MoveOwner(Fleet, fleet);
-    PrintFleet(bot_stdin, moved_fleet);
+    sb.count = 0;
+    PrintFleet(&sb, moved_fleet);
     if (state->log_file)
-      PrintFleet(state->log_file, moved_fleet);
+      fwrite(sb.items, sizeof *sb.items, sb.count, state->log_file);
   }
 
 #undef MoveOwner
 
   fprintf(bot_stdin, MESSAGE_DELIMETER);
   WriteToLogFile(MESSAGE_DELIMETER "\n");
+  nob_sb_free(sb);
   fflush(bot_stdin);
 }
 
