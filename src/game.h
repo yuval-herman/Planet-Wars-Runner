@@ -51,6 +51,11 @@ void RunGame(GameState *state);
 void GetMapRepresentation(GameState *state, Nob_String_Builder *sb,
                           unsigned player_idx);
 
+// Return true if the player can play this actions. Return false in case the
+// player should be disqualified.
+bool SendPlayerShips(GameState *state, unsigned player_idx, uint16_t src_id,
+                     uint16_t dst_id, uint16_t ships);
+
 void WriteGameLogToFile(FILE *file, GameLog game_log);
 bool ReadGameLogFromFile(FILE *file, GameLog *game_log);
 
