@@ -151,6 +151,11 @@ char *c_to_o_path(const char *source_file_path) {
                           source_file_path + 4);
 }
 
+char *c_to_h(const char *source_file_path) {
+  return nob_temp_sprintf("%.*sh", (int)strlen(source_file_path) - 1,
+                          source_file_path);
+}
+
 void AddCompileModeFlags(Nob_Cmd *cmd, bool headless, bool debug,
                          bool profile) {
   if (debug) {
@@ -224,7 +229,14 @@ bool CompileFile(Nob_Cmd *cmd, Nob_Procs *procs, FILE *compile_commands_file,
   }
   fprintf(compile_commands_file, "]},");
 
-  if (force_recompile || nob_needs_rebuild1(output_path, file_path)) {
+  const char *source_paths[] = {file_path, c_to_h(file_path)};
+  unsigned source_count = NOB_ARRAY_LEN(source_paths);
+  // Don't include the .h file if it doesn't exist when checking if should
+  // recompile.
+  if (!nob_file_exists(source_paths[1]))
+    source_count--;
+  if (force_recompile ||
+      nob_needs_rebuild(output_path, source_paths, source_count)) {
     return nob_cmd_run(cmd, .async = procs);
   } else {
     nob_log(NOB_INFO, "Skipped building %s", file_path);
