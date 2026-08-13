@@ -56,6 +56,10 @@ void GetMapRepresentation(GameState *state, Nob_String_Builder *sb,
 bool SendPlayerShips(GameState *state, unsigned player_idx, uint16_t src_id,
                      uint16_t dst_id, uint16_t ships);
 
+// Play player actions from string
+bool SendPlayerShipsStr(GameState *state, unsigned player_idx,
+                        Nob_String_View order_sv);
+
 void WriteGameLogToFile(FILE *file, GameLog game_log);
 bool ReadGameLogFromFile(FILE *file, GameLog *game_log);
 
