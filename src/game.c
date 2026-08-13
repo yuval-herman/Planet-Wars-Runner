@@ -345,33 +345,33 @@ bool SendPlayerShips(GameState *state, unsigned player_idx, uint16_t src_id,
   return true;
 }
 
-bool ParseBotFleets(GameState *state, Nob_String_View bot_message,
-                    unsigned bot_idx) {
-  if (bot_message.count < 2 ||
-      (bot_message.data[0] == 'g' && bot_message.data[1] == 'o')) {
+bool SendPlayerShipsStr(GameState *state, unsigned player_idx,
+                        Nob_String_View order_sv) {
+  if (order_sv.count < 2 ||
+      (order_sv.data[0] == 'g' && order_sv.data[1] == 'o')) {
     return true;
   }
 
-  while (bot_message.count > 1 && bot_message.data[0] != 'g' &&
-         bot_message.data[1] != 'o') {
-    nob_log(NOB_DEBUG, "parsing bot %u fleets", bot_idx);
+  while (order_sv.count > 1 && order_sv.data[0] != 'g' &&
+         order_sv.data[1] != 'o') {
+    nob_log(NOB_DEBUG, "parsing bot %u fleets", player_idx);
     unsigned parsed_uint;
     uint16_t src_id, dst_id, ships;
     ffc_result result;
-    const char *p_end = bot_message.data + bot_message.count;
+    const char *p_end = order_sv.data + order_sv.count;
     ffc_parse_options parse_options = ffc_parse_options_default();
     parse_options.format |= FFC_FORMAT_FLAG_SKIP_WHITE_SPACE;
 
 #define PARSE_INT(output, err_msg)                                             \
-  result = ffc_from_chars_u32_options(bot_message.data, p_end, 10,             \
-                                      &parsed_uint, parse_options);            \
+  result = ffc_from_chars_u32_options(order_sv.data, p_end, 10, &parsed_uint,  \
+                                      parse_options);                          \
   if (result.outcome != FFC_OUTCOME_OK || parsed_uint > UINT16_MAX) {          \
     nob_log(NOB_INFO, "Invalid bot command. " err_msg);                        \
     return false;                                                              \
   }                                                                            \
   output = parsed_uint;                                                        \
-  bot_message.count -= result.ptr - bot_message.data;                          \
-  bot_message.data = result.ptr;
+  order_sv.count -= result.ptr - order_sv.data;                                \
+  order_sv.data = result.ptr;
 
     PARSE_INT(src_id, "Source planet out of bounds or impossible to parse.");
     PARSE_INT(dst_id,
@@ -380,12 +380,12 @@ bool ParseBotFleets(GameState *state, Nob_String_View bot_message,
               "Amount of ships is too high, to low, or impossible to parse.");
 #undef PARSE_INT
 
-    if (!SendPlayerShips(state, bot_idx, src_id, dst_id, ships))
+    if (!SendPlayerShips(state, player_idx, src_id, dst_id, ships))
       return false;
 
-    bot_message = nob_sv_trim_left(bot_message);
+    order_sv = nob_sv_trim_left(order_sv);
   }
-  nob_log(NOB_DEBUG, "done parsing bot %u fleets", bot_idx);
+  nob_log(NOB_DEBUG, "done parsing bot %u fleets", player_idx);
   return true;
 }
 
@@ -421,8 +421,8 @@ void RunBotCycle(GameState *state, Nob_String_Builder *sb) {
       }
 
       if (bot_okay)
-        bot_okay = ParseBotFleets(
-            state, nob_sv_from_parts(sb->items, sb->count), bot_num);
+        bot_okay = SendPlayerShipsStr(state, bot_num,
+                                      nob_sv_from_parts(sb->items, sb->count));
 
       if (bot_okay) {
         sb->count = 0;
