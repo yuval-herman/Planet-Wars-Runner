@@ -379,44 +379,6 @@ bool ParseBotFleets(GameState *state, Nob_String_View bot_message,
   return true;
 }
 
-// void PrintBotDebugMessages(GameState *state, Nob_String_Builder *sb,
-//                            unsigned bot_idx) {
-//   if (bot_idx >= state->bots.count) {
-//     nob_log(NOB_ERROR, "Tried accessing a bot OOB.");
-//     exit(1);
-//   }
-//   if (!TestBit(state->bot_bit_set, bot_idx) ||
-//       !subprocess_alive(state->bots.items[bot_idx].process)) {
-//     nob_log(NOB_WARNING, "Bot %u is not active.", bot_idx);
-//     return;
-//   }
-
-//   const unsigned max_chunk_length = 512;
-//   sb->count = 0;
-//   bool message_ended = false;
-
-//   while (!message_ended) {
-//     nob_da_reserve(sb, sb->count + max_chunk_length);
-//     // Remove null terminator if it exists
-//     if (sb->count > 0 && nob_da_last(sb) == '\0') {
-//       nob_log(NOB_DEBUG, "removed null terminator");
-//       sb->count--;
-//     }
-//     unsigned int received =
-//         subprocess_read_stderr(state->bots.items[bot_idx].process,
-//                                sb->items + sb->count, sb->capacity -
-//                                sb->count);
-//     if (received == 0) {
-//       message_ended = true;
-//     }
-//     sb->count += received;
-//   }
-
-//   if (sb->count)
-//     nob_log(NOB_INFO, "bot %u says: |%.*s|", bot_idx, (unsigned)sb->count,
-//             sb->items);
-// }
-
 void RunBotCycle(GameState *state, Nob_String_Builder *sb) {
   unsigned bot_num = 0;
   nob_da_foreach(Bot, bot, &state->bots) {
