@@ -364,7 +364,7 @@ int main(int argc, char **argv) {
         return 1;
     }
   }
-  nob_procs_flush(&procs);
+  if(!nob_procs_flush(&procs)) return 1;
 
   nob_cc(&cmd);
   for (unsigned i = 0; i < NOB_ARRAY_LEN(source_files); i++) {
