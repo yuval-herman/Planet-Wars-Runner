@@ -26,30 +26,34 @@ Configs MakeDefaultConfig() {
 }
 
 static bool VerifyConfigs(Configs configs) {
-  if (configs.bot_count == 0) {
-    nob_log(NOB_ERROR, "No bots provided.");
-    return false;
-  }
-  size_t mark = nob_temp_save();
-  for (unsigned i = 0; i < configs.bot_count; i++) {
-    if (configs.bot_start_commands[i] == NULL) {
-      nob_log(NOB_ERROR,
-              "A bot was provided%s without a command. Please supply a "
-              "command, name is potional.",
-              configs.bot_names[i] == NULL
-                  ? ""
-                  : nob_temp_sprintf(" with the name %s but",
-                                     configs.bot_names[i]));
+  if (configs.mode == MODE_REPLAY) {
+    return configs.save_file != NULL;
+  } else {
+    if (configs.bot_count == 0) {
+      nob_log(NOB_ERROR, "No bots provided.");
       return false;
     }
-  }
-  nob_temp_rewind(mark);
+    size_t mark = nob_temp_save();
+    for (unsigned i = 0; i < configs.bot_count; i++) {
+      if (configs.bot_start_commands[i] == NULL) {
+        nob_log(NOB_ERROR,
+                "A bot was provided%s without a command. Please supply a "
+                "command, name is potional.",
+                configs.bot_names[i] == NULL
+                    ? ""
+                    : nob_temp_sprintf(" with the name %s but",
+                                       configs.bot_names[i]));
+        return false;
+      }
+    }
+    nob_temp_rewind(mark);
 
-  if (!configs.map_file) {
-    nob_log(NOB_ERROR, "A map file must be provided.");
-    return false;
+    if (!configs.map_file) {
+      nob_log(NOB_ERROR, "A map file must be provided.");
+      return false;
+    }
+    return true;
   }
-  return true;
 }
 
 static int handler(void *user_data, const char *section, const char *name,
@@ -136,7 +140,8 @@ bool ParseConfigsFromIni(Configs *configs, FILE *ini_file) {
 
   for (unsigned i = 0; i < configs_meta.bots_da.count; i++) {
     configs->bot_names[i] = configs_meta.bots_da.items[i].name;
-    configs->bot_start_commands[i] = configs_meta.bots_da.items[i].start_command;
+    configs->bot_start_commands[i] =
+        configs_meta.bots_da.items[i].start_command;
   }
   return VerifyConfigs(*configs);
 }
