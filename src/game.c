@@ -261,13 +261,6 @@ void sendMapToBot(GameState *state, Nob_String_Builder *sb, unsigned bot_idx) {
     nob_log(NOB_ERROR, "ERROR: Attempting access to non-existent bot process");
     exit(1);
   }
-  if (!subprocess_alive(state->bots.items[bot_idx].process)) {
-    nob_log(NOB_INFO, "Bot %u has crashed.", bot_idx);
-    DisqualifyBot(state, bot_idx);
-    return;
-  }
-  FILE *bot_stdin = subprocess_stdin(state->bots.items[bot_idx].process);
-
   WriteToLogFile("engine > player%u: ", bot_idx + 1);
 
 #define MoveOwner(Type, entity)                                                \
@@ -292,8 +285,7 @@ void sendMapToBot(GameState *state, Nob_String_Builder *sb, unsigned bot_idx) {
   }
 
   nob_sb_append_cstr(sb, MESSAGE_DELIMETER);
-  fwrite(sb->items, sizeof *sb->items, sb->count, bot_stdin);
-  fflush(bot_stdin);
+  SendMessageToBot(state->bots.items[bot_idx], sb->items, sb->count);
 
   if (state->log_file) {
     nob_sb_append(sb, '\n');
