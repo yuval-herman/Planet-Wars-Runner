@@ -278,71 +278,6 @@ void sendMapToBot(GameState *state, unsigned bot_idx) {
 
 // Return true if everythin went okay. Return false in case bot should be
 // disqualified.
-bool GetBotMessage(GameState *state, Nob_String_Builder *sb, unsigned bot_idx) {
-  if (bot_idx >= state->bots.count) {
-    nob_log(NOB_ERROR, "Tried accessing a bot OOB.");
-    exit(1);
-  }
-  if (!subprocess_alive(state->bots.items[bot_idx].process)) {
-    nob_log(NOB_INFO, "Bot %u disqualified since it's process crashed.",
-            bot_idx);
-    sb->count = 0;
-    return false;
-  }
-
-  const unsigned max_chunk_length = 512;
-  sb->count = 0;
-  bool message_ended = false;
-
-  uint64_t start = nob_nanos_since_unspecified_epoch();
-  while (!message_ended) {
-    nob_da_reserve(sb, sb->count + max_chunk_length);
-    // Remove null terminator if it exists
-    if (sb->count > 0 && nob_da_last(sb) == '\0') {
-      nob_log(NOB_DEBUG, "removed null terminator");
-      sb->count--;
-    }
-    unsigned int received =
-        subprocess_read_stdout(state->bots.items[bot_idx].process,
-                               sb->items + sb->count, sb->capacity - sb->count);
-    if (received == 0) {
-      if (nob_nanos_since_unspecified_epoch() - start > MAX_BOT_RESPONSE_TIME) {
-        nob_log(NOB_INFO, "Bot %u disqualified for taking too long to reply.",
-                bot_idx);
-        sb->count = 0;
-        return false;
-      }
-      sleep_ns(WAIT_SLEEP_TIME);
-      continue;
-    }
-    sb->count += received;
-
-    nob_log(NOB_DEBUG, "bot %u sent: |%.*s|", bot_idx, (unsigned)sb->count,
-            sb->items);
-
-    // Excluding null terminator
-    const unsigned delimeter_length = NOB_ARRAY_LEN(MESSAGE_DELIMETER) - 1;
-    // We need to check sb.count is at least `delimeter_length` to make sure
-    // memcmp does not access OOB memory
-    if (sb->count >= delimeter_length &&
-        memcmp(sb->items + sb->count - delimeter_length, MESSAGE_DELIMETER,
-               delimeter_length) == 0) {
-      message_ended = true;
-      nob_log(NOB_DEBUG, "bot %u message ended", bot_idx);
-    }
-  }
-
-  Nob_String_View sv = {sb->count, sb->items};
-  while (sv.count > 0) {
-    Nob_String_View line = nob_sv_chop_by_delim(&sv, '\n');
-    WriteToLogFile("player%u > engine: %.*s\n", bot_idx + 1, (int)line.count,
-                   line.data);
-  }
-  return true;
-}
-
-// Return true if everythin went okay. Return false in case bot should be
-// disqualified.
 bool ParseBotFleets(GameState *state, Nob_String_View bot_message,
                     unsigned bot_idx) {
   if (bot_message.count < 2 ||
@@ -472,13 +407,25 @@ void RunBotCycle(GameState *state, Nob_String_Builder *bot_message) {
   nob_da_foreach(Bot, bot, &state->bots) {
     // Skip disqualified or lost bots.
     if (TestBit(state->bot_bit_set, bot_num)) {
-      bot_okay = GetBotMessage(state, bot_message, bot_num);
+      bot_message->count = 0;
+      bot_okay = GetBotMessage(*bot, bot_message);
+
+      // Log to file
+      if (state->log_file) {
+        Nob_String_View sv = {bot_message->count, bot_message->items};
+        while (sv.count > 0) {
+          Nob_String_View line = nob_sv_chop_by_delim(&sv, '\n');
+          WriteToLogFile("player%u > engine: %.*s\n", bot_num + 1,
+                         (int)line.count, line.data);
+        }
+      }
 
       if (bot_okay)
         bot_okay = ParseBotFleets(
             state, nob_sv_from_parts(bot_message->items, bot_message->count),
             bot_num);
 
+      bot_message->count = 0;
       PrintBotDebugMessages(state, bot_message, bot_num);
 
       if (!bot_okay)

@@ -86,3 +86,56 @@ void StartBot(Bot bot) {
 
   FreeMultiDString((char **)split_command.items, split_command.count);
 }
+
+bool GetBotMessage(Bot bot, Nob_String_Builder *sb) {
+  if (!subprocess_alive(bot.process)) {
+    nob_log(NOB_INFO,
+            "Bot %s should be disqualified since it's process crashed.",
+            bot.name);
+    sb->count = 0;
+    return false;
+  }
+
+  const unsigned max_chunk_length = 512;
+  bool message_ended = false;
+
+  uint64_t start = nob_nanos_since_unspecified_epoch();
+  while (!message_ended) {
+    nob_da_reserve(sb, sb->count + max_chunk_length);
+    // Remove null terminator if it exists
+    if (sb->count > 0 && nob_da_last(sb) == '\0') {
+      nob_log(NOB_DEBUG, "removed null terminator");
+      sb->count--;
+    }
+    unsigned int received = subprocess_read_stdout(
+        bot.process, sb->items + sb->count, sb->capacity - sb->count);
+    if (received == 0) {
+      if (nob_nanos_since_unspecified_epoch() - start > MAX_BOT_RESPONSE_TIME) {
+        nob_log(NOB_INFO,
+                "Bot %s should be disqualified for taking too long to reply.",
+                bot.name);
+        sb->count = 0;
+        return false;
+      }
+      sleep_ns(WAIT_SLEEP_TIME);
+      continue;
+    }
+    sb->count += received;
+
+    nob_log(NOB_DEBUG, "bot %s sent: |%.*s|", bot.name, (unsigned)sb->count,
+            sb->items);
+
+    // Excluding null terminator
+    const unsigned delimeter_length = NOB_ARRAY_LEN(MESSAGE_DELIMETER) - 1;
+    // We need to check sb.count is at least `delimeter_length` to make sure
+    // memcmp does not access OOB memory
+    if (sb->count >= delimeter_length &&
+        memcmp(sb->items + sb->count - delimeter_length, MESSAGE_DELIMETER,
+               delimeter_length) == 0) {
+      message_ended = true;
+      nob_log(NOB_DEBUG, "bot %s message ended", bot.name);
+    }
+  }
+
+  return true;
+}

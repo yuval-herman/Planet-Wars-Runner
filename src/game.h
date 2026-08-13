@@ -9,8 +9,6 @@
 #include <stdio.h>
 
 #define LOG_FILE "log.txt"
-// A string used to denote the end of a message by the bots and engine
-#define MESSAGE_DELIMETER "go" NOB_LINE_END
 
 typedef uint32_t BotBitset;
 _Static_assert(MAX_BOT_AMOUNT <= sizeof(BotBitset) * CHAR_BIT,
