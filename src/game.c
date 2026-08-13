@@ -188,8 +188,8 @@ GameState MakeGame(const char *map_file_path, BotsDA bots, bool log) {
   return state;
 }
 
-void DisqualifyBot(GameState *state, unsigned bot_idx) {
-  if (bot_idx >= state->bots.count) {
+void DisqualifyPlayer(GameState *state, unsigned player_idx) {
+  if (player_idx >= state->bots.count) {
     nob_log(NOB_ERROR, "Attempted to disqualify non existent bot");
     exit(1);
   }
@@ -197,24 +197,24 @@ void DisqualifyBot(GameState *state, unsigned bot_idx) {
   // We don't remove the bot from the dynamic array because we use the DA index
   // to address different bots. Instead it should be marked as disqualified and
   // not used.
-  StopBot(state->bots.items[bot_idx]);
+  StopBot(state->bots.items[player_idx]);
 
   state->remaining_bots--;
   nob_da_foreach(Planet, planet, &state->planets) {
-    if ((unsigned)planet->owner == bot_idx + 1) {
+    if ((unsigned)planet->owner == player_idx + 1) {
       planet->owner = 0;
     }
   }
   nob_da_foreach(Fleet, fleet, &state->fleets) {
-    if ((unsigned)fleet->owner == bot_idx + 1) {
+    if ((unsigned)fleet->owner == player_idx + 1) {
       *fleet = state->fleets.items[--state->fleets.count];
       fleet--;
     }
   }
 
-  UnsetBit(state->bot_bit_set, bot_idx);
+  UnsetBit(state->bot_bit_set, player_idx);
 
-  nob_log(NOB_INFO, "Disqualified bot %u.", bot_idx);
+  nob_log(NOB_INFO, "Disqualified bot %u.", player_idx);
 }
 
 static char *sb_printf_callback(const char *buf, void *user, int len) {
@@ -431,7 +431,7 @@ void RunBotCycle(GameState *state, Nob_String_Builder *sb) {
           nob_log(NOB_INFO, "bot %s says: |%.*s|", bot->name,
                   (unsigned)sb->count, sb->items);
       } else {
-        DisqualifyBot(state, bot_num);
+        DisqualifyPlayer(state, bot_num);
       }
 
       nob_log(NOB_DEBUG, "done with bot %u, advancing to bot %u", bot_num,

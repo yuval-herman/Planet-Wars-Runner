@@ -60,6 +60,8 @@ bool SendPlayerShips(GameState *state, unsigned player_idx, uint16_t src_id,
 bool SendPlayerShipsStr(GameState *state, unsigned player_idx,
                         Nob_String_View order_sv);
 
+void DisqualifyPlayer(GameState *state, unsigned player_idx);
+
 void WriteGameLogToFile(FILE *file, GameLog game_log);
 bool ReadGameLogFromFile(FILE *file, GameLog *game_log);
 
