@@ -24,6 +24,7 @@ BotsDA MakeBotsDA(char **names, char **commands, unsigned count) {
     // TODO should I dupe this?
     bots.items[i].name = names[i];
     bots.items[i].start_command = commands[i];
+    bots.items[i].process = NULL;
   }
   return bots;
 }
@@ -52,6 +53,7 @@ int main(int argc, char *argv[]) {
                              configs.bot_count);
     TournametData tournament = RunTournament(configs.map_file, bots);
     FreeInnerTournametData(tournament);
+    FreeInnerBotsDA(bots);
   } else if (configs.mode == MODE_SINGLE_MATCH) {
     BotsDA bots = MakeBotsDA(configs.bot_names, configs.bot_start_commands,
                              configs.bot_count);
@@ -70,6 +72,7 @@ int main(int argc, char *argv[]) {
 #endif // HEADLESS_MODE
 
     FreeInnerGameState(state);
+    FreeInnerBotsDA(bots);
   }
   return 0;
 }
