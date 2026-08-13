@@ -2,6 +2,11 @@
 #include "game.h"
 #include "nob.h"
 
+#define INI_ALLOW_MULTILINE 0
+#define INI_STOP_ON_FIRST_ERROR 1
+#define INI_HANDLER_LINENO 1
+#define INI_CALL_HANDLER_ON_NEW_SECTION 1
+#define INI_MAX_LINE 1000
 #include "ini.c"
 
 #define FLAG_IMPLEMENTATION
@@ -118,9 +123,20 @@ static int handler(void *user_data, const char *section, const char *name,
 }
 
 bool ParseConfigsFromIni(Configs *configs, FILE *ini_file) {
-  if (ini_parse_file(ini_file, handler, configs) < 0) {
+  struct ConfigsMeta configs_meta = {.configs = configs, .bots_da = {0}};
+  if (ini_parse_file(ini_file, handler, &configs_meta) < 0) {
     nob_log(NOB_ERROR, "Failed parsing config file");
     return false;
+  }
+  configs->bot_count = configs_meta.bots_da.count;
+  configs->bot_names =
+      malloc(sizeof *configs->bot_names * configs_meta.bots_da.count);
+  configs->bot_start_commands =
+      malloc(sizeof *configs->bot_names * configs_meta.bots_da.count);
+
+  for (unsigned i = 0; i < configs_meta.bots_da.count; i++) {
+    configs->bot_names[i] = configs_meta.bots_da.items[i].name;
+    configs->bot_start_commands[i] = configs_meta.bots_da.items[i].start_command;
   }
   return VerifyConfigs(*configs);
 }
