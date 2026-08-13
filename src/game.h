@@ -3,16 +3,12 @@
 #include "nob.h"
 #include "planet_wars.h"
 #include "utils.h"
+#include "bot.h"
 
 #include <stdint.h>
 #include <stdio.h>
 
 #define LOG_FILE "log.txt"
-// Time in nanoseconds, currently set to 100ms
-#define MAX_BOT_RESPONSE_TIME (1000 * 1000 * 100)
-// How much time to sleep between checks on bots responses in nanoseconds,
-// currently set to 100 microseconds
-#define WAIT_SLEEP_TIME (1000 * 100)
 // A string used to denote the end of a message by the bots and engine
 #define MESSAGE_DELIMETER "go" NOB_LINE_END
 
@@ -26,18 +22,6 @@ DefineComplexStruct(LogEntry, {
   unsigned planet_count;
   unsigned fleet_count;
   unsigned remaining_bots;
-});
-
-DefineComplexStruct(Bot, {
-  char *name;
-  char *start_command;
-  struct subprocess_s *process;
-});
-
-DefineComplexStruct(BotsDA, {
-  Bot *items;
-  unsigned count;
-  unsigned capacity;
 });
 
 DefineComplexStruct(GameLog, {
@@ -61,8 +45,6 @@ DefineComplexStruct(GameState, {
 });
 
 GameState MakeGame(const char *map_file_path, BotsDA bots, bool log);
-void StopBot(Bot bot);
-void StartBot(Bot bot);
 void RunGame(GameState *state);
 void WriteGameLogToFile(FILE *file, GameLog game_log);
 bool ReadGameLogFromFile(FILE *file, GameLog *game_log);

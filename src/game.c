@@ -1,6 +1,5 @@
 #define FFC_IMPL
 #include "game.h"
-#include "subprocess.h"
 #include "utils.h"
 
 #define STB_SPRINTF_NOFLOAT
@@ -94,93 +93,6 @@ void FreeInnerGameState(GameState state) {
   FreeInnerBotsDA(state.bots);
   if (state.log_file)
     fclose(state.log_file);
-}
-
-// This does not copy the bot process! If you want to start another process for
-// the bot, you must do so manually.
-Bot DeepCopyBot(Bot bot) {
-  Bot new_bot = {
-      .name = bot.name ? DupeString(bot.name) : NULL,
-      .start_command = DupeString(bot.start_command),
-      .process = NULL,
-  };
-  return new_bot;
-}
-
-// This DOES stop and free the bot process.
-void FreeInnerBot(Bot bot) {
-  StopBot(bot);
-  free(bot.name);
-  free(bot.start_command);
-  free(bot.process);
-}
-
-BotsDA DeepCopyBotsDA(BotsDA bots) {
-  BotsDA new_bots = {
-      .items = malloc(sizeof *bots.items * bots.count),
-      .count = bots.count,
-      .capacity = bots.count,
-  };
-  for (unsigned i = 0; i < bots.count; i++) {
-    new_bots.items[i] = DeepCopyBot(bots.items[i]);
-  }
-  return new_bots;
-}
-
-void FreeInnerBotsDA(BotsDA bots) {
-  nob_da_foreach(Bot, bot, &bots) {
-    FreeInnerBot(*bot);
-    bot->process = NULL;
-  }
-  nob_da_free(bots);
-}
-
-void StopBot(Bot bot) {
-  if (bot.process == NULL)
-    return;
-  if (subprocess_alive(bot.process)) {
-    if (subprocess_terminate(bot.process) != 0 ||
-        subprocess_join(bot.process, NULL) != 0) {
-      nob_log(NOB_WARNING, "Failed terminating bot process: %s.",
-              bot.name ? bot.name : bot.start_command);
-    }
-  }
-  subprocess_destroy(bot.process);
-}
-
-void StartBot(Bot bot) {
-  Nob_Cmd split_command = SplitStringByDelim(bot.start_command, ' ');
-  // Required by subprocess.h
-  nob_cmd_append(&split_command, NULL);
-
-  if (bot.process == NULL) {
-    nob_log(NOB_ERROR, "Can't start a bot without a process struct allocated.");
-    // TODO maybe rethink exit calls from this function. Since we moved to a
-    // single small and self-contained function, exiting might not be right in
-    // all cases, perhaps returning a bool would be better.
-    exit(1);
-  }
-  int result = subprocess_create(split_command.items,
-                                 subprocess_option_search_user_path |
-                                     subprocess_option_inherit_environment |
-                                     subprocess_option_enable_async |
-                                     subprocess_option_enable_async_no_wait,
-                                 bot.process);
-
-  if (0 != result) {
-    nob_log(NOB_ERROR, "ERROR: Failed to launch bot number %d: %s\n%s", 2,
-            bot.start_command,
-#ifdef _WIN32
-            nob_win32_error_message(GetLastError())
-#else
-            strerror(errno)
-#endif
-    );
-    // See comment on previous exit
-    exit(1);
-  }
-
-  FreeMultiDString((char **)split_command.items, split_command.count);
 }
 
 // Parse map file, saving the map into the game state and returning the amount
@@ -798,23 +710,27 @@ static void FlushDeflateBuffer(CompressedWriter *cw, int flush) {
     }
 
     if (flush == MZ_FINISH) {
-      if (status == MZ_STREAM_END) break;
+      if (status == MZ_STREAM_END)
+        break;
     } else {
-      if (cw->stream.avail_in == 0) break;
+      if (cw->stream.avail_in == 0)
+        break;
     }
   }
   cw->stream.avail_in = 0;
   cw->stream.next_in = cw->in_buf;
 }
 
-static void WriteCompressed(CompressedWriter *cw, const void *data, size_t size) {
+static void WriteCompressed(CompressedWriter *cw, const void *data,
+                            size_t size) {
   const unsigned char *src = (const unsigned char *)data;
   while (size > 0) {
     if (cw->stream.avail_in == COMPRESSESOR_BUF_SIZE) {
       FlushDeflateBuffer(cw, MZ_NO_FLUSH);
     }
     size_t to_copy = COMPRESSESOR_BUF_SIZE - cw->stream.avail_in;
-    if (to_copy > size) to_copy = size;
+    if (to_copy > size)
+      to_copy = size;
     memcpy(cw->in_buf + cw->stream.avail_in, src, to_copy);
     cw->stream.avail_in += (unsigned int)to_copy;
     src += to_copy;
@@ -867,7 +783,8 @@ static bool ReadCompressed(CompressedReader *cr, void *dest, size_t size) {
       cr->out_avail -= to_copy;
       dst += to_copy;
       size -= to_copy;
-      if (size == 0) return true;
+      if (size == 0)
+        return true;
     }
 
     if (cr->stream.avail_in == 0) {
@@ -1003,7 +920,8 @@ bool ReadGameLogFromFile(FILE *file, GameLog *game_log) {
     return false;
   }
   if (memcmp(read_magic, magic, sizeof(magic)) != 0) {
-    nob_log(NOB_ERROR, "Provided file is not a Planet Wars serialization file.");
+    nob_log(NOB_ERROR,
+            "Provided file is not a Planet Wars serialization file.");
     return false;
   }
 
@@ -1039,7 +957,7 @@ bool ReadGameLogFromFile(FILE *file, GameLog *game_log) {
   do {                                                                         \
     if (!(cond)) {                                                             \
       nob_log(NOB_ERROR, "Reading error while reading from plws file.");       \
-      FreeCompressedReader(&cr);                                              \
+      FreeCompressedReader(&cr);                                               \
       return false;                                                            \
     }                                                                          \
   } while (0)
@@ -1047,12 +965,12 @@ bool ReadGameLogFromFile(FILE *file, GameLog *game_log) {
 #define READ_8(var) READ_ERROR_CHK(READ(var))
 #define READ_16(var)                                                           \
   do {                                                                         \
-    READ_ERROR_CHK(READ(read_16));                                            \
+    READ_ERROR_CHK(READ(read_16));                                             \
     var = ntohs(read_16);                                                      \
   } while (0)
 #define READ_32(var)                                                           \
   do {                                                                         \
-    READ_ERROR_CHK(READ(read_32));                                            \
+    READ_ERROR_CHK(READ(read_32));                                             \
     var = ntohl(read_32);                                                      \
   } while (0)
 #define READ_float(var)                                                        \
@@ -1065,7 +983,8 @@ bool ReadGameLogFromFile(FILE *file, GameLog *game_log) {
   READ_8(game_log->winning_bot);
   READ_32(game_log->bots.count);
 
-  game_log->bots.items = malloc(sizeof *game_log->bots.items * game_log->bots.count);
+  game_log->bots.items =
+      malloc(sizeof *game_log->bots.items * game_log->bots.count);
   nob_da_foreach(Bot, bot, &game_log->bots) {
     uint16_t string_length;
     READ_16(string_length);
@@ -1078,7 +997,8 @@ bool ReadGameLogFromFile(FILE *file, GameLog *game_log) {
     }
 
     READ_16(string_length);
-    bot->start_command = malloc(sizeof *bot->start_command * (string_length + 1));
+    bot->start_command =
+        malloc(sizeof *bot->start_command * (string_length + 1));
     READ_ERROR_CHK(ReadCompressed(&cr, bot->start_command, string_length));
     bot->start_command[string_length] = '\0';
     bot->process = NULL;
