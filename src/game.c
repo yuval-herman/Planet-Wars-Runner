@@ -255,7 +255,7 @@ static inline void PrintFleet(Nob_String_Builder *sb, Fleet fleet) {
             fleet.src_id, fleet.dst_id, fleet.total, fleet.remaining);
 }
 
-void sendMapToBot(GameState *state, unsigned bot_idx) {
+void sendMapToBot(GameState *state, Nob_String_Builder *sb, unsigned bot_idx) {
   if (bot_idx >= state->bots.count) {
     nob_log(NOB_ERROR, "ERROR: Attempting access to non-existent bot process");
     exit(1);
@@ -278,29 +278,27 @@ void sendMapToBot(GameState *state, unsigned bot_idx) {
         1;                                                                     \
   }
 
-  Nob_String_Builder sb = {0};
   nob_da_foreach(Planet, planet, &state->planets) {
     // Each bot should see itself as bot number 1.
     MoveOwner(Planet, planet);
-    sb.count = 0;
-    PrintPlanet(&sb, moved_planet);
-    fwrite(sb.items, sizeof *sb.items, sb.count, bot_stdin);
+    sb->count = 0;
+    PrintPlanet(sb, moved_planet);
+    fwrite(sb->items, sizeof *sb->items, sb->count, bot_stdin);
     if (state->log_file)
-      fwrite(sb.items, sizeof *sb.items, sb.count, state->log_file);
+      fwrite(sb->items, sizeof *sb->items, sb->count, state->log_file);
   }
   nob_da_foreach(Fleet, fleet, &state->fleets) {
     MoveOwner(Fleet, fleet);
-    sb.count = 0;
-    PrintFleet(&sb, moved_fleet);
+    sb->count = 0;
+    PrintFleet(sb, moved_fleet);
     if (state->log_file)
-      fwrite(sb.items, sizeof *sb.items, sb.count, state->log_file);
+      fwrite(sb->items, sizeof *sb->items, sb->count, state->log_file);
   }
 
 #undef MoveOwner
 
   fprintf(bot_stdin, MESSAGE_DELIMETER);
   WriteToLogFile(MESSAGE_DELIMETER "\n");
-  nob_sb_free(sb);
   fflush(bot_stdin);
 }
 
@@ -419,14 +417,15 @@ bool ParseBotFleets(GameState *state, Nob_String_View bot_message,
 //             sb->items);
 // }
 
-void RunBotCycle(GameState *state, Nob_String_Builder *bot_message) {
+void RunBotCycle(GameState *state, Nob_String_Builder *sb) {
   unsigned bot_num = 0;
   nob_da_foreach(Bot, bot, &state->bots) {
     // Skip disqualified or lost bots.
     if (TestBit(state->bot_bit_set, bot_num)) {
       nob_log(NOB_DEBUG, "sending map to bot %u", bot_num);
 
-      sendMapToBot(state, bot_num);
+      sb->count = 0;
+      sendMapToBot(state, sb, bot_num);
     }
     bot_num++;
   }
@@ -436,12 +435,12 @@ void RunBotCycle(GameState *state, Nob_String_Builder *bot_message) {
   nob_da_foreach(Bot, bot, &state->bots) {
     // Skip disqualified or lost bots.
     if (TestBit(state->bot_bit_set, bot_num)) {
-      bot_message->count = 0;
-      bot_okay = GetBotMessage(*bot, bot_message);
+      sb->count = 0;
+      bot_okay = GetBotMessage(*bot, sb);
 
       // Log to file
       if (state->log_file) {
-        Nob_String_View sv = {bot_message->count, bot_message->items};
+        Nob_String_View sv = {sb->count, sb->items};
         while (sv.count > 0) {
           Nob_String_View line = nob_sv_chop_by_delim(&sv, '\n');
           WriteToLogFile("player%u > engine: %.*s\n", bot_num + 1,
@@ -451,15 +450,14 @@ void RunBotCycle(GameState *state, Nob_String_Builder *bot_message) {
 
       if (bot_okay)
         bot_okay = ParseBotFleets(
-            state, nob_sv_from_parts(bot_message->items, bot_message->count),
-            bot_num);
+            state, nob_sv_from_parts(sb->items, sb->count), bot_num);
 
       if (bot_okay) {
-        bot_message->count = 0;
-        GetBotDebugMessage(*bot, bot_message);
-        if (bot_message->count)
+        sb->count = 0;
+        GetBotDebugMessage(*bot, sb);
+        if (sb->count)
           nob_log(NOB_INFO, "bot %s says: |%.*s|", bot->name,
-                  (unsigned)bot_message->count, bot_message->items);
+                  (unsigned)sb->count, sb->items);
       } else {
         DisqualifyBot(state, bot_num);
       }
@@ -605,14 +603,16 @@ int AdvanceTurn(GameState *state) {
 }
 
 void RunGame(GameState *state) {
-  // Reusable string builder to hold bot messages
-  Nob_String_Builder bot_message = {0};
+  // Reusable string builder to hold messages sent and received between the bots
+  // and the engine.
+  Nob_String_Builder sb = {0};
 
   for (int sim_turn = 0; state->remaining_bots > 1 && sim_turn < 1000;
        sim_turn++) {
     nob_log(NOB_INFO, "Turn %d", sim_turn);
     // Bot communication
-    RunBotCycle(state, &bot_message);
+    sb.count = 0;
+    RunBotCycle(state, &sb);
 
     // Game logic
     state->remaining_bots = AdvanceTurn(state);
@@ -638,7 +638,7 @@ void RunGame(GameState *state) {
     nob_log(NOB_INFO, "Bot %d won!", winning_bot + 1);
   }
 
-  nob_sb_free(bot_message);
+  nob_sb_free(sb);
 }
 
 const unsigned version = 1;
