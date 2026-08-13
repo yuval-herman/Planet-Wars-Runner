@@ -304,8 +304,47 @@ void sendMapToBot(GameState *state, Nob_String_Builder *sb, unsigned bot_idx) {
   }
 }
 
-// Return true if everythin went okay. Return false in case bot should be
-// disqualified.
+bool SendPlayerShips(GameState *state, unsigned player_idx, uint16_t src_id,
+                     uint16_t dst_id, uint16_t ships) {
+  Fleet fleet;
+  fleet.owner = player_idx + 1;
+  fleet.src_id = src_id;
+  fleet.dst_id = dst_id;
+  fleet.ships = ships;
+
+  if ((unsigned)fleet.src_id >= state->planets.count) {
+    nob_log(NOB_INFO, "Bot tried sending fleet from nonexistent planet.");
+    return false;
+  }
+  Planet *src = &state->planets.items[fleet.src_id];
+  if (fleet.ships < 1) {
+    nob_log(NOB_INFO, "Bot tried sending invalid amount of ships.");
+    return false;
+
+  } else if (fleet.src_id == fleet.dst_id) {
+    nob_log(NOB_INFO, "Bot tried sending fleet from a planet itself.");
+    return false;
+
+  } else if (src->owner != fleet.owner) {
+    nob_log(NOB_INFO, "Bot tried sending fleet from a planet it does not own.");
+    return false;
+  } else if (fleet.dst_id >= state->planets.count) {
+    nob_log(NOB_INFO, "Bot tried sending fleet to nonexistent planet.");
+    return false;
+  } else if (src->ships < fleet.ships) {
+    nob_log(NOB_INFO, "Bot tried sending more ships then the planet has.");
+    return false;
+  }
+  src->ships -= fleet.ships;
+  Planet dst = state->planets.items[fleet.dst_id];
+
+  fleet.total = ceilf(Vector2Distance(src->coords, dst.coords));
+  fleet.remaining = fleet.total;
+
+  nob_da_append(&state->fleets, fleet);
+  return true;
+}
+
 bool ParseBotFleets(GameState *state, Nob_String_View bot_message,
                     unsigned bot_idx) {
   if (bot_message.count < 2 ||
@@ -316,9 +355,8 @@ bool ParseBotFleets(GameState *state, Nob_String_View bot_message,
   while (bot_message.count > 1 && bot_message.data[0] != 'g' &&
          bot_message.data[1] != 'o') {
     nob_log(NOB_DEBUG, "parsing bot %u fleets", bot_idx);
-    Fleet fleet;
-    fleet.owner = bot_idx + 1;
     unsigned parsed_uint;
+    uint16_t src_id, dst_id, ships;
     ffc_result result;
     const char *p_end = bot_message.data + bot_message.count;
     ffc_parse_options parse_options = ffc_parse_options_default();
@@ -335,47 +373,17 @@ bool ParseBotFleets(GameState *state, Nob_String_View bot_message,
   bot_message.count -= result.ptr - bot_message.data;                          \
   bot_message.data = result.ptr;
 
-    PARSE_INT(fleet.src_id,
-              "Source planet out of bounds or impossible to parse.");
-    PARSE_INT(fleet.dst_id,
+    PARSE_INT(src_id, "Source planet out of bounds or impossible to parse.");
+    PARSE_INT(dst_id,
               "Destionation planet out of bounds or impossible to parse.");
-    PARSE_INT(fleet.ships,
+    PARSE_INT(ships,
               "Amount of ships is too high, to low, or impossible to parse.");
 #undef PARSE_INT
 
+    if (!SendPlayerShips(state, bot_idx, src_id, dst_id, ships))
+      return false;
+
     bot_message = nob_sv_trim_left(bot_message);
-
-    if ((unsigned)fleet.src_id >= state->planets.count) {
-      nob_log(NOB_INFO, "Bot tried sending fleet from nonexistent planet.");
-      return false;
-    }
-    Planet *src = &state->planets.items[fleet.src_id];
-    if (fleet.ships < 1) {
-      nob_log(NOB_INFO, "Bot tried sending invalid amount of ships.");
-      return false;
-
-    } else if (fleet.src_id == fleet.dst_id) {
-      nob_log(NOB_INFO, "Bot tried sending fleet from a planet itself.");
-      return false;
-
-    } else if (src->owner != fleet.owner) {
-      nob_log(NOB_INFO,
-              "Bot tried sending fleet from a planet it does not own.");
-      return false;
-    } else if (fleet.dst_id >= state->planets.count) {
-      nob_log(NOB_INFO, "Bot tried sending fleet to nonexistent planet.");
-      return false;
-    } else if (src->ships < fleet.ships) {
-      nob_log(NOB_INFO, "Bot tried sending more ships then the planet has.");
-      return false;
-    }
-    src->ships -= fleet.ships;
-    Planet dst = state->planets.items[fleet.dst_id];
-
-    fleet.total = ceilf(Vector2Distance(src->coords, dst.coords));
-    fleet.remaining = fleet.total;
-
-    nob_da_append(&state->fleets, fleet);
   }
   nob_log(NOB_DEBUG, "done parsing bot %u fleets", bot_idx);
   return true;
