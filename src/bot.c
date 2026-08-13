@@ -160,3 +160,14 @@ void GetBotDebugMessage(Bot bot, Nob_String_Builder *sb) {
     sb->count += received;
   }
 }
+
+bool SendMessageToBot(Bot bot, char *message, unsigned length) {
+  if (!subprocess_alive(bot.process)) {
+    nob_log(NOB_INFO, "Bot %s has crashed.", bot.name);
+    return false;
+  }
+  FILE *bot_stdin = subprocess_stdin(bot.process);
+  fwrite(message, sizeof *message, length, bot_stdin);
+  fflush(bot_stdin);
+  return true;
+}

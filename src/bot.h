@@ -35,4 +35,6 @@ bool GetBotMessage(Bot bot, Nob_String_Builder *sb);
 // bots usually send debug message while processing their next response, even
 // though they can technically send them whenever they wish.
 void GetBotDebugMessage(Bot bot, Nob_String_Builder *sb);
+// Send a message to the bot, return true on success, false otherwise.
+bool SendMessageToBot(Bot bot, char *message, unsigned length);
 #endif // BOT_H
