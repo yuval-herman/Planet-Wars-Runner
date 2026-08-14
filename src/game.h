@@ -62,4 +62,8 @@ void DisqualifyPlayer(GameState *state, unsigned player_idx);
 void WriteGameLogToFile(FILE *file, GameLog game_log);
 bool ReadGameLogFromFile(FILE *file, GameLog *game_log);
 
+static FORCEINLINE bool IsPlayerAlive(GameState *state, unsigned player_idx) {
+  return TestBit(state->bot_bit_set, player_idx);
+}
+
 #endif // GAME_H

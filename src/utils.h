@@ -54,6 +54,16 @@
   void FreeInner##name(name);                                                  \
   ForceFunctionImplementation(void, FreeInner##name, name);
 
+#if defined(__STRICT_ANSI__)
+#define FORCEINLINE
+#elif defined(_MSC_VER)
+#define FORCEINLINE __forceinline
+#elif defined(__GNUC__)
+#define FORCEINLINE __inline__ __attribute__((__always_inline__))
+#else
+#define FORCEINLINE inline
+#endif
+
 // ----- FUNCTIONS -----
 
 // Returns the index of the set bit in x if only one bit is set. Else return -1.
