@@ -92,7 +92,7 @@ int ThrdMatchRunner(void *args) {
     // Run a full game, silence normal logging so we don't clog the terminal
     // TODO split the `MakeGame` function to more sub-functions so we can load
     // maps, bots and other stuff once instead of on every match.
-    GameState state = MakeGame(match_args->map_file_path, playing_bots, false);
+    GameState state = MakeGame(match_args->map_file_path, playing_bots);
     RunGame(&state);
 
     GameLog game_log_copy = DeepCopyGameLog(state.game_log);

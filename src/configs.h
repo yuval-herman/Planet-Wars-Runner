@@ -22,9 +22,6 @@ typedef struct {
   // Path for a map file, required for tournament or single match mode
   char *map_file;
 
-  // Whether to write a human readable log file for the running game. Ignored
-  // for tournament mode.
-  bool write_log;
   // Whether to write a plws file for the running game. Ignored for tournament
   // mode.
   bool write_save;

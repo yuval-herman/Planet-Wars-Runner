@@ -85,9 +85,6 @@ static int handler(void *user_data, const char *section, const char *name,
 
   if (MATCH(section, "application")) {
 
-    if (MATCH(name, "write_log")) {
-      SET_BOOL(configs->write_log);
-    }
     if (MATCH(name, "write_save")) {
       SET_BOOL(configs->write_save);
     }
@@ -148,7 +145,6 @@ bool ParseConfigsFromIni(Configs *configs, FILE *ini_file) {
 
 typedef struct {
   bool *help;
-  bool *write_log;
   char **config_file;
   char **map_file;
 #ifndef HEADLESS_MODE
@@ -161,8 +157,6 @@ typedef struct {
 static CLIArguments RegisterFlagArguments() {
   CLIArguments args;
   args.help = flag_bool("help", false, "Show this help.");
-  args.write_log =
-      flag_bool("write_log", false, "Write a log of the game to log.txt");
   args.config_file =
       flag_str("config", NULL,
                "A path to a config file that can be used to run "
@@ -192,7 +186,6 @@ static bool FillConfigsWithArgs(CLIArguments args, Configs *configs) {
     Usage(stderr);
     return false;
   }
-  configs->write_log = *args.write_log;
   configs->map_file = DupeString(*args.map_file);
 
   char *const *argv = flag_rest_argv();

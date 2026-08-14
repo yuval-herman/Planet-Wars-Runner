@@ -57,7 +57,7 @@ int main(int argc, char *argv[]) {
   } else if (configs.mode == MODE_SINGLE_MATCH) {
     BotsDA bots = MakeBotsDA(configs.bot_names, configs.bot_start_commands,
                              configs.bot_count);
-    GameState state = MakeGame(configs.map_file, bots, configs.write_log);
+    GameState state = MakeGame(configs.map_file, bots);
 
     RunGame(&state);
 

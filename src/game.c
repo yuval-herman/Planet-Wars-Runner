@@ -24,13 +24,6 @@
 #include <arpa/inet.h>
 #endif
 
-// ## won't work in MSVC, we will cross that bridge when we get there.
-#define WriteToLogFile(fmt, ...)                                               \
-  do {                                                                         \
-    if (state->log_file)                                                       \
-      fprintf(state->log_file, fmt, ##__VA_ARGS__);                            \
-  } while (0)
-
 LogEntry DeepCopyLogEntry(LogEntry entry) {
   LogEntry new_entry = {
       .fleets = malloc(sizeof *entry.fleets * entry.fleet_count),
@@ -91,8 +84,6 @@ void FreeInnerGameState(GameState state) {
   nob_da_free(state.planets);
   nob_da_free(state.fleets);
   FreeInnerBotsDA(state.bots);
-  if (state.log_file)
-    fclose(state.log_file);
 }
 
 // Parse map file, saving the map into the game state and returning the amount
@@ -151,18 +142,8 @@ unsigned ParseMapFile(GameState *state, const char *map_path) {
   return bot_count;
 }
 
-GameState MakeGame(const char *map_file_path, BotsDA bots, bool log) {
+GameState MakeGame(const char *map_file_path, BotsDA bots) {
   GameState state = {0};
-
-  // ----- LOGGING -----
-  if (log) {
-    state.log_file = fopen(LOG_FILE, "w");
-    if (!state.log_file) {
-      nob_log(NOB_WARNING, "Failed to open log file: %s", strerror(errno));
-    } else {
-      fprintf(state.log_file, "initializing\n");
-    }
-  }
 
   // ----- MAP -----
   nob_log(NOB_INFO, "Loading map file from %s.", map_file_path);
@@ -293,15 +274,9 @@ void sendMapToBot(GameState *state, Nob_String_Builder *sb, unsigned bot_idx) {
     nob_log(NOB_ERROR, "ERROR: Attempting access to non-existent bot process");
     exit(1);
   }
-  WriteToLogFile("engine > player%u: ", bot_idx + 1);
 
   GetMapRepresentation(state, sb, bot_idx);
   SendMessageToBot(state->bots.items[bot_idx], sb->items, sb->count);
-
-  if (state->log_file) {
-    nob_sb_append(sb, '\n');
-    fwrite(sb->items, sizeof *sb->items, sb->count, state->log_file);
-  }
 }
 
 bool SendPlayerShips(GameState *state, unsigned player_idx, uint16_t src_id,
@@ -409,16 +384,6 @@ void RunBotCycle(GameState *state, Nob_String_Builder *sb) {
     if (TestBit(state->bot_bit_set, bot_num)) {
       sb->count = 0;
       bot_okay = GetBotMessage(*bot, sb);
-
-      // Log to file
-      if (state->log_file) {
-        Nob_String_View sv = {sb->count, sb->items};
-        while (sv.count > 0) {
-          Nob_String_View line = nob_sv_chop_by_delim(&sv, '\n');
-          WriteToLogFile("player%u > engine: %.*s\n", bot_num + 1,
-                         (int)line.count, line.data);
-        }
-      }
 
       if (bot_okay)
         bot_okay = SendPlayerShipsStr(state, bot_num,
