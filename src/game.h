@@ -49,11 +49,11 @@ void GetMapRepresentation(GameState *state, Nob_String_Builder *sb,
                           unsigned player_idx);
 
 // Return true if the player can play this actions. Return false in case the
-// player should be disqualified.
+// player has bean disqualified for attempting an invalid action.
 bool SendPlayerShips(GameState *state, unsigned player_idx, uint16_t src_id,
                      uint16_t dst_id, uint16_t ships);
 
-// Play player actions from string
+// Play player actions from string. Parses the string and calls `SendPlayerShips`.
 bool SendPlayerShipsStr(GameState *state, unsigned player_idx,
                         Nob_String_View order_sv);
 

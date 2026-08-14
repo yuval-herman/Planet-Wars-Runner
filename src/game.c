@@ -175,11 +175,6 @@ void DisqualifyPlayer(GameState *state, unsigned player_idx) {
     exit(1);
   }
 
-  // We don't remove the bot from the dynamic array because we use the DA index
-  // to address different bots. Instead it should be marked as disqualified and
-  // not used.
-  StopBot(state->bots.items[player_idx]);
-
   state->remaining_bots--;
   nob_da_foreach(Planet, planet, &state->planets) {
     if ((unsigned)planet->owner == player_idx + 1) {
@@ -289,25 +284,29 @@ bool SendPlayerShips(GameState *state, unsigned player_idx, uint16_t src_id,
 
   if ((unsigned)fleet.src_id >= state->planets.count) {
     nob_log(NOB_INFO, "Bot tried sending fleet from nonexistent planet.");
+    DisqualifyPlayer(state, player_idx);
     return false;
   }
   Planet *src = &state->planets.items[fleet.src_id];
   if (fleet.ships < 1) {
     nob_log(NOB_INFO, "Bot tried sending invalid amount of ships.");
+    DisqualifyPlayer(state, player_idx);
     return false;
-
   } else if (fleet.src_id == fleet.dst_id) {
     nob_log(NOB_INFO, "Bot tried sending fleet from a planet itself.");
+    DisqualifyPlayer(state, player_idx);
     return false;
-
   } else if (src->owner != fleet.owner) {
     nob_log(NOB_INFO, "Bot tried sending fleet from a planet it does not own.");
+    DisqualifyPlayer(state, player_idx);
     return false;
   } else if (fleet.dst_id >= state->planets.count) {
     nob_log(NOB_INFO, "Bot tried sending fleet to nonexistent planet.");
+    DisqualifyPlayer(state, player_idx);
     return false;
   } else if (src->ships < fleet.ships) {
     nob_log(NOB_INFO, "Bot tried sending more ships then the planet has.");
+    DisqualifyPlayer(state, player_idx);
     return false;
   }
   src->ships -= fleet.ships;
@@ -342,6 +341,7 @@ bool SendPlayerShipsStr(GameState *state, unsigned player_idx,
                                       parse_options);                          \
   if (result.outcome != FFC_OUTCOME_OK || parsed_uint > UINT16_MAX) {          \
     nob_log(NOB_INFO, "Invalid bot command. " err_msg);                        \
+    DisqualifyPlayer(state, player_idx);                                       \
     return false;                                                              \
   }                                                                            \
   output = parsed_uint;                                                        \
@@ -396,7 +396,10 @@ void RunBotCycle(GameState *state, Nob_String_Builder *sb) {
           nob_log(NOB_INFO, "bot %s says: |%.*s|", bot->name,
                   (unsigned)sb->count, sb->items);
       } else {
-        DisqualifyPlayer(state, bot_num);
+        // We don't remove the bot from the dynamic array because we use the DA
+        // index to address different bots. Instead it should be marked as
+        // disqualified and not used.
+        StopBot(state->bots.items[bot_num]);
       }
 
       nob_log(NOB_DEBUG, "done with bot %u, advancing to bot %u", bot_num,
