@@ -432,8 +432,8 @@ int cmp_fleet_owner_remaining(const void *a, const void *b) {
 }
 
 // Runs one game turn using the planets and fleets saved.
-// Returns the amount of bots still in the game.
-int AdvanceTurn(GameState *state) {
+// Appends an entry to the game log.
+void AdvanceTurn(GameState *state) {
   int bot_count = 0;
 
   state->bot_bit_set = 0;
@@ -539,7 +539,18 @@ int AdvanceTurn(GameState *state) {
     }
   }
 
-  return bot_count;
+  state->remaining_bots = bot_count;
+
+  // Save state to game log
+  LogEntry entry = DeepCopyLogEntry((LogEntry){
+      .remaining_bots = state->remaining_bots,
+      .fleet_count = state->fleets.count,
+      .fleets = state->fleets.items,
+      .planet_count = state->planets.count,
+      .planets = state->planets.items,
+  });
+
+  nob_da_append(&state->game_log, entry);
 }
 
 void RunGame(GameState *state) {
@@ -555,17 +566,7 @@ void RunGame(GameState *state) {
     RunBotCycle(state, &sb);
 
     // Game logic
-    state->remaining_bots = AdvanceTurn(state);
-
-    LogEntry entry = DeepCopyLogEntry((LogEntry){
-        .remaining_bots = state->remaining_bots,
-        .fleet_count = state->fleets.count,
-        .fleets = state->fleets.items,
-        .planet_count = state->planets.count,
-        .planets = state->planets.items,
-    });
-
-    nob_da_append(&state->game_log, entry);
+    AdvanceTurn(state);
   }
   nob_log(NOB_INFO, "Game ended!");
   int winning_bot = bit_index(state->bot_bit_set);
