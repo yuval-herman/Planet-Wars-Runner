@@ -1,5 +1,5 @@
 #include "configs.h"
-#include "game.h"
+#include "bot.h"
 #include "nob.h"
 
 #define INI_ALLOW_MULTILINE 0
