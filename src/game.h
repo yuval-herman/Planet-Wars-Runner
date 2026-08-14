@@ -8,8 +8,6 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#define LOG_FILE "log.txt"
-
 typedef uint32_t BotBitset;
 _Static_assert(MAX_BOT_AMOUNT <= sizeof(BotBitset) * CHAR_BIT,
                "BotBitset is not wide enough to hold max amount of bots");
@@ -36,13 +34,12 @@ DefineComplexStruct(GameState, {
   PlanetDA planets;
   FleetsDA fleets;
   BotsDA bots;
-  FILE *log_file;
   BotBitset bot_bit_set;
   unsigned remaining_bots;
   unsigned turn;
 });
 
-GameState MakeGame(const char *map_file_path, BotsDA bots, bool log);
+GameState MakeGame(const char *map_file_path, BotsDA bots);
 
 void RunGame(GameState *state);
 // Get map representation for a specific player. Each player should see itself
