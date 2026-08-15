@@ -9,5 +9,5 @@ DefineComplexStruct(TournametData, {
   unsigned count;
 });
 
-TournametData RunTournament(const char *map_file_path, BotsDA bots);
+TournametData RunTournament(const char *map_file_path, PlayerDA players);
 #endif // TOURNAMENT_H

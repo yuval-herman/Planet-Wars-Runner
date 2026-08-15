@@ -22,16 +22,16 @@ void FreeInnerTournametData(TournametData tournament) {
   nob_da_free(tournament);
 }
 
-#define sbAppendBotName(sb, idx)                                               \
-  if (match_args->bots.items[idx].name)                                        \
-    nob_sb_append_cstr(sb, match_args->bots.items[idx].name);                  \
+#define sbAppendPlayerName(sb, idx)                                            \
+  if (match_args->players.items[idx].name)                                     \
+    nob_sb_append_cstr(sb, match_args->players.items[idx].name);               \
   else                                                                         \
     nob_sb_appendf(sb, "Player %u", idx + 1);
 
 typedef struct {
   unsigned p1_idx;
   unsigned p2_idx;
-  BotsDA bots;
+  PlayerDA players;
   mtx_t *idx_mtx;
   mtx_t *file_write_mtx;
   mtx_t *tournament_data_mtx;
@@ -44,7 +44,7 @@ static bool AdvancePlayerIndex(MatchRunnerArgs *args, unsigned *out_p1,
                                unsigned *out_p2) {
   mtx_lock(args->idx_mtx);
 
-  if (args->p1_idx >= args->bots.count - 1) {
+  if (args->p1_idx >= args->players.count - 1) {
     mtx_unlock(args->idx_mtx);
     return false;
   }
@@ -53,7 +53,7 @@ static bool AdvancePlayerIndex(MatchRunnerArgs *args, unsigned *out_p1,
   *out_p2 = args->p2_idx;
 
   args->p2_idx++;
-  if (args->p2_idx >= args->bots.count) {
+  if (args->p2_idx >= args->players.count) {
     args->p1_idx++;
     args->p2_idx = args->p1_idx + 1;
   }
@@ -66,10 +66,11 @@ int ThrdMatchRunner(void *args) {
   MatchRunnerArgs *match_args = args;
   Nob_String_Builder sb = {0};
   Nob_String_Builder temp_sb = {0};
-  BotsDA playing_bots = {0};
-  playing_bots.count = 2;
-  playing_bots.capacity = playing_bots.count;
-  playing_bots.items = malloc(sizeof *playing_bots.items * playing_bots.count);
+  PlayerDA playing_players = {0};
+  playing_players.count = 2;
+  playing_players.capacity = playing_players.count;
+  playing_players.items =
+      malloc(sizeof *playing_players.items * playing_players.count);
 
   unsigned p1_idx;
   unsigned p2_idx;
@@ -79,20 +80,20 @@ int ThrdMatchRunner(void *args) {
     temp_sb.count = 0;
 
     nob_sb_append_cstr(&sb, "match:\n");
-    sbAppendBotName(&sb, p1_idx);
+    sbAppendPlayerName(&sb, p1_idx);
     nob_sb_append(&sb, '\n');
-    sbAppendBotName(&sb, p2_idx);
+    sbAppendPlayerName(&sb, p2_idx);
     nob_sb_append(&sb, '\n');
 
-    playing_bots.items[0] = match_args->bots.items[p1_idx];
-    playing_bots.items[1] = match_args->bots.items[p2_idx];
+    playing_players.items[0] = match_args->players.items[p1_idx];
+    playing_players.items[1] = match_args->players.items[p2_idx];
     // nob_log(NOB_INFO, "Running match between %s and %s", GetBotName(p1_idx),
     //         GetBotName(p2_idx));
 
     // Run a full game, silence normal logging so we don't clog the terminal
     // TODO split the `MakeGame` function to more sub-functions so we can load
     // maps, bots and other stuff once instead of on every match.
-    GameState state = MakeGame(match_args->map_file_path, playing_bots);
+    GameState state = MakeGame(match_args->map_file_path, playing_players);
     RunGame(&state);
 
     GameLog game_log_copy = DeepCopyGameLog(state.game_log);
@@ -103,18 +104,18 @@ int ThrdMatchRunner(void *args) {
       // nob_log(NOB_INFO, "Game ended in a draw");
       nob_sb_append_cstr(&sb, "draw\n");
     } else {
-      unsigned winner_idx = game_log_copy.winning_bot == 0 ? p1_idx : p2_idx;
+      unsigned winner_idx = game_log_copy.winning_player == 0 ? p1_idx : p2_idx;
       // nob_log(NOB_INFO, "%s won.", GetBotName(winner_idx));
       nob_sb_append_cstr(&sb, "winner: ");
-      sbAppendBotName(&sb, winner_idx);
+      sbAppendPlayerName(&sb, winner_idx);
       nob_sb_append(&sb, '\n');
     }
 
     temp_sb.count = 0;
     nob_sb_append_cstr(&temp_sb, "tournament/match_");
-    sbAppendBotName(&temp_sb, p1_idx);
+    sbAppendPlayerName(&temp_sb, p1_idx);
     nob_sb_append(&temp_sb, '-');
-    sbAppendBotName(&temp_sb, p2_idx);
+    sbAppendPlayerName(&temp_sb, p2_idx);
     nob_sb_append_cstr(&temp_sb, ".plws");
     sb_append_null(&temp_sb);
 
@@ -133,14 +134,14 @@ int ThrdMatchRunner(void *args) {
     fwrite(sb.items, 1, sb.count, match_args->tournament_data_file);
     mtx_unlock(match_args->file_write_mtx);
   }
-  nob_da_free(playing_bots);
+  nob_da_free(playing_players);
   nob_sb_free(sb);
   nob_sb_free(temp_sb);
   return 0;
 }
 
-TournametData RunTournament(const char *map_file_path, BotsDA bots) {
-  if (bots.count < 3) {
+TournametData RunTournament(const char *map_file_path, PlayerDA players) {
+  if (players.count < 3) {
     nob_log(NOB_ERROR, "A tournament cannot be run for less then 3 bots.");
     exit(1);
   }
@@ -159,7 +160,7 @@ TournametData RunTournament(const char *map_file_path, BotsDA bots) {
 
   TournametData tournament = {0};
 
-  unsigned match_count = bots.count * (bots.count - 1) / 2;
+  unsigned match_count = players.count * (players.count - 1) / 2;
   // Could be nob_nprocs()-1 because we use the current thread to manage it all,
   // but this thread doesn't do a lot of work, mainly waits around, so I think
   // it fine that way.
@@ -179,7 +180,7 @@ TournametData RunTournament(const char *map_file_path, BotsDA bots) {
       .p1_idx = 0,
       .p2_idx = 1,
       .idx_mtx = &idx_mtx,
-      .bots = bots,
+      .players = players,
       .file_write_mtx = &file_write_mtx,
       .map_file_path = map_file_path,
       .tournament_data = &tournament,
@@ -189,7 +190,7 @@ TournametData RunTournament(const char *map_file_path, BotsDA bots) {
 
   nob_log(NOB_INFO,
           "Running tournament between %u bots. This will run %u matches.",
-          bots.count, match_count);
+          players.count, match_count);
   // All normal logging must stop as this functions are not thread-safe
   nob_minimal_log_level = NOB_WARNING;
   for (unsigned i = 0; i < thread_count; i++) {

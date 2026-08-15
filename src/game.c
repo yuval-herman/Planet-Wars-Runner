@@ -15,7 +15,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
 
 // For htonl/ntohl functions
 #ifdef _WIN32
@@ -30,7 +29,7 @@ LogEntry DeepCopyLogEntry(LogEntry entry) {
       .planets = malloc(sizeof *entry.planets * entry.planet_count),
       .planet_count = entry.planet_count,
       .fleet_count = entry.fleet_count,
-      .remaining_bots = entry.remaining_bots,
+      .remaining_players = entry.remaining_players,
   };
   memcpy(new_entry.fleets, entry.fleets,
          sizeof *entry.fleets * entry.fleet_count);
@@ -53,9 +52,9 @@ GameLog DeepCopyGameLog(GameLog game_log) {
   GameLog new_game_log = {
       .count = game_log.count,
       .capacity = game_log.capacity,
-      .winning_bot = game_log.winning_bot,
+      .winning_player = game_log.winning_player,
       .items = log_entries,
-      .bots = DeepCopyBotsDA(game_log.bots),
+      .players = DeepCopyPlayerDA(game_log.players),
       .draw = game_log.draw,
   };
   return new_game_log;
@@ -66,7 +65,7 @@ void FreeInnerGameLog(GameLog game_log) {
     FreeInnerLogEntry(game_log.items[i]);
   }
   free(game_log.items);
-  FreeInnerBotsDA(game_log.bots);
+  FreeInnerPlayerDA(game_log.players);
 }
 
 GameState DeepCopyGameState(GameState state) {
@@ -83,7 +82,7 @@ void FreeInnerGameState(GameState state) {
   FreeInnerGameLog(state.game_log);
   nob_da_free(state.planets);
   nob_da_free(state.fleets);
-  FreeInnerBotsDA(state.bots);
+  FreeInnerPlayerDA(state.players);
 }
 
 // Parse map file, saving the map into the game state and returning the amount
@@ -98,7 +97,7 @@ unsigned ParseMapFile(GameState *state, const char *map_path) {
   char buf[256];
   unsigned file_line = 0;
   int bot_count = 0;
-  state->bot_bit_set = 0;
+  state->player_bit_set = 0;
 
   while (fgets(buf, sizeof buf, map_file)) {
     file_line += 1;
@@ -119,17 +118,18 @@ unsigned ParseMapFile(GameState *state, const char *map_path) {
               file_line);
       exit(1);
     }
-    if (planet.owner > MAX_BOT_AMOUNT) {
+    if (planet.owner > MAX_PLAYER_AMOUNT) {
       nob_log(NOB_ERROR,
               "Map containes more owners then the max bot count. Encountered "
               "in line: %u\nOwner found: %d\nMax bot count: %d",
-              file_line, planet.owner, MAX_BOT_AMOUNT);
+              file_line, planet.owner, MAX_PLAYER_AMOUNT);
       exit(1);
     }
 
-    if (planet.owner != 0 && !TestBit(state->bot_bit_set, planet.owner - 1)) {
+    if (planet.owner != 0 &&
+        !TestBit(state->player_bit_set, planet.owner - 1)) {
       bot_count++;
-      SetBit(state->bot_bit_set, planet.owner - 1);
+      SetBit(state->player_bit_set, planet.owner - 1);
     }
 
     snprintf(planet.print_prefix, NOB_ARRAY_LEN(planet.print_prefix),
@@ -142,40 +142,39 @@ unsigned ParseMapFile(GameState *state, const char *map_path) {
   return bot_count;
 }
 
-GameState MakeGame(const char *map_file_path, BotsDA bots) {
+GameState MakeGame(const char *map_file_path, PlayerDA players) {
   GameState state = {0};
 
   // ----- MAP -----
   nob_log(NOB_INFO, "Loading map file from %s.", map_file_path);
   unsigned owner_count = ParseMapFile(&state, map_file_path);
-  if (owner_count != bots.count) {
+  if (owner_count != players.count) {
     nob_log(NOB_ERROR,
-            "Provided map requires %u player, yet %u bots were given as "
+            "Provided map requires %u players, yet %u players were given as "
             "arguments.",
-            owner_count, bots.count);
+            owner_count, players.count);
     exit(1);
   }
 
   // ----- BOTS -----
-  state.bots = DeepCopyBotsDA(bots);
-  nob_da_foreach(Bot, bot, &state.bots) {
-    if (bot->process == NULL)
-      bot->process = malloc(sizeof *bot->process);
-    StartBot(*bot);
+  state.players = DeepCopyPlayerDA(players);
+  state.remaining_players = state.players.count;
+  state.game_log.players = DeepCopyPlayerDA(players);
+
+  nob_da_foreach(Player, player, &state.players) {
+      StartPlayer(player);
   }
-  state.remaining_bots = state.bots.count;
-  state.game_log.bots = DeepCopyBotsDA(bots);
 
   return state;
 }
 
 void DisqualifyPlayer(GameState *state, unsigned player_idx) {
-  if (player_idx >= state->bots.count) {
-    nob_log(NOB_ERROR, "Attempted to disqualify non existent bot");
+  if (player_idx >= state->players.count) {
+    nob_log(NOB_ERROR, "Attempted to disqualify non existent player");
     exit(1);
   }
 
-  state->remaining_bots--;
+  state->remaining_players--;
   nob_da_foreach(Planet, planet, &state->planets) {
     if ((unsigned)planet->owner == player_idx + 1) {
       planet->owner = 0;
@@ -188,7 +187,7 @@ void DisqualifyPlayer(GameState *state, unsigned player_idx) {
     }
   }
 
-  UnsetBit(state->bot_bit_set, player_idx);
+  UnsetBit(state->player_bit_set, player_idx);
 
   nob_log(NOB_INFO, "Disqualified bot %u.", player_idx);
 }
@@ -234,7 +233,7 @@ static inline void PrintFleet(Nob_String_Builder *sb, Fleet fleet) {
 
 void GetMapRepresentation(GameState *state, Nob_String_Builder *sb,
                           unsigned player_idx) {
-  if (player_idx >= state->bots.count) {
+  if (player_idx >= state->players.count) {
     nob_log(NOB_ERROR, "ERROR: Attempting access to non-existent bot process");
     exit(1);
   }
@@ -242,8 +241,8 @@ void GetMapRepresentation(GameState *state, Nob_String_Builder *sb,
   Type moved_##entity = *entity;                                               \
   if (player_idx > 0 && moved_##entity.owner != 0) {                           \
     moved_##entity.owner =                                                     \
-        (player_idx * (state->bots.count - 1) + moved_##entity.owner - 1) %    \
-            state->bots.count +                                                \
+        (player_idx * (state->players.count - 1) + moved_##entity.owner - 1) % \
+            state->players.count +                                             \
         1;                                                                     \
   }
 
@@ -265,13 +264,13 @@ void GetMapRepresentation(GameState *state, Nob_String_Builder *sb,
 }
 
 void sendMapToBot(GameState *state, Nob_String_Builder *sb, unsigned bot_idx) {
-  if (bot_idx >= state->bots.count) {
+  if (bot_idx >= state->players.count) {
     nob_log(NOB_ERROR, "ERROR: Attempting access to non-existent bot process");
     exit(1);
   }
 
   GetMapRepresentation(state, sb, bot_idx);
-  SendMessageToBot(state->bots.items[bot_idx], sb->items, sb->count);
+  SendMessageToPlayer(state->players.items[bot_idx], sb->items, sb->count);
 }
 
 bool SendPlayerShips(GameState *state, unsigned player_idx, uint16_t src_id,
@@ -366,9 +365,9 @@ bool SendPlayerShipsStr(GameState *state, unsigned player_idx,
 
 void RunBotCycle(GameState *state, Nob_String_Builder *sb) {
   unsigned bot_num = 0;
-  nob_da_foreach(Bot, bot, &state->bots) {
+  nob_da_foreach(Player, player, &state->players) {
     // Skip disqualified or lost bots.
-    if (TestBit(state->bot_bit_set, bot_num)) {
+    if (TestBit(state->player_bit_set, bot_num)) {
       nob_log(NOB_DEBUG, "sending map to bot %u", bot_num);
 
       sb->count = 0;
@@ -379,11 +378,11 @@ void RunBotCycle(GameState *state, Nob_String_Builder *sb) {
 
   bot_num = 0;
   bool bot_okay = true;
-  nob_da_foreach(Bot, bot, &state->bots) {
+  nob_da_foreach(Player, player, &state->players) {
     // Skip disqualified or lost bots.
-    if (TestBit(state->bot_bit_set, bot_num)) {
+    if (TestBit(state->player_bit_set, bot_num)) {
       sb->count = 0;
-      bot_okay = GetBotMessage(*bot, sb);
+      bot_okay = GetPlayerMessage(*player, sb);
 
       if (bot_okay)
         bot_okay = SendPlayerShipsStr(state, bot_num,
@@ -391,15 +390,15 @@ void RunBotCycle(GameState *state, Nob_String_Builder *sb) {
 
       if (bot_okay) {
         sb->count = 0;
-        GetBotDebugMessage(*bot, sb);
+        GetPlayerDebugMessage(*player, sb);
         if (sb->count)
-          nob_log(NOB_INFO, "bot %s says: |%.*s|", bot->name,
+          nob_log(NOB_INFO, "bot %s says: |%.*s|", player->name,
                   (unsigned)sb->count, sb->items);
       } else {
-        // We don't remove the bot from the dynamic array because we use the DA
-        // index to address different bots. Instead it should be marked as
+        // We don't remove the player from the dynamic array because we use the
+        // DA index to address different players. Instead it is marked as
         // disqualified and not used.
-        StopBot(state->bots.items[bot_num]);
+        StopPlayer(&state->players.items[bot_num]);
       }
 
       nob_log(NOB_DEBUG, "done with bot %u, advancing to bot %u", bot_num,
@@ -436,14 +435,14 @@ int cmp_fleet_owner_remaining(const void *a, const void *b) {
 void AdvanceTurn(GameState *state) {
   int bot_count = 0;
 
-  state->bot_bit_set = 0;
+  state->player_bit_set = 0;
   nob_da_foreach(Planet, planet, &state->planets) {
     if (planet->owner != 0) {
       planet->ships += planet->growth;
       // If the player wasn't counted yet
-      if (!TestBit(state->bot_bit_set, planet->owner - 1)) {
+      if (!TestBit(state->player_bit_set, planet->owner - 1)) {
         bot_count++;
-        SetBit(state->bot_bit_set, planet->owner - 1);
+        SetBit(state->player_bit_set, planet->owner - 1);
       }
     }
   }
@@ -460,11 +459,11 @@ void AdvanceTurn(GameState *state) {
     int current_dst = current_fleet->dst_id;
     Planet *planet = &state->planets.items[current_dst];
 
-    // MAX_BOT_AMOUNT + 1 to account for neutral planets
+    // MAX_PLAYER_AMOUNT + 1 to account for neutral planets
     struct {
       int owner;
       int force;
-    } forces[MAX_BOT_AMOUNT + 1];
+    } forces[MAX_PLAYER_AMOUNT + 1];
     int forces_count = 0;
 
     // Add current planet being attack, even if it's a neutral planet
@@ -533,17 +532,18 @@ void AdvanceTurn(GameState *state) {
       i--;
     }
     // If the player wasn't counted yet
-    else if (!TestBit(state->bot_bit_set, state->fleets.items[i].owner - 1)) {
+    else if (!TestBit(state->player_bit_set,
+                      state->fleets.items[i].owner - 1)) {
       bot_count++;
-      SetBit(state->bot_bit_set, state->fleets.items[i].owner - 1);
+      SetBit(state->player_bit_set, state->fleets.items[i].owner - 1);
     }
   }
 
-  state->remaining_bots = bot_count;
+  state->remaining_players = bot_count;
 
   // Save state to game log
   LogEntry entry = DeepCopyLogEntry((LogEntry){
-      .remaining_bots = state->remaining_bots,
+      .remaining_players = state->remaining_players,
       .fleet_count = state->fleets.count,
       .fleets = state->fleets.items,
       .planet_count = state->planets.count,
@@ -558,7 +558,7 @@ void RunGame(GameState *state) {
   // and the engine.
   Nob_String_Builder sb = {0};
 
-  for (int sim_turn = 0; state->remaining_bots > 1 && sim_turn < 1000;
+  for (int sim_turn = 0; state->remaining_players > 1 && sim_turn < 1000;
        sim_turn++) {
     nob_log(NOB_INFO, "Turn %d", sim_turn);
     // Bot communication
@@ -569,12 +569,12 @@ void RunGame(GameState *state) {
     AdvanceTurn(state);
   }
   nob_log(NOB_INFO, "Game ended!");
-  int winning_bot = bit_index(state->bot_bit_set);
+  int winning_bot = bit_index(state->player_bit_set);
   if (winning_bot == -1) {
     nob_log(NOB_INFO, "It's a draw!");
     state->game_log.draw = true;
   } else {
-    state->game_log.winning_bot = winning_bot;
+    state->game_log.winning_player = winning_bot;
     state->game_log.draw = false;
     nob_log(NOB_INFO, "Bot %d won!", winning_bot + 1);
   }
@@ -582,7 +582,7 @@ void RunGame(GameState *state) {
   nob_sb_free(sb);
 }
 
-const unsigned version = 1;
+const unsigned version = 2;
 const char magic[4] = {'p', 'l', 'w', 's'};
 
 // ============================================================================
@@ -780,29 +780,23 @@ void WriteGameLogToFile(FILE *file, GameLog game_log) {
   } while (0)
 
   WRITE_8(game_log.draw);
-  WRITE_8(game_log.winning_bot);
-  WRITE_32(game_log.bots.count);
+  WRITE_8(game_log.winning_player);
+  WRITE_32(game_log.players.count);
 
-  nob_da_foreach(Bot, bot, &game_log.bots) {
+  nob_da_foreach(Player, player, &game_log.players) {
     uint16_t string_length;
 
-    string_length = bot->name ? (uint16_t)strlen(bot->name) : 0;
+    string_length = (uint16_t)strlen(player->name);
     WRITE_16(string_length);
     for (uint16_t i = 0; i < string_length; i++) {
-      WRITE_8(bot->name[i]);
-    }
-
-    string_length = (uint16_t)strlen(bot->start_command);
-    WRITE_16(string_length);
-    for (uint16_t i = 0; i < string_length; i++) {
-      WRITE_8(bot->start_command[i]);
+      WRITE_8(player->name[i]);
     }
   }
 
   WRITE_32(game_log.count);
 
   nob_da_foreach(LogEntry, entry, &game_log) {
-    WRITE_32(entry->remaining_bots);
+    WRITE_32(entry->remaining_players);
     WRITE_32(entry->fleet_count);
     WRITE_32(entry->planet_count);
 
@@ -901,28 +895,18 @@ bool ReadGameLogFromFile(FILE *file, GameLog *game_log) {
   } while (0)
 
   READ_8(game_log->draw);
-  READ_8(game_log->winning_bot);
-  READ_32(game_log->bots.count);
+  READ_8(game_log->winning_player);
+  READ_32(game_log->players.count);
 
-  game_log->bots.items =
-      malloc(sizeof *game_log->bots.items * game_log->bots.count);
-  nob_da_foreach(Bot, bot, &game_log->bots) {
+  game_log->players.items =
+      malloc(sizeof *game_log->players.items * game_log->players.count);
+  nob_da_foreach(Player, player, &game_log->players) {
     uint16_t string_length;
     READ_16(string_length);
-    if (string_length > 0) {
-      bot->name = malloc(sizeof *bot->name * (string_length + 1));
-      READ_ERROR_CHK(ReadCompressed(&cr, bot->name, string_length));
-      bot->name[string_length] = '\0';
-    } else {
-      bot->name = NULL;
-    }
-
-    READ_16(string_length);
-    bot->start_command =
-        malloc(sizeof *bot->start_command * (string_length + 1));
-    READ_ERROR_CHK(ReadCompressed(&cr, bot->start_command, string_length));
-    bot->start_command[string_length] = '\0';
-    bot->process = NULL;
+    player->name = malloc(sizeof *player->name * (string_length + 1));
+    READ_ERROR_CHK(ReadCompressed(&cr, player->name, string_length));
+    player->name[string_length] = '\0';
+    player->type = PLAYER_REPLAY;
   }
 
   READ_32(game_log->count);
@@ -930,7 +914,7 @@ bool ReadGameLogFromFile(FILE *file, GameLog *game_log) {
   game_log->capacity = game_log->count;
 
   nob_da_foreach(LogEntry, entry, game_log) {
-    READ_32(entry->remaining_bots);
+    READ_32(entry->remaining_players);
     READ_32(entry->fleet_count);
     READ_32(entry->planet_count);
     entry->fleets = malloc(sizeof *entry->fleets * entry->fleet_count);

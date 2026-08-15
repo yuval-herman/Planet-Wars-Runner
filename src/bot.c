@@ -4,7 +4,6 @@
 // the bot, you must do so manually.
 Bot DeepCopyBot(Bot bot) {
   Bot new_bot = {
-      .name = bot.name ? DupeString(bot.name) : NULL,
       .start_command = DupeString(bot.start_command),
       .process = NULL,
   };
@@ -14,7 +13,6 @@ Bot DeepCopyBot(Bot bot) {
 // This DOES stop and free the bot process.
 void FreeInnerBot(Bot bot) {
   StopBot(bot);
-  free(bot.name);
   free(bot.start_command);
   free(bot.process);
 }
@@ -46,34 +44,34 @@ void StopBot(Bot bot) {
     if (subprocess_terminate(bot.process) != 0 ||
         subprocess_join(bot.process, NULL) != 0) {
       nob_log(NOB_WARNING, "Failed terminating bot process: %s.",
-              bot.name ? bot.name : bot.start_command);
+              bot.start_command);
     }
   }
   subprocess_destroy(bot.process);
 }
 
-void StartBot(Bot bot) {
-  Nob_Cmd split_command = SplitStringByDelim(bot.start_command, ' ');
+bool IsBotAlive(Bot bot) {
+  return bot.process != NULL && subprocess_alive(bot.process);
+}
+
+void StartBot(Bot *bot) {
+  Nob_Cmd split_command = SplitStringByDelim(bot->start_command, ' ');
   // Required by subprocess.h
   nob_cmd_append(&split_command, NULL);
 
-  if (bot.process == NULL) {
-    nob_log(NOB_ERROR, "Can't start a bot without a process struct allocated.");
-    // TODO maybe rethink exit calls from this function. Since we moved to a
-    // single small and self-contained function, exiting might not be right in
-    // all cases, perhaps returning a bool would be better.
-    exit(1);
+  if (bot->process == NULL) {
+    bot->process = malloc(sizeof *bot->process);
   }
   int result = subprocess_create(split_command.items,
                                  subprocess_option_search_user_path |
                                      subprocess_option_inherit_environment |
                                      subprocess_option_enable_async |
                                      subprocess_option_enable_async_no_wait,
-                                 bot.process);
+                                 bot->process);
 
   if (0 != result) {
     nob_log(NOB_ERROR, "ERROR: Failed to launch bot number %d: %s\n%s", 2,
-            bot.start_command,
+            bot->start_command,
 #ifdef _WIN32
             nob_win32_error_message(GetLastError())
 #else
@@ -91,7 +89,7 @@ bool GetBotMessage(Bot bot, Nob_String_Builder *sb) {
   if (!subprocess_alive(bot.process)) {
     nob_log(NOB_INFO,
             "Bot %s should be disqualified since it's process crashed.",
-            bot.name);
+            bot.start_command);
     sb->count = 0;
     return false;
   }
@@ -113,7 +111,7 @@ bool GetBotMessage(Bot bot, Nob_String_Builder *sb) {
       if (nob_nanos_since_unspecified_epoch() - start > MAX_BOT_RESPONSE_TIME) {
         nob_log(NOB_INFO,
                 "Bot %s should be disqualified for taking too long to reply.",
-                bot.name);
+                bot.start_command);
         sb->count = 0;
         return false;
       }
@@ -122,8 +120,8 @@ bool GetBotMessage(Bot bot, Nob_String_Builder *sb) {
     }
     sb->count += received;
 
-    nob_log(NOB_DEBUG, "bot %s sent: |%.*s|", bot.name, (unsigned)sb->count,
-            sb->items);
+    nob_log(NOB_DEBUG, "bot %s sent: |%.*s|", bot.start_command,
+            (unsigned)sb->count, sb->items);
 
     // Excluding null terminator
     const unsigned delimeter_length = NOB_ARRAY_LEN(MESSAGE_DELIMETER) - 1;
@@ -133,7 +131,7 @@ bool GetBotMessage(Bot bot, Nob_String_Builder *sb) {
         memcmp(sb->items + sb->count - delimeter_length, MESSAGE_DELIMETER,
                delimeter_length) == 0) {
       message_ended = true;
-      nob_log(NOB_DEBUG, "bot %s message ended", bot.name);
+      nob_log(NOB_DEBUG, "bot %s message ended", bot.start_command);
     }
   }
 
@@ -163,7 +161,7 @@ void GetBotDebugMessage(Bot bot, Nob_String_Builder *sb) {
 
 bool SendMessageToBot(Bot bot, char *message, unsigned length) {
   if (!subprocess_alive(bot.process)) {
-    nob_log(NOB_INFO, "Bot %s has crashed.", bot.name);
+    nob_log(NOB_INFO, "Bot %s has crashed.", bot.start_command);
     return false;
   }
   FILE *bot_stdin = subprocess_stdin(bot.process);
