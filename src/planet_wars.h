@@ -10,7 +10,7 @@
 #include <stdio.h>
 
 
-#define MAX_BOT_AMOUNT 32
+#define MAX_PLAYER_AMOUNT 32
 
 // TODO Add verification when accepting data, like parsing maps, that all values
 // are within the limits we use here. For example allowing up to 255 turns for a
@@ -90,11 +90,11 @@ static bool ParsePlanetLine(const char *line, unsigned line_len,
 #undef ParseFloat
 #undef ParseUint
 
-  if (owner > MAX_BOT_AMOUNT) {
+  if (owner > MAX_PLAYER_AMOUNT) {
     fprintf(stderr,
             "Invalid number of player owned planets. There must be "
             "between 1 to %d players.\n",
-            MAX_BOT_AMOUNT);
+            MAX_PLAYER_AMOUNT);
     return false;
   }
 

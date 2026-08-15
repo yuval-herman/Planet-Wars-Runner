@@ -14,19 +14,20 @@
 #include <stdio.h>
 #include <string.h>
 
-BotsDA MakeBotsDA(char **names, char **commands, unsigned count) {
-  BotsDA bots = {
+PlayerDA MakePlayerDA(char **names, char **commands, unsigned count) {
+  PlayerDA players = {
       .capacity = count,
       .count = count,
-      .items = malloc(sizeof *bots.items * count),
+      .items = malloc(sizeof *players.items * count),
   };
-  for (unsigned i = 0; i < bots.count; i++) {
+  for (unsigned i = 0; i < players.count; i++) {
     // TODO should I dupe this?
-    bots.items[i].name = names[i];
-    bots.items[i].start_command = commands[i];
-    bots.items[i].process = NULL;
+    players.items[i].name = names[i];
+    players.items[i].type = PLAYER_BOT;
+    players.items[i].as.bot.start_command = commands[i];
+    players.items[i].as.bot.process = NULL;
   }
-  return bots;
+  return players;
 }
 
 int main(int argc, char *argv[]) {
@@ -49,15 +50,15 @@ int main(int argc, char *argv[]) {
     fclose(save_file);
     return 0;
   } else if (configs.mode == MODE_TOURNAMENT) {
-    BotsDA bots = MakeBotsDA(configs.bot_names, configs.bot_start_commands,
-                             configs.bot_count);
-    TournametData tournament = RunTournament(configs.map_file, bots);
+    PlayerDA players = MakePlayerDA(
+        configs.bot_names, configs.bot_start_commands, configs.bot_count);
+    TournametData tournament = RunTournament(configs.map_file, players);
     FreeInnerTournametData(tournament);
-    FreeInnerBotsDA(bots);
+    FreeInnerPlayerDA(players);
   } else if (configs.mode == MODE_SINGLE_MATCH) {
-    BotsDA bots = MakeBotsDA(configs.bot_names, configs.bot_start_commands,
-                             configs.bot_count);
-    GameState state = MakeGame(configs.map_file, bots);
+    PlayerDA players = MakePlayerDA(
+        configs.bot_names, configs.bot_start_commands, configs.bot_count);
+    GameState state = MakeGame(configs.map_file, players);
 
     RunGame(&state);
 
@@ -72,7 +73,7 @@ int main(int argc, char *argv[]) {
 #endif // HEADLESS_MODE
 
     FreeInnerGameState(state);
-    FreeInnerBotsDA(bots);
+    FreeInnerPlayerDA(players);
   }
   return 0;
 }

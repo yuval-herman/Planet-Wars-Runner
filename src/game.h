@@ -1,31 +1,31 @@
 #ifndef GAME_H
 #define GAME_H
-#include "bot.h"
 #include "nob.h"
 #include "planet_wars.h"
+#include "player.h"
 #include "utils.h"
 
 #include <stdint.h>
 #include <stdio.h>
 
-typedef uint32_t BotBitset;
-_Static_assert(MAX_BOT_AMOUNT <= sizeof(BotBitset) * CHAR_BIT,
-               "BotBitset is not wide enough to hold max amount of bots");
+typedef uint32_t PlayerBitset;
+_Static_assert(MAX_PLAYER_AMOUNT <= sizeof(PlayerBitset) * CHAR_BIT,
+               "PlayerBitset is not wide enough to hold max amount of players");
 
 DefineComplexStruct(LogEntry, {
   Fleet *fleets;
   Planet *planets;
   unsigned planet_count;
   unsigned fleet_count;
-  unsigned remaining_bots;
+  unsigned remaining_players;
 });
 
 DefineComplexStruct(GameLog, {
   LogEntry *items;
-  BotsDA bots;
+  PlayerDA players;
   unsigned count;
   unsigned capacity;
-  uint8_t winning_bot;
+  uint8_t winning_player;
   bool draw; // If no one won (a draw) this will be set true
 });
 
@@ -33,13 +33,13 @@ DefineComplexStruct(GameState, {
   GameLog game_log;
   PlanetDA planets;
   FleetsDA fleets;
-  BotsDA bots;
-  BotBitset bot_bit_set;
-  unsigned remaining_bots;
+  PlayerDA players;
+  PlayerBitset player_bit_set;
+  unsigned remaining_players;
   unsigned turn;
 });
 
-GameState MakeGame(const char *map_file_path, BotsDA bots);
+GameState MakeGame(const char *map_file_path, PlayerDA players);
 
 void RunGame(GameState *state);
 // Get map representation for a specific player. Each player should see itself
@@ -53,7 +53,8 @@ void GetMapRepresentation(GameState *state, Nob_String_Builder *sb,
 bool SendPlayerShips(GameState *state, unsigned player_idx, uint16_t src_id,
                      uint16_t dst_id, uint16_t ships);
 
-// Play player actions from string. Parses the string and calls `SendPlayerShips`.
+// Play player actions from string. Parses the string and calls
+// `SendPlayerShips`.
 bool SendPlayerShipsStr(GameState *state, unsigned player_idx,
                         Nob_String_View order_sv);
 
@@ -62,8 +63,10 @@ void DisqualifyPlayer(GameState *state, unsigned player_idx);
 void WriteGameLogToFile(FILE *file, GameLog game_log);
 bool ReadGameLogFromFile(FILE *file, GameLog *game_log);
 
+// Whether the player is still in the game, or has been defeated or
+// disqualified.
 static FORCEINLINE bool IsPlayerAlive(GameState *state, unsigned player_idx) {
-  return TestBit(state->bot_bit_set, player_idx);
+  return TestBit(state->player_bit_set, player_idx);
 }
 
 #endif // GAME_H

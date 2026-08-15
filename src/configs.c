@@ -1,6 +1,6 @@
 #include "configs.h"
-#include "bot.h"
 #include "nob.h"
+#include "player.h"
 
 #define INI_ALLOW_MULTILINE 0
 #define INI_STOP_ON_FIRST_ERROR 1
@@ -15,7 +15,7 @@
 // A structure to hold some extra data that helps while parsing the config file
 struct ConfigsMeta {
   Configs *configs;
-  BotsDA bots_da;
+  PlayerDA players_da;
 };
 
 Configs MakeDefaultConfig() {
@@ -78,7 +78,7 @@ static int handler(void *user_data, const char *section, const char *name,
   if (name == NULL && value == NULL) {
     // If we start parsing a new bot, reserve it's place
     if (MATCH(section, "bot")) {
-      nob_da_append(&configs_meta->bots_da, (Bot){0});
+      nob_da_append(&configs_meta->players_da, (Player){0});
     }
     return 1;
   }
@@ -107,9 +107,10 @@ static int handler(void *user_data, const char *section, const char *name,
   } else if (MATCH(section, "bot")) {
 
     if (MATCH(name, "name")) {
-      nob_da_last(&configs_meta->bots_da).name = DupeString(value);
+      nob_da_last(&configs_meta->players_da).name = DupeString(value);
     } else if (MATCH(name, "command")) {
-      nob_da_last(&configs_meta->bots_da).start_command = DupeString(value);
+      nob_da_last(&configs_meta->players_da).as.bot.start_command =
+          DupeString(value);
     } else {
       nob_log(NOB_ERROR, "Unknown bot config. line %d.", lineno);
       return 0;
@@ -124,21 +125,21 @@ static int handler(void *user_data, const char *section, const char *name,
 }
 
 bool ParseConfigsFromIni(Configs *configs, FILE *ini_file) {
-  struct ConfigsMeta configs_meta = {.configs = configs, .bots_da = {0}};
+  struct ConfigsMeta configs_meta = {.configs = configs, .players_da = {0}};
   if (ini_parse_file(ini_file, handler, &configs_meta) < 0) {
     nob_log(NOB_ERROR, "Failed parsing config file");
     return false;
   }
-  configs->bot_count = configs_meta.bots_da.count;
+  configs->bot_count = configs_meta.players_da.count;
   configs->bot_names =
-      malloc(sizeof *configs->bot_names * configs_meta.bots_da.count);
+      malloc(sizeof *configs->bot_names * configs_meta.players_da.count);
   configs->bot_start_commands =
-      malloc(sizeof *configs->bot_names * configs_meta.bots_da.count);
+      malloc(sizeof *configs->bot_names * configs_meta.players_da.count);
 
-  for (unsigned i = 0; i < configs_meta.bots_da.count; i++) {
-    configs->bot_names[i] = configs_meta.bots_da.items[i].name;
+  for (unsigned i = 0; i < configs_meta.players_da.count; i++) {
+    configs->bot_names[i] = configs_meta.players_da.items[i].name;
     configs->bot_start_commands[i] =
-        configs_meta.bots_da.items[i].start_command;
+        configs_meta.players_da.items[i].as.bot.start_command;
   }
   return VerifyConfigs(*configs);
 }

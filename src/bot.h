@@ -12,7 +12,6 @@
 #define MESSAGE_DELIMETER "go" NOB_LINE_END
 
 DefineComplexStruct(Bot, {
-  char *name;
   char *start_command;
   struct subprocess_s *process;
 });
@@ -24,7 +23,8 @@ DefineComplexStruct(BotsDA, {
 });
 
 void StopBot(Bot bot);
-void StartBot(Bot bot);
+void StartBot(Bot *bot);
+bool IsBotAlive(Bot bot);
 // Return true if everythin went okay. Return false in case bot should be
 // disqualified.
 bool GetBotMessage(Bot bot, Nob_String_Builder *sb);
