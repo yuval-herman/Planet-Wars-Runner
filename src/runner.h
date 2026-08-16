@@ -2,6 +2,7 @@
 #define TOURNAMENT_H
 
 #include "game.h"
+#include "player.h"
 
 DefineComplexStruct(LogEntry, {
   Fleet *fleets;
@@ -28,7 +29,7 @@ DefineComplexStruct(TournametData, {
 
 TournametData RunTournament(const char *map_file_path, PlayerDA players);
 
-GameLog RunMatch(GameState *state);
+GameLog RunMatch(GameState *state, PlayerDA players);
 
 void WriteGameLogToFile(FILE *file, GameLog game_log);
 bool ReadGameLogFromFile(FILE *file, GameLog *game_log);

@@ -58,9 +58,9 @@ int main(int argc, char *argv[]) {
   } else if (configs.mode == MODE_SINGLE_MATCH) {
     PlayerDA players = MakePlayerDA(
         configs.bot_names, configs.bot_start_commands, configs.bot_count);
-    GameState state = MakeGame(configs.map_file, players);
+    GameState state = MakeGame(configs.map_file, players.count);
 
-    GameLog game_log = RunMatch(&state);
+    GameLog game_log = RunMatch(&state, players);
 
     if (configs.write_save) {
       FILE *file = fopen("game.plws", "wb");
