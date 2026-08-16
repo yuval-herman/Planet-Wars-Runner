@@ -6,7 +6,6 @@
 #include "utils.h"
 
 #include <stdint.h>
-#include <stdio.h>
 
 typedef uint32_t PlayerBitset;
 _Static_assert(MAX_PLAYER_AMOUNT <= sizeof(PlayerBitset) * CHAR_BIT,
@@ -62,9 +61,6 @@ bool SendPlayerShipsStr(GameState *state, unsigned player_idx,
 void AdvanceTurn(GameState *state);
 
 void DisqualifyPlayer(GameState *state, unsigned player_idx);
-
-void WriteGameLogToFile(FILE *file, GameLog game_log);
-bool ReadGameLogFromFile(FILE *file, GameLog *game_log);
 
 // Whether the player is still in the game, or has been defeated or
 // disqualified.
