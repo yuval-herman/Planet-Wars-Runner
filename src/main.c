@@ -60,16 +60,16 @@ int main(int argc, char *argv[]) {
         configs.bot_names, configs.bot_start_commands, configs.bot_count);
     GameState state = MakeGame(configs.map_file, players);
 
-    RunMatch(&state);
+    GameLog game_log = RunMatch(&state);
 
     if (configs.write_save) {
       FILE *file = fopen("game.plws", "wb");
-      WriteGameLogToFile(file, state.game_log);
+      WriteGameLogToFile(file, game_log);
       fclose(file);
     }
 
 #ifndef HEADLESS_MODE
-    RunViewerForGame(state.game_log);
+    RunViewerForGame(game_log);
 #endif // HEADLESS_MODE
 
     FreeInnerGameState(state);

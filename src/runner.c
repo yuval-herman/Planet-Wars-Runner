@@ -1,7 +1,7 @@
 #include "runner.h"
 
-#include <stdio.h>
 #include <stdatomic.h>
+#include <stdio.h>
 #include <threads.h>
 
 TournametData DeepCopyTournametData(TournametData tournament) {
@@ -21,6 +21,51 @@ void FreeInnerTournametData(TournametData tournament) {
     FreeInnerGameLog(tournament.items[i]);
   }
   nob_da_free(tournament);
+}
+
+LogEntry DeepCopyLogEntry(LogEntry entry) {
+  LogEntry new_entry = {
+      .fleets = malloc(sizeof *entry.fleets * entry.fleet_count),
+      .planets = malloc(sizeof *entry.planets * entry.planet_count),
+      .planet_count = entry.planet_count,
+      .fleet_count = entry.fleet_count,
+      .remaining_players = entry.remaining_players,
+  };
+  memcpy(new_entry.fleets, entry.fleets,
+         sizeof *entry.fleets * entry.fleet_count);
+  memcpy(new_entry.planets, entry.planets,
+         sizeof *entry.planets * entry.planet_count);
+  return new_entry;
+}
+
+void FreeInnerLogEntry(LogEntry entry) {
+  free(entry.fleets);
+  free(entry.planets);
+}
+
+GameLog DeepCopyGameLog(GameLog game_log) {
+  LogEntry *log_entries = malloc(sizeof *game_log.items * game_log.count);
+  for (unsigned i = 0; i < game_log.count; i++) {
+    log_entries[i] = DeepCopyLogEntry(game_log.items[i]);
+  }
+
+  GameLog new_game_log = {
+      .count = game_log.count,
+      .capacity = game_log.capacity,
+      .winning_player = game_log.winning_player,
+      .items = log_entries,
+      .players = DeepCopyPlayerDA(game_log.players),
+      .draw = game_log.draw,
+  };
+  return new_game_log;
+}
+
+void FreeInnerGameLog(GameLog game_log) {
+  for (unsigned i = 0; i < game_log.count; i++) {
+    FreeInnerLogEntry(game_log.items[i]);
+  }
+  free(game_log.items);
+  FreeInnerPlayerDA(game_log.players);
 }
 
 #define sbAppendPlayerName(sb, idx)                                            \
@@ -95,17 +140,16 @@ int ThrdMatchRunner(void *args) {
     // TODO split the `MakeGame` function to more sub-functions so we can load
     // maps, bots and other stuff once instead of on every match.
     GameState state = MakeGame(match_args->map_file_path, playing_players);
-    RunMatch(&state);
+    GameLog game_log = RunMatch(&state);
 
-    GameLog game_log_copy = DeepCopyGameLog(state.game_log);
     // Free as soon as possible to destroy bot threads
     FreeInnerGameState(state);
 
-    if (game_log_copy.draw) {
+    if (game_log.draw) {
       // nob_log(NOB_INFO, "Game ended in a draw");
       nob_sb_append_cstr(&sb, "draw\n");
     } else {
-      unsigned winner_idx = game_log_copy.winning_player == 0 ? p1_idx : p2_idx;
+      unsigned winner_idx = game_log.winning_player == 0 ? p1_idx : p2_idx;
       // nob_log(NOB_INFO, "%s won.", GetBotName(winner_idx));
       nob_sb_append_cstr(&sb, "winner: ");
       sbAppendPlayerName(&sb, winner_idx);
@@ -124,11 +168,11 @@ int ThrdMatchRunner(void *args) {
     nob_sb_appendf(&sb, "save file name: %s\n", save_file_name);
 
     FILE *save_file = fopen(save_file_name, "wb");
-    WriteGameLogToFile(save_file, game_log_copy);
+    WriteGameLogToFile(save_file, game_log);
     fclose(save_file);
 
     mtx_lock(match_args->tournament_data_mtx);
-    nob_da_append(match_args->tournament_data, game_log_copy);
+    nob_da_append(match_args->tournament_data, game_log);
     mtx_unlock(match_args->tournament_data_mtx);
 
     mtx_lock(match_args->file_write_mtx);
@@ -268,10 +312,11 @@ void RunBotCycle(GameState *state, Nob_String_Builder *sb) {
   }
 }
 
-void RunMatch(GameState *state) {
+GameLog RunMatch(GameState *state) {
   // Reusable string builder to hold messages sent and received between the bots
   // and the engine.
   Nob_String_Builder sb = {0};
+  GameLog game_log = {0};
 
   for (int sim_turn = 0; state->remaining_players > 1 && sim_turn < 1000;
        sim_turn++) {
@@ -282,19 +327,30 @@ void RunMatch(GameState *state) {
 
     // Game logic
     AdvanceTurn(state);
+    // Save state to game log
+    LogEntry entry = DeepCopyLogEntry((LogEntry){
+        .remaining_players = state->remaining_players,
+        .fleet_count = state->fleets.count,
+        .fleets = state->fleets.items,
+        .planet_count = state->planets.count,
+        .planets = state->planets.items,
+    });
+
+    nob_da_append(&game_log, entry);
   }
   nob_log(NOB_INFO, "Game ended!");
   int winning_bot = bit_index(state->player_bit_set);
   if (winning_bot == -1) {
     nob_log(NOB_INFO, "It's a draw!");
-    state->game_log.draw = true;
+    game_log.draw = true;
   } else {
-    state->game_log.winning_player = winning_bot;
-    state->game_log.draw = false;
+    game_log.winning_player = winning_bot;
+    game_log.draw = false;
     nob_log(NOB_INFO, "Bot %d won!", winning_bot + 1);
   }
 
   nob_sb_free(sb);
+  return game_log;
 }
 
 // For htonl/ntohl functions

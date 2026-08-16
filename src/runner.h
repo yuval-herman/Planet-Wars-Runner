@@ -3,6 +3,23 @@
 
 #include "game.h"
 
+DefineComplexStruct(LogEntry, {
+  Fleet *fleets;
+  Planet *planets;
+  unsigned planet_count;
+  unsigned fleet_count;
+  unsigned remaining_players;
+});
+
+DefineComplexStruct(GameLog, {
+  LogEntry *items;
+  PlayerDA players;
+  unsigned count;
+  unsigned capacity;
+  uint8_t winning_player;
+  bool draw; // If no one won (a draw) this will be set true
+});
+
 DefineComplexStruct(TournametData, {
   GameLog *items;
   unsigned capacity;
@@ -11,7 +28,7 @@ DefineComplexStruct(TournametData, {
 
 TournametData RunTournament(const char *map_file_path, PlayerDA players);
 
-void RunMatch(GameState *state);
+GameLog RunMatch(GameState *state);
 
 void WriteGameLogToFile(FILE *file, GameLog game_log);
 bool ReadGameLogFromFile(FILE *file, GameLog *game_log);
