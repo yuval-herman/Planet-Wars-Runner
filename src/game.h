@@ -11,25 +11,7 @@ typedef uint32_t PlayerBitset;
 _Static_assert(MAX_PLAYER_AMOUNT <= sizeof(PlayerBitset) * CHAR_BIT,
                "PlayerBitset is not wide enough to hold max amount of players");
 
-DefineComplexStruct(LogEntry, {
-  Fleet *fleets;
-  Planet *planets;
-  unsigned planet_count;
-  unsigned fleet_count;
-  unsigned remaining_players;
-});
-
-DefineComplexStruct(GameLog, {
-  LogEntry *items;
-  PlayerDA players;
-  unsigned count;
-  unsigned capacity;
-  uint8_t winning_player;
-  bool draw; // If no one won (a draw) this will be set true
-});
-
 DefineComplexStruct(GameState, {
-  GameLog game_log;
   PlanetDA planets;
   FleetsDA fleets;
   PlayerDA players;

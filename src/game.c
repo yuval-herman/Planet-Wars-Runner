@@ -12,51 +12,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-LogEntry DeepCopyLogEntry(LogEntry entry) {
-  LogEntry new_entry = {
-      .fleets = malloc(sizeof *entry.fleets * entry.fleet_count),
-      .planets = malloc(sizeof *entry.planets * entry.planet_count),
-      .planet_count = entry.planet_count,
-      .fleet_count = entry.fleet_count,
-      .remaining_players = entry.remaining_players,
-  };
-  memcpy(new_entry.fleets, entry.fleets,
-         sizeof *entry.fleets * entry.fleet_count);
-  memcpy(new_entry.planets, entry.planets,
-         sizeof *entry.planets * entry.planet_count);
-  return new_entry;
-}
-
-void FreeInnerLogEntry(LogEntry entry) {
-  free(entry.fleets);
-  free(entry.planets);
-}
-
-GameLog DeepCopyGameLog(GameLog game_log) {
-  LogEntry *log_entries = malloc(sizeof *game_log.items * game_log.count);
-  for (unsigned i = 0; i < game_log.count; i++) {
-    log_entries[i] = DeepCopyLogEntry(game_log.items[i]);
-  }
-
-  GameLog new_game_log = {
-      .count = game_log.count,
-      .capacity = game_log.capacity,
-      .winning_player = game_log.winning_player,
-      .items = log_entries,
-      .players = DeepCopyPlayerDA(game_log.players),
-      .draw = game_log.draw,
-  };
-  return new_game_log;
-}
-
-void FreeInnerGameLog(GameLog game_log) {
-  for (unsigned i = 0; i < game_log.count; i++) {
-    FreeInnerLogEntry(game_log.items[i]);
-  }
-  free(game_log.items);
-  FreeInnerPlayerDA(game_log.players);
-}
-
 GameState DeepCopyGameState(GameState state) {
   NOB_UNUSED(state);
   // Copying is unsupported because game state contains some things relevant to
@@ -68,7 +23,6 @@ GameState DeepCopyGameState(GameState state) {
 }
 
 void FreeInnerGameState(GameState state) {
-  FreeInnerGameLog(state.game_log);
   nob_da_free(state.planets);
   nob_da_free(state.fleets);
   FreeInnerPlayerDA(state.players);
@@ -148,7 +102,6 @@ GameState MakeGame(const char *map_file_path, PlayerDA players) {
   // ----- BOTS -----
   state.players = DeepCopyPlayerDA(players);
   state.remaining_players = state.players.count;
-  state.game_log.players = DeepCopyPlayerDA(players);
 
   nob_da_foreach(Player, player, &state.players) { StartPlayer(player); }
 
@@ -470,15 +423,4 @@ void AdvanceTurn(GameState *state) {
   }
 
   state->remaining_players = bot_count;
-
-  // Save state to game log
-  LogEntry entry = DeepCopyLogEntry((LogEntry){
-      .remaining_players = state->remaining_players,
-      .fleet_count = state->fleets.count,
-      .fleets = state->fleets.items,
-      .planet_count = state->planets.count,
-      .planets = state->planets.items,
-  });
-
-  nob_da_append(&state->game_log, entry);
 }
