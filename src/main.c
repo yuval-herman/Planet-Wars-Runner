@@ -5,7 +5,7 @@
 #include "configs.h"
 #include "game.h"
 #include "miniz.c"
-#include "tournament.h"
+#include "runner.h"
 
 #define NOB_IMPLEMENTATION
 #include "nob.h"
@@ -60,7 +60,7 @@ int main(int argc, char *argv[]) {
         configs.bot_names, configs.bot_start_commands, configs.bot_count);
     GameState state = MakeGame(configs.map_file, players);
 
-    RunGame(&state);
+    RunMatch(&state);
 
     if (configs.write_save) {
       FILE *file = fopen("game.plws", "wb");
