@@ -2,10 +2,12 @@
 #define GAME_H
 #include "nob.h"
 #include "planet_wars.h"
-#include "player.h"
 #include "utils.h"
 
 #include <stdint.h>
+
+// TODO defined in two places, here and in bot.h. Please work on your architecture!
+#define MESSAGE_DELIMETER "go" NOB_LINE_END
 
 typedef uint32_t PlayerBitset;
 _Static_assert(MAX_PLAYER_AMOUNT <= sizeof(PlayerBitset) * CHAR_BIT,
@@ -14,13 +16,13 @@ _Static_assert(MAX_PLAYER_AMOUNT <= sizeof(PlayerBitset) * CHAR_BIT,
 DefineComplexStruct(GameState, {
   PlanetDA planets;
   FleetsDA fleets;
-  PlayerDA players;
   PlayerBitset player_bit_set;
+  unsigned player_count; // The starting amount of players
   unsigned remaining_players;
   unsigned turn;
 });
 
-GameState MakeGame(const char *map_file_path, PlayerDA players);
+GameState MakeGame(const char *map_file_path, unsigned player_count);
 
 // Get map representation for a specific player. Each player should see itself
 // as player 1 according to the protocol. This function takes care of that. If

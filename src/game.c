@@ -25,7 +25,6 @@ GameState DeepCopyGameState(GameState state) {
 void FreeInnerGameState(GameState state) {
   nob_da_free(state.planets);
   nob_da_free(state.fleets);
-  FreeInnerPlayerDA(state.players);
 }
 
 // Parse map file, saving the map into the game state and returning the amount
@@ -85,31 +84,28 @@ unsigned ParseMapFile(GameState *state, const char *map_path) {
   return bot_count;
 }
 
-GameState MakeGame(const char *map_file_path, PlayerDA players) {
+GameState MakeGame(const char *map_file_path, unsigned player_count) {
   GameState state = {0};
 
   // ----- MAP -----
   nob_log(NOB_INFO, "Loading map file from %s.", map_file_path);
   unsigned owner_count = ParseMapFile(&state, map_file_path);
-  if (owner_count != players.count) {
+  if (owner_count != player_count) {
     nob_log(NOB_ERROR,
             "Provided map requires %u players, yet %u players were given as "
             "arguments.",
-            owner_count, players.count);
+            owner_count, player_count);
     exit(1);
   }
 
-  // ----- BOTS -----
-  state.players = DeepCopyPlayerDA(players);
-  state.remaining_players = state.players.count;
-
-  nob_da_foreach(Player, player, &state.players) { StartPlayer(player); }
+  state.remaining_players = player_count;
+  state.player_count = player_count;
 
   return state;
 }
 
 void DisqualifyPlayer(GameState *state, unsigned player_idx) {
-  if (player_idx >= state->players.count) {
+  if (player_idx >= state->player_count) {
     nob_log(NOB_ERROR, "Attempted to disqualify non existent player");
     exit(1);
   }
@@ -173,7 +169,7 @@ static inline void PrintFleet(Nob_String_Builder *sb, Fleet fleet) {
 
 void GetMapRepresentation(GameState *state, Nob_String_Builder *sb,
                           unsigned player_idx) {
-  if (player_idx >= state->players.count) {
+  if (player_idx >= state->player_count) {
     nob_log(NOB_ERROR, "ERROR: Attempting access to non-existent bot process");
     exit(1);
   }
@@ -181,8 +177,8 @@ void GetMapRepresentation(GameState *state, Nob_String_Builder *sb,
   Type moved_##entity = *entity;                                               \
   if (player_idx > 0 && moved_##entity.owner != 0) {                           \
     moved_##entity.owner =                                                     \
-        (player_idx * (state->players.count - 1) + moved_##entity.owner - 1) % \
-            state->players.count +                                             \
+        (player_idx * (state->player_count - 1) + moved_##entity.owner - 1) %  \
+            state->player_count +                                              \
         1;                                                                     \
   }
 

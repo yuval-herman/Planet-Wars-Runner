@@ -139,8 +139,8 @@ int ThrdMatchRunner(void *args) {
     // Run a full game, silence normal logging so we don't clog the terminal
     // TODO split the `MakeGame` function to more sub-functions so we can load
     // maps, bots and other stuff once instead of on every match.
-    GameState state = MakeGame(match_args->map_file_path, playing_players);
-    GameLog game_log = RunMatch(&state);
+    GameState state = MakeGame(match_args->map_file_path, playing_players.count);
+    GameLog game_log = RunMatch(&state, playing_players);
 
     // Free as soon as possible to destroy bot threads
     FreeInnerGameState(state);
@@ -257,32 +257,25 @@ TournametData RunTournament(const char *map_file_path, PlayerDA players) {
   return tournament;
 }
 
-void sendMapToBot(GameState *state, Nob_String_Builder *sb, unsigned bot_idx) {
-  if (bot_idx >= state->players.count) {
-    nob_log(NOB_ERROR, "ERROR: Attempting access to non-existent bot process");
-    exit(1);
-  }
-
-  GetMapRepresentation(state, sb, bot_idx);
-  SendMessageToPlayer(state->players.items[bot_idx], sb->items, sb->count);
-}
-
-void RunBotCycle(GameState *state, Nob_String_Builder *sb) {
+static void RunBotCycle(GameState *state, PlayerDA players,
+                        Nob_String_Builder *sb) {
   unsigned bot_num = 0;
-  nob_da_foreach(Player, player, &state->players) {
+  nob_da_foreach(Player, player, &players) {
     // Skip disqualified or lost bots.
     if (TestBit(state->player_bit_set, bot_num)) {
       nob_log(NOB_DEBUG, "sending map to bot %u", bot_num);
 
       sb->count = 0;
-      sendMapToBot(state, sb, bot_num);
+
+      GetMapRepresentation(state, sb, bot_num);
+      SendMessageToPlayer(*player, sb->items, sb->count);
     }
     bot_num++;
   }
 
   bot_num = 0;
   bool bot_okay = true;
-  nob_da_foreach(Player, player, &state->players) {
+  nob_da_foreach(Player, player, &players) {
     // Skip disqualified or lost bots.
     if (TestBit(state->player_bit_set, bot_num)) {
       sb->count = 0;
@@ -302,7 +295,7 @@ void RunBotCycle(GameState *state, Nob_String_Builder *sb) {
         // We don't remove the player from the dynamic array because we use the
         // DA index to address different players. Instead it is marked as
         // disqualified and not used.
-        StopPlayer(&state->players.items[bot_num]);
+        StopPlayer(player);
       }
 
       nob_log(NOB_DEBUG, "done with bot %u, advancing to bot %u", bot_num,
@@ -312,18 +305,22 @@ void RunBotCycle(GameState *state, Nob_String_Builder *sb) {
   }
 }
 
-GameLog RunMatch(GameState *state) {
+GameLog RunMatch(GameState *state, PlayerDA players) {
   // Reusable string builder to hold messages sent and received between the bots
   // and the engine.
   Nob_String_Builder sb = {0};
   GameLog game_log = {0};
+
+  nob_da_foreach(Player, player, &players) {
+    StartPlayer(player);
+  }
 
   for (int sim_turn = 0; state->remaining_players > 1 && sim_turn < 1000;
        sim_turn++) {
     nob_log(NOB_INFO, "Turn %d", sim_turn);
     // Bot communication
     sb.count = 0;
-    RunBotCycle(state, &sb);
+    RunBotCycle(state, players, &sb);
 
     // Game logic
     AdvanceTurn(state);
