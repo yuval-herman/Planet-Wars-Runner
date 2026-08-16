@@ -41,7 +41,6 @@ DefineComplexStruct(GameState, {
 
 GameState MakeGame(const char *map_file_path, PlayerDA players);
 
-void RunGame(GameState *state);
 // Get map representation for a specific player. Each player should see itself
 // as player 1 according to the protocol. This function takes care of that. If
 // `player_idx` is 0 the real map is returned with no modification.
@@ -57,6 +56,10 @@ bool SendPlayerShips(GameState *state, unsigned player_idx, uint16_t src_id,
 // `SendPlayerShips`.
 bool SendPlayerShipsStr(GameState *state, unsigned player_idx,
                         Nob_String_View order_sv);
+
+// Runs one game turn using the planets and fleets saved.
+// Appends an entry to the game log.
+void AdvanceTurn(GameState *state);
 
 void DisqualifyPlayer(GameState *state, unsigned player_idx);
 
