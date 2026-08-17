@@ -35,12 +35,19 @@ After running a tournament, `match_(number).plws` files will be saved for each m
 ## Configuration file
 
 You can specify a config file by using the `-config` flag and providing a path to a `.ini` file.
+> [!NOTE]
+> Configs specified in the config file override configs passed via CLI flags. For example if you pass the `-map` flag and also specify a `map` key in the `simulation` section of the config file, the map from the config file will be used.
+
+
+> [!IMPORTANT]
+> While the information above holds true for all keys used in the `application` and `simulation` sections, if you specify bots to be used in the configs file and also pass bots via CLI flags, the list will be merged and all specified bots will be used together.
 
 This is an example config file with comments explaining everything:
 
 ```ini
 [application]
-write_save = true ; Whether to write a game.plws file containing a save of the game. You can replay this files using the -load_from CLI argument.
+write_save = true            ; Whether to write a game.plws file containing a save of the game. You can replay this files using the -load_from CLI argument.
+save_file = game.plws        ; A file path for the save file.
 tournament = true            ; Whether to run a tournament between all supplied bots.
                              ; this requires more bots specified then the map requires.
 

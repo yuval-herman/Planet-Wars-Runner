@@ -2,7 +2,8 @@
 #define CONFIGS_H
 
 #include <stdbool.h>
-#include <stdio.h>
+
+#include "player.h"
 
 typedef enum {
   MODE_NULL = 0,
@@ -14,33 +15,28 @@ typedef enum {
 typedef struct {
   RunMode mode;
 
-  // External process bots participating in the game
-  char **bot_names;
-  char **bot_start_commands;
-  unsigned bot_count;
+  PlayerDA players;
 
   // Path for a map file, required for tournament or single match mode
   char *map_file;
 
   // Whether to write a plws file for the running game. Ignored for tournament
-  // mode.
+  // and replay mode.
   bool write_save;
 
-  // A path for a plws file to replay.
+  // A path for a plws file to load in replay mode, or to save into when using
+  // `write_save`.
   char *save_file;
 } Configs;
 
 // Make a default config struct filled with sane values.
 Configs MakeDefaultConfig();
-// Parses an ini file and writes into `configs`.
-// Returns true in case of successful parsing,
-// prints error and returns false otherwise.
-// This function may override configs already set in `configs`.
-bool ParseConfigsFromIni(Configs *configs, FILE *ini_file);
 // Parses CLI arguments and writes into `configs`.
 // Returns true in case of successful parsing,
 // prints error and returns false otherwise.
 // This function may override configs already set in `configs`.
+// If the CLI arguments specify an ini config filem it will also be read and
+// parsed into `configs`.
 bool ParseConfigsFromCLI(Configs *configs, int argc, char *argv[]);
 
 #endif // CONFIGS_H
