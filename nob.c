@@ -345,8 +345,9 @@ int main(int argc, char **argv) {
 
   Nob_Cmd cmd = {0};
   Nob_Procs procs = {0};
-  const char *source_files[] = {"src/main.c", "src/game.c", "src/runner.c",
-                                "src/configs.c", "src/bot.c","src/player.c"};
+  const char *source_files[] = {"src/main.c",    "src/game.c", "src/runner.c",
+                                "src/configs.c", "src/bot.c",  "src/player.c",
+                                "src/utils.c"};
   const char *headed_source_files[] = {"src/viewer.c"};
 
   for (unsigned i = 0; i < NOB_ARRAY_LEN(source_files); i++) {
