@@ -31,6 +31,7 @@ typedef struct {
 
 // Make a default config struct filled with sane values.
 Configs MakeDefaultConfig();
+void FreeConfigs(Configs configs);
 // Parses CLI arguments and writes into `configs`.
 // Returns true in case of successful parsing,
 // prints error and returns false otherwise.

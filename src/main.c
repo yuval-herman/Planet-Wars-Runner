@@ -32,7 +32,6 @@ int main(int argc, char *argv[]) {
     FreeInnerGameLog(game_log);
 
     fclose(save_file);
-    return 0;
   } else if (configs.mode == MODE_TOURNAMENT) {
     TournametData tournament = RunTournament(configs.map_file, configs.players);
     FreeInnerTournametData(tournament);
@@ -52,6 +51,8 @@ int main(int argc, char *argv[]) {
 #endif // HEADLESS_MODE
 
     FreeInnerGameState(state);
+    FreeInnerGameLog(game_log);
   }
+  FreeConfigs(configs);
   return 0;
 }
