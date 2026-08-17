@@ -394,5 +394,6 @@ int main(int argc, char **argv) {
   fclose(compile_commands_file);
   if (!nob_cmd_run(&cmd))
     return 1;
+  printf("=============== COMPILATION FINISHED SUCCESSFULLY ===============\n");
   return 0;
 }

@@ -1,6 +1,5 @@
 #include "configs.h"
 #include "nob.h"
-#include "player.h"
 
 #define INI_ALLOW_MULTILINE 0
 #define INI_STOP_ON_FIRST_ERROR 1
@@ -12,52 +11,37 @@
 #define FLAG_IMPLEMENTATION
 #include "flag.h"
 
-// A structure to hold some extra data that helps while parsing the config file
-struct ConfigsMeta {
-  Configs *configs;
-  PlayerDA players_da;
-};
-
 Configs MakeDefaultConfig() {
   Configs configs = {0};
   configs.mode = MODE_SINGLE_MATCH;
   configs.write_save = true;
+  configs.save_file = "game.plws";
   return configs;
 }
 
 static bool VerifyConfigs(Configs configs) {
   if (configs.mode == MODE_REPLAY) {
-    return configs.save_file != NULL;
-  } else {
-    if (configs.bot_count == 0) {
-      nob_log(NOB_ERROR, "No bots provided.");
-      return false;
-    }
-    size_t mark = nob_temp_save();
-    for (unsigned i = 0; i < configs.bot_count; i++) {
-      if (configs.bot_start_commands[i] == NULL) {
-        nob_log(NOB_ERROR,
-                "A bot was provided%s without a command. Please supply a "
-                "command, name is potional.",
-                configs.bot_names[i] == NULL
-                    ? ""
-                    : nob_temp_sprintf(" with the name %s but",
-                                       configs.bot_names[i]));
-        return false;
-      }
-    }
-    nob_temp_rewind(mark);
-
-    if (!configs.map_file) {
-      nob_log(NOB_ERROR, "A map file must be provided.");
+    if (configs.save_file == NULL) {
+      nob_log(NOB_ERROR, "No file to replay was provided.");
       return false;
     }
     return true;
   }
+
+  if (configs.players.count == 0) {
+    nob_log(NOB_ERROR, "No players provided.");
+    return false;
+  }
+
+  if (!configs.map_file) {
+    nob_log(NOB_ERROR, "No map file provided.");
+    return false;
+  }
+  return true;
 }
 
-static int handler(void *user_data, const char *section, const char *name,
-                   const char *value, int lineno) {
+static int ini_parse_handler(void *user_data, const char *section,
+                             const char *name, const char *value, int lineno) {
   /* In some places in this function we cast away the const on `value`. This
    const removal is okay, see ini.h file in the comment above INI_HANDLER_LINENO
   */
@@ -72,13 +56,12 @@ static int handler(void *user_data, const char *section, const char *name,
   }                                                                            \
   var = p_bool;
 
-  struct ConfigsMeta *configs_meta = (struct ConfigsMeta *)user_data;
-  Configs *configs = configs_meta->configs;
+  Configs *configs = user_data;
 
   if (name == NULL && value == NULL) {
     // If we start parsing a new bot, reserve it's place
     if (MATCH(section, "bot")) {
-      nob_da_append(&configs_meta->players_da, (Player){0});
+      nob_da_append(&configs->players, (Player){0});
     }
     return 1;
   }
@@ -107,10 +90,9 @@ static int handler(void *user_data, const char *section, const char *name,
   } else if (MATCH(section, "bot")) {
 
     if (MATCH(name, "name")) {
-      nob_da_last(&configs_meta->players_da).name = DupeString(value);
+      nob_da_last(&configs->players).name = DupeString(value);
     } else if (MATCH(name, "command")) {
-      nob_da_last(&configs_meta->players_da).as.bot.start_command =
-          DupeString(value);
+      nob_da_last(&configs->players).as.bot.start_command = DupeString(value);
     } else {
       nob_log(NOB_ERROR, "Unknown bot config. line %d.", lineno);
       return 0;
@@ -125,114 +107,112 @@ static int handler(void *user_data, const char *section, const char *name,
 }
 
 bool ParseConfigsFromIni(Configs *configs, FILE *ini_file) {
-  struct ConfigsMeta configs_meta = {.configs = configs, .players_da = {0}};
-  if (ini_parse_file(ini_file, handler, &configs_meta) < 0) {
+  if (ini_parse_file(ini_file, ini_parse_handler, configs) < 0) {
     nob_log(NOB_ERROR, "Failed parsing config file");
     return false;
-  }
-  configs->bot_count = configs_meta.players_da.count;
-  configs->bot_names =
-      malloc(sizeof *configs->bot_names * configs_meta.players_da.count);
-  configs->bot_start_commands =
-      malloc(sizeof *configs->bot_names * configs_meta.players_da.count);
-
-  for (unsigned i = 0; i < configs_meta.players_da.count; i++) {
-    configs->bot_names[i] = configs_meta.players_da.items[i].name;
-    configs->bot_start_commands[i] =
-        configs_meta.players_da.items[i].as.bot.start_command;
-  }
-  return VerifyConfigs(*configs);
-}
-
-typedef struct {
-  bool *help;
-  char **config_file;
-  char **map_file;
-#ifndef HEADLESS_MODE
-  char **from_save_file;
-#endif // HEADLESS_MODE
-  char **bot_commands;
-  int bot_commands_count;
-} CLIArguments;
-
-static CLIArguments RegisterFlagArguments() {
-  CLIArguments args;
-  args.help = flag_bool("help", false, "Show this help.");
-  args.config_file =
-      flag_str("config", NULL,
-               "A path to a config file that can be used to run "
-               "tournament or more complex environments. If a config file is "
-               "used all other flags are ignored.");
-  args.map_file = flag_str("map", NULL, "The map file bots will play on.");
-#ifndef HEADLESS_MODE
-  args.from_save_file =
-      flag_str("load_from", NULL,
-               "A path to a .plws file to read a game from. If this option is "
-               "given, the rest of the options are ignored.");
-#endif // HEADLESS_MODE
-  args.bot_commands_count = 0;
-  args.bot_commands = NULL;
-  return args;
-}
-
-static void Usage(FILE *stream) {
-  fprintf(stream, "Usage: %s [OPTIONS] [--] [BOTS]\n", flag_program_name());
-  fprintf(stream, "OPTIONS:\n");
-  flag_print_options(stream);
-}
-
-static bool FillConfigsWithArgs(CLIArguments args, Configs *configs) {
-  if (!*args.map_file) {
-    nob_log(NOB_ERROR, "A map file must be provided.");
-    Usage(stderr);
-    return false;
-  }
-  configs->map_file = DupeString(*args.map_file);
-
-  char *const *argv = flag_rest_argv();
-  const int argc = flag_rest_argc();
-
-  configs->bot_count = argc;
-  // Initialize the array to null. This is important so the game knows bot's
-  // have no name set.
-  configs->bot_names = calloc(argc, sizeof *configs->bot_names);
-  configs->bot_start_commands =
-      malloc(argc * sizeof *configs->bot_start_commands);
-
-  for (int i = 0; i < argc; i++) {
-    configs->bot_start_commands[i] = DupeString(argv[i]);
   }
 
   return true;
 }
 
+static void Usage(FILE *stream) {
+  fprintf(stream, "Usage: %s [OPTIONS]\n", flag_program_name());
+  fprintf(stream, "OPTIONS:\n");
+  flag_print_options(stream);
+}
+
 bool ParseConfigsFromCLI(Configs *configs, int argc, char *argv[]) {
-  CLIArguments args = RegisterFlagArguments();
+  bool help;
+  flag_bool_var(&help, "help", false, "Show this help.");
+  char *config_file;
+  flag_str_var(&config_file, "config", NULL,
+               "A path to a config file that can be used to run "
+               "tournament or more complex environments. If a config file is "
+               "used all other flags are ignored.");
+
+  Flag_List_Mut bot_names;
+  flag_list_mut_var(
+      &bot_names, "name",
+      "List of bot names. Each -name has a corresponding -command, and entries "
+      "are paired by position: the first name with the first command, the "
+      "second with the second, regardless of where the flags appear on the "
+      "command line.");
+
+  Flag_List_Mut bot_commands;
+  flag_list_mut_var(
+      &bot_commands, "command",
+      "List of bot commands. Each -command has a corresponding -name, and "
+      "entries are paired by position: the first command with the first name, "
+      "the second with the second, regardless of where the flags appear on the "
+      "command line.");
+
+  char *mode;
+  flag_str_var(
+      &mode, "mode", NULL,
+      "Which mode should the software launch at. Options are:\n"
+      "single - Run a single match between all the supplied bots.\n"
+      "tournament - Run a round robin tournament between all the supplied "
+      "bots.\n"
+#ifndef HEADLESS_MODE
+      "replay - Replay a previously save plws file. This requires that the "
+      "`save_file` option also be specified with the file to play.\n"
+#endif // HEADLESS_MODE
+  );
+
+  flag_str_var(&configs->map_file, "map", NULL,
+               "The map file bots will play on.");
+
+#ifndef HEADLESS_MODE
+  flag_str_var(&configs->save_file, "save_file", NULL,
+               "A path to a .plws file to save the game to in match mode, or "
+               "read a game from in replay mode.");
+#endif // HEADLESS_MODE
+
   if (!flag_parse(argc, argv)) {
     Usage(stderr);
     flag_print_error(stderr);
     return false;
-  } else if (*args.help) {
+  } else if (help) {
     configs->mode = MODE_NULL;
     Usage(stderr);
     return true;
   }
 #ifndef HEADLESS_MODE
-  else if (*args.from_save_file != NULL) {
-    configs->save_file = *args.from_save_file;
+  if (mode && strcmp(mode, "replay") == 0) {
     configs->mode = MODE_REPLAY;
   }
 #endif // HEADLESS_MODE
 
-  else if (*args.config_file) {
-    FILE *ini_file = fopen(*args.config_file, "r");
+  if (bot_names.count != bot_commands.count) {
+    nob_log(NOB_ERROR,
+            "The amount of -name and -command arguments is not equal.");
+    nob_log(NOB_INFO, "You should pass bot names and commands like so:");
+    nob_log(NOB_INFO,
+            "%s -name \"bot 1 name\" -command \"bot 1 command\" -name \"bot 2 name\" "
+            "-command \"bot 2 command\" ...",
+            flag_program_name());
+    return false;
+  }
+
+  for (unsigned i = 0; i < bot_names.count; i++) {
+    Player player = {.type = PLAYER_BOT,
+                     .name = bot_names.items[i],
+                     .as.bot = {
+                         .start_command = bot_commands.items[i],
+                         .process = NULL,
+                     }};
+
+    nob_da_append(&configs->players, player);
+  }
+
+  if (config_file) {
+    FILE *ini_file = fopen(config_file, "r");
     if (!ini_file) {
       nob_log(NOB_ERROR, "Could not open config file: %s", strerror(errno));
       return false;
     }
     ParseConfigsFromIni(configs, ini_file);
     fclose(ini_file);
-  } else if (!FillConfigsWithArgs(args, configs))
-    return false;
+  }
   return VerifyConfigs(*configs);
 }
