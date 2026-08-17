@@ -1,5 +1,6 @@
 #include "configs.h"
 #include "nob.h"
+#include "utils.h"
 
 #define INI_ALLOW_MULTILINE 0
 #define INI_STOP_ON_FIRST_ERROR 1
@@ -15,8 +16,16 @@ Configs MakeDefaultConfig() {
   Configs configs = {0};
   configs.mode = MODE_SINGLE_MATCH;
   configs.write_save = true;
-  configs.save_file = "game.plws";
+  // This is later free'd. It easier to make sure it's heap allocated then to
+  // track whether it changed or not before freeing.
+  configs.save_file = DupeString("game.plws");
   return configs;
+}
+
+void FreeConfigs(Configs configs) {
+  free(configs.map_file);
+  free(configs.save_file);
+  FreeInnerPlayerDA(configs.players);
 }
 
 static bool VerifyConfigs(Configs configs) {
@@ -159,11 +168,12 @@ bool ParseConfigsFromCLI(Configs *configs, int argc, char *argv[]) {
 #endif // HEADLESS_MODE
   );
 
-  flag_str_var(&configs->map_file, "map", NULL,
-               "The map file bots will play on.");
+  char *map_file;
+  flag_str_var(&map_file, "map", NULL, "The map file bots will play on.");
 
 #ifndef HEADLESS_MODE
-  flag_str_var(&configs->save_file, "save_file", NULL,
+  char *save_file;
+  flag_str_var(&save_file, "save_file", NULL,
                "A path to a .plws file to save the game to in match mode, or "
                "read a game from in replay mode.");
 #endif // HEADLESS_MODE
@@ -183,12 +193,23 @@ bool ParseConfigsFromCLI(Configs *configs, int argc, char *argv[]) {
   }
 #endif // HEADLESS_MODE
 
+  // We call free on this vairables later, so it's easier to just make sure they
+  // are heap allocated then try and try whether they came from the CLI (stack)
+  // or the config file (heap)
+  if (map_file) {
+    configs->map_file = DupeString(map_file);
+  }
+  if (save_file) {
+    configs->save_file = DupeString(save_file);
+  }
+
   if (bot_names.count != bot_commands.count) {
     nob_log(NOB_ERROR,
             "The amount of -name and -command arguments is not equal.");
     nob_log(NOB_INFO, "You should pass bot names and commands like so:");
     nob_log(NOB_INFO,
-            "%s -name \"bot 1 name\" -command \"bot 1 command\" -name \"bot 2 name\" "
+            "%s -name \"bot 1 name\" -command \"bot 1 command\" -name \"bot 2 "
+            "name\" "
             "-command \"bot 2 command\" ...",
             flag_program_name());
     return false;
@@ -196,14 +217,17 @@ bool ParseConfigsFromCLI(Configs *configs, int argc, char *argv[]) {
 
   for (unsigned i = 0; i < bot_names.count; i++) {
     Player player = {.type = PLAYER_BOT,
-                     .name = bot_names.items[i],
+                     .name = DupeString(bot_names.items[i]),
                      .as.bot = {
-                         .start_command = bot_commands.items[i],
+                         .start_command = DupeString(bot_commands.items[i]),
                          .process = NULL,
                      }};
 
     nob_da_append(&configs->players, player);
   }
+
+  free(bot_names.items);
+  free(bot_commands.items);
 
   if (config_file) {
     FILE *ini_file = fopen(config_file, "r");
