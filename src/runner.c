@@ -139,8 +139,9 @@ int ThrdMatchRunner(void *args) {
     // Run a full game, silence normal logging so we don't clog the terminal
     // TODO split the `MakeGame` function to more sub-functions so we can load
     // maps, bots and other stuff once instead of on every match.
-    GameState state =
-        MakeGame(match_args->map_file_path, playing_players.count);
+    GameState state = {0};
+    // TODO don't ignore failure
+    MakeGame(&state, match_args->map_file_path, playing_players.count);
     GameLog game_log = {0};
     // TODO don't ignore failure
     RunMatch(&game_log, &state, playing_players);
