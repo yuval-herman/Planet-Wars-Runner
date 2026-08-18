@@ -57,41 +57,39 @@ void FreeInnerPlayerDA(PlayerDA players) {
   nob_da_free(players);
 }
 
-void StartPlayer(Player *player) {
+bool StartPlayer(Player *player) {
   if (IsPlayerActive(*player))
-    return;
+    return true;
 
   switch (player->type) {
   default:
     NOB_UNREACHABLE("Impossible player type");
   case PLAYER_BOT:
-    StartBot(&player->as.bot);
-    break;
+    return StartBot(&player->as.bot);
   case PLAYER_HUMAN:
     // currently empty
-    break;
+    return true;
   case PLAYER_REPLAY:
     // has no special data
-    break;
+    return true;
   }
 }
 
-void StopPlayer(Player *player) {
+bool StopPlayer(Player *player) {
   if (!IsPlayerActive(*player))
-    return;
+    return true;
 
   switch (player->type) {
   default:
     NOB_UNREACHABLE("Impossible player type");
   case PLAYER_BOT:
-    StopBot(player->as.bot);
-    break;
+    return StopBot(player->as.bot);
   case PLAYER_HUMAN:
     // currently empty
-    break;
+    return true;
   case PLAYER_REPLAY:
     // has no special data
-    break;
+    return true;
   }
 }
 

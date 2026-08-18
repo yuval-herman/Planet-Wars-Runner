@@ -139,8 +139,11 @@ int ThrdMatchRunner(void *args) {
     // Run a full game, silence normal logging so we don't clog the terminal
     // TODO split the `MakeGame` function to more sub-functions so we can load
     // maps, bots and other stuff once instead of on every match.
-    GameState state = MakeGame(match_args->map_file_path, playing_players.count);
-    GameLog game_log = RunMatch(&state, playing_players);
+    GameState state =
+        MakeGame(match_args->map_file_path, playing_players.count);
+    GameLog game_log = {0};
+    // TODO don't ignore failure
+    RunMatch(&game_log, &state, playing_players);
 
     // Free as soon as possible to destroy bot threads
     FreeInnerGameState(state);
@@ -186,7 +189,8 @@ int ThrdMatchRunner(void *args) {
 }
 
 TournametData RunTournament(const char *map_file_path, PlayerDA players) {
-  assert(players.count < 3 && "A tournament cannot be run for less then 3 bots.");
+  assert(players.count >= 3 &&
+         "A tournament cannot be run for less then 3 bots.");
 
   nob_log(NOB_INFO, "Creating directory for tournament data.");
   if (!nob_mkdir_if_not_exists("tournament")) {
@@ -302,14 +306,14 @@ static void RunBotCycle(GameState *state, PlayerDA players,
   }
 }
 
-GameLog RunMatch(GameState *state, PlayerDA players) {
+bool RunMatch(GameLog *game_log, GameState *state, PlayerDA players) {
   // Reusable string builder to hold messages sent and received between the bots
   // and the engine.
   Nob_String_Builder sb = {0};
-  GameLog game_log = {0};
 
   nob_da_foreach(Player, player, &players) {
-    StartPlayer(player);
+    if (!StartPlayer(player))
+      return false;
   }
 
   for (int sim_turn = 0; state->remaining_players > 1 && sim_turn < 1000;
@@ -330,19 +334,19 @@ GameLog RunMatch(GameState *state, PlayerDA players) {
         .planets = state->planets.items,
     });
 
-    nob_da_append(&game_log, entry);
+    nob_da_append(game_log, entry);
   }
   nob_log(NOB_INFO, "Game ended!");
   int winning_bot = bit_index(state->player_bit_set);
   if (winning_bot == -1) {
     nob_log(NOB_INFO, "It's a draw!");
-    game_log.draw = true;
+    game_log->draw = true;
   } else {
-    game_log.winning_player = winning_bot;
-    game_log.draw = false;
+    game_log->winning_player = winning_bot;
+    game_log->draw = false;
     nob_log(NOB_INFO, "Bot %d won!", winning_bot + 1);
   }
 
   nob_sb_free(sb);
-  return game_log;
+  return true;
 }

@@ -12,5 +12,5 @@ DefineComplexStruct(TournametData, {
 
 TournametData RunTournament(const char *map_file_path, PlayerDA players);
 
-GameLog RunMatch(GameState *state, PlayerDA players);
+bool RunMatch(GameLog *game_log, GameState *state, PlayerDA players);
 #endif // TOURNAMENT_H

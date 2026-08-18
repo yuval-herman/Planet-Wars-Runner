@@ -37,24 +37,25 @@ void FreeInnerBotsDA(BotsDA bots) {
   nob_da_free(bots);
 }
 
-void StopBot(Bot bot) {
+bool StopBot(Bot bot) {
   if (bot.process == NULL)
-    return;
+    return true;
   if (subprocess_alive(bot.process)) {
     if (subprocess_terminate(bot.process) != 0 ||
         subprocess_join(bot.process, NULL) != 0) {
       nob_log(NOB_WARNING, "Failed terminating bot process: %s.",
               bot.start_command);
+      return false;
     }
   }
-  subprocess_destroy(bot.process);
+  return 0 == subprocess_destroy(bot.process);
 }
 
 bool IsBotAlive(Bot bot) {
   return bot.process != NULL && subprocess_alive(bot.process);
 }
 
-void StartBot(Bot *bot) {
+bool StartBot(Bot *bot) {
   Nob_Cmd split_command = SplitStringByDelim(bot->start_command, ' ');
   // Required by subprocess.h
   nob_cmd_append(&split_command, NULL);
@@ -78,11 +79,11 @@ void StartBot(Bot *bot) {
             strerror(errno)
 #endif
     );
-    // TODO: return a bool rather then exiting
-    exit(1);
+    return false;
   }
 
   FreeMultiDString((char **)split_command.items, split_command.count);
+  return true;
 }
 
 bool GetBotMessage(Bot bot, Nob_String_Builder *sb) {
