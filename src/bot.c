@@ -78,7 +78,7 @@ void StartBot(Bot *bot) {
             strerror(errno)
 #endif
     );
-    // See comment on previous exit
+    // TODO: return a bool rather then exiting
     exit(1);
   }
 

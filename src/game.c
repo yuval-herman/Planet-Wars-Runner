@@ -33,6 +33,8 @@ unsigned ParseMapFile(GameState *state, const char *map_path) {
   FILE *map_file = fopen(map_path, "r");
   if (!map_file) {
     perror("Failed loading map file");
+    // TODO: shouldn't exit here, or at all in this function. It should return a
+    // bool and move the amount of planets to a pointer argument
     exit(1);
   }
 
@@ -95,6 +97,8 @@ GameState MakeGame(const char *map_file_path, unsigned player_count) {
             "Provided map requires %u players, yet %u players were given as "
             "arguments.",
             owner_count, player_count);
+    // TODO: no need to exit here. return a bool, move the GameState to a
+    // pointer argument.
     exit(1);
   }
 
@@ -105,10 +109,8 @@ GameState MakeGame(const char *map_file_path, unsigned player_count) {
 }
 
 void DisqualifyPlayer(GameState *state, unsigned player_idx) {
-  if (player_idx >= state->player_count) {
-    nob_log(NOB_ERROR, "Attempted to disqualify non existent player");
-    exit(1);
-  }
+  assert(player_idx < state->player_count &&
+         "Attempted to disqualify non existent player");
 
   state->remaining_players--;
   nob_da_foreach(Planet, planet, &state->planets) {
@@ -169,10 +171,9 @@ static inline void PrintFleet(Nob_String_Builder *sb, Fleet fleet) {
 
 void GetMapRepresentation(GameState *state, Nob_String_Builder *sb,
                           unsigned player_idx) {
-  if (player_idx >= state->player_count) {
-    nob_log(NOB_ERROR, "ERROR: Attempting access to non-existent bot process");
-    exit(1);
-  }
+  assert(player_idx < state->player_count &&
+         "Attempting access to non-existent bot process");
+
 #define MoveOwner(Type, entity)                                                \
   Type moved_##entity = *entity;                                               \
   if (player_idx > 0 && moved_##entity.owner != 0) {                           \
