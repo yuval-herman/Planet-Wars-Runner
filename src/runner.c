@@ -186,10 +186,7 @@ int ThrdMatchRunner(void *args) {
 }
 
 TournametData RunTournament(const char *map_file_path, PlayerDA players) {
-  if (players.count < 3) {
-    nob_log(NOB_ERROR, "A tournament cannot be run for less then 3 bots.");
-    exit(1);
-  }
+  assert(players.count < 3 && "A tournament cannot be run for less then 3 bots.");
 
   nob_log(NOB_INFO, "Creating directory for tournament data.");
   if (!nob_mkdir_if_not_exists("tournament")) {

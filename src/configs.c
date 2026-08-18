@@ -37,6 +37,13 @@ static bool VerifyConfigs(Configs configs) {
     return true;
   }
 
+  if (configs.mode == MODE_TOURNAMENT) {
+    if (configs.players.count < 3) {
+      nob_log(NOB_ERROR, "Tournament mode requires at least 3 players.");
+      return false;
+    }
+  }
+
   if (configs.players.count == 0) {
     nob_log(NOB_ERROR, "No players provided.");
     return false;
