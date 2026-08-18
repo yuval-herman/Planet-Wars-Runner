@@ -22,7 +22,7 @@ DefineComplexStruct(GameLog, {
   bool draw; // If no one won (a draw) this will be set true
 });
 
-void WriteGameLogToFile(FILE *file, GameLog game_log);
+bool WriteGameLogToFile(FILE *file, GameLog game_log);
 bool ReadGameLogFromFile(FILE *file, GameLog *game_log);
 
 #endif // FILE_H

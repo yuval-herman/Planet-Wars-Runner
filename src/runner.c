@@ -172,6 +172,7 @@ int ThrdMatchRunner(void *args) {
     nob_sb_appendf(&sb, "save file name: %s\n", save_file_name);
 
     FILE *save_file = fopen(save_file_name, "wb");
+    // TODO handle errors
     WriteGameLogToFile(save_file, game_log);
     fclose(save_file);
 
