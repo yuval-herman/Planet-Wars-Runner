@@ -16,11 +16,12 @@
 
 int main(int argc, char *argv[]) {
   Configs configs = MakeDefaultConfig();
+  int exit_code = 0;
   if (!ParseConfigsFromCLI(&configs, argc, argv)) {
-    return 1;
+    exit_code = 1;
   }
 
-  if (configs.mode == MODE_REPLAY) {
+  if (exit_code == 0 && configs.mode == MODE_REPLAY) {
     GameLog game_log = {0};
     FILE *save_file = fopen(configs.save_file, "rb");
     if (!save_file) {
@@ -32,14 +33,17 @@ int main(int argc, char *argv[]) {
     FreeInnerGameLog(game_log);
 
     fclose(save_file);
-  } else if (configs.mode == MODE_TOURNAMENT) {
+  } else if (exit_code == 0 && configs.mode == MODE_TOURNAMENT) {
     TournametData tournament = RunTournament(configs.map_file, configs.players);
     FreeInnerTournametData(tournament);
-  } else if (configs.mode == MODE_SINGLE_MATCH) {
+  } else if (exit_code == 0 && configs.mode == MODE_SINGLE_MATCH) {
     GameState state = MakeGame(configs.map_file, configs.players.count);
 
-    GameLog game_log = RunMatch(&state, configs.players);
-
+    GameLog game_log = {0};
+    if (!RunMatch(&game_log, &state, configs.players)) {
+      nob_log(NOB_ERROR, "Failed running match.");
+      exit_code = 1;
+    }
     if (configs.write_save) {
       FILE *file = fopen("game.plws", "wb");
       WriteGameLogToFile(file, game_log);
