@@ -29,9 +29,12 @@ void FreeConfigs(Configs configs) {
 }
 
 static bool VerifyConfigs(Configs configs) {
+#define REPORT_ERROR(msg)                                                      \
+  nob_log(NOB_ERROR, "Configs error, pass -help to see usage.\n" msg)
+
   if (configs.mode == MODE_REPLAY) {
     if (configs.save_file == NULL) {
-      nob_log(NOB_ERROR, "No file to replay was provided.");
+      REPORT_ERROR("No file to replay was provided.");
       return false;
     }
     return true;
@@ -39,18 +42,18 @@ static bool VerifyConfigs(Configs configs) {
 
   if (configs.mode == MODE_TOURNAMENT) {
     if (configs.players.count < 3) {
-      nob_log(NOB_ERROR, "Tournament mode requires at least 3 players.");
+      REPORT_ERROR("Tournament mode requires at least 3 players.");
       return false;
     }
   }
 
   if (configs.players.count == 0) {
-    nob_log(NOB_ERROR, "No players provided.");
+    REPORT_ERROR("No players provided.");
     return false;
   }
 
   if (!configs.map_file) {
-    nob_log(NOB_ERROR, "No map file provided.");
+    REPORT_ERROR("No map file provided.");
     return false;
   }
   return true;
