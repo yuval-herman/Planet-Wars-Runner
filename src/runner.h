@@ -10,7 +10,8 @@ DefineComplexStruct(TournametData, {
   unsigned count;
 });
 
-TournametData RunTournament(const char *map_file_path, PlayerDA players);
+bool RunTournament(TournametData *tournament, const char *map_file_path,
+                   PlayerDA players);
 
 bool RunMatch(GameLog *game_log, GameState *state, PlayerDA players);
 #endif // TOURNAMENT_H

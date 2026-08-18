@@ -189,23 +189,25 @@ int ThrdMatchRunner(void *args) {
   return 0;
 }
 
-TournametData RunTournament(const char *map_file_path, PlayerDA players) {
+bool RunTournament(TournametData *tournament, const char *map_file_path,
+                   PlayerDA players) {
+  // This is not an if that returns false because it is expected the caller
+  // checks this. If the caller does not check it, they cannot recover even
+  // after getting an error from this function.
   assert(players.count >= 3 &&
          "A tournament cannot be run for less then 3 bots.");
 
   nob_log(NOB_INFO, "Creating directory for tournament data.");
   if (!nob_mkdir_if_not_exists("tournament")) {
     nob_log(NOB_ERROR, "Failed creating tournament directory.");
-    exit(1);
+    return false;
   }
 
   FILE *tournament_data_file = fopen("tournament/tournament.txt", "w");
   if (!tournament_data_file) {
     perror("Failed opening tournament file.");
-    exit(1);
+    return false;
   }
-
-  TournametData tournament = {0};
 
   unsigned match_count = players.count * (players.count - 1) / 2;
   // Could be nob_nprocs()-1 because we use the current thread to manage it all,
@@ -230,7 +232,7 @@ TournametData RunTournament(const char *map_file_path, PlayerDA players) {
       .players = players,
       .file_write_mtx = &file_write_mtx,
       .map_file_path = map_file_path,
-      .tournament_data = &tournament,
+      .tournament_data = tournament,
       .tournament_data_mtx = &tournament_data_mtx,
       .tournament_data_file = tournament_data_file,
   };
@@ -256,7 +258,7 @@ TournametData RunTournament(const char *map_file_path, PlayerDA players) {
   mtx_destroy(&tournament_data_mtx);
   mtx_destroy(&idx_mtx);
 
-  return tournament;
+  return true;
 }
 
 static void RunBotCycle(GameState *state, PlayerDA players,

@@ -34,7 +34,8 @@ int main(int argc, char *argv[]) {
 
     fclose(save_file);
   } else if (exit_code == 0 && configs.mode == MODE_TOURNAMENT) {
-    TournametData tournament = RunTournament(configs.map_file, configs.players);
+    TournametData tournament = {0};
+    RunTournament(&tournament, configs.map_file, configs.players);
     FreeInnerTournametData(tournament);
   } else if (exit_code == 0 && configs.mode == MODE_SINGLE_MATCH) {
     GameState state = {0};
