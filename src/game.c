@@ -85,30 +85,27 @@ bool ParseMapFile(unsigned *owner_count, GameState *state,
   return true;
 }
 
-GameState MakeGame(const char *map_file_path, unsigned player_count) {
-  GameState state = {0};
-
+bool MakeGame(GameState *state, const char *map_file_path,
+              unsigned player_count) {
   // ----- MAP -----
   nob_log(NOB_INFO, "Loading map file from %s.", map_file_path);
   unsigned owner_count = 0;
-  if(!ParseMapFile(&owner_count, &state, map_file_path)) {
+  if (!ParseMapFile(&owner_count, state, map_file_path)) {
     nob_log(NOB_ERROR, "Failed parsing map file.");
-    exit(1);
+    return false;
   }
   if (owner_count != player_count) {
     nob_log(NOB_ERROR,
             "Provided map requires %u players, yet %u players were given as "
             "arguments.",
             owner_count, player_count);
-    // TODO: no need to exit here. return a bool, move the GameState to a
-    // pointer argument.
-    exit(1);
+    return false;
   }
 
-  state.remaining_players = player_count;
-  state.player_count = player_count;
+  state->remaining_players = player_count;
+  state->player_count = player_count;
 
-  return state;
+  return true;
 }
 
 void DisqualifyPlayer(GameState *state, unsigned player_idx) {

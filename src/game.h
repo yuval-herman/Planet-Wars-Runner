@@ -6,7 +6,8 @@
 
 #include <stdint.h>
 
-// TODO defined in two places, here and in bot.h. Please work on your architecture!
+// TODO defined in two places, here and in bot.h. Please work on your
+// architecture!
 #define MESSAGE_DELIMETER "go" NOB_LINE_END
 
 typedef uint32_t PlayerBitset;
@@ -22,7 +23,8 @@ DefineComplexStruct(GameState, {
   unsigned turn;
 });
 
-GameState MakeGame(const char *map_file_path, unsigned player_count);
+bool MakeGame(GameState *state, const char *map_file_path,
+              unsigned player_count);
 
 // Get map representation for a specific player. Each player should see itself
 // as player 1 according to the protocol. This function takes care of that. If

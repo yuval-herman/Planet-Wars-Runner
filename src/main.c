@@ -37,22 +37,25 @@ int main(int argc, char *argv[]) {
     TournametData tournament = RunTournament(configs.map_file, configs.players);
     FreeInnerTournametData(tournament);
   } else if (exit_code == 0 && configs.mode == MODE_SINGLE_MATCH) {
-    GameState state = MakeGame(configs.map_file, configs.players.count);
-
+    GameState state = {0};
     GameLog game_log = {0};
-    if (!RunMatch(&game_log, &state, configs.players)) {
-      nob_log(NOB_ERROR, "Failed running match.");
-      exit_code = 1;
-    }
-    if (configs.write_save) {
-      FILE *file = fopen("game.plws", "wb");
-      WriteGameLogToFile(file, game_log);
-      fclose(file);
-    }
+    if (MakeGame(&state, configs.map_file, configs.players.count)) {
+      if (!RunMatch(&game_log, &state, configs.players)) {
+        nob_log(NOB_ERROR, "Failed running match.");
+        exit_code = 1;
+      }
+      if (configs.write_save) {
+        FILE *file = fopen("game.plws", "wb");
+        WriteGameLogToFile(file, game_log);
+        fclose(file);
+      }
 
 #ifndef HEADLESS_MODE
-    RunViewerForGame(game_log);
+      RunViewerForGame(game_log);
 #endif // HEADLESS_MODE
+    } else {
+      exit_code = 1;
+    }
 
     FreeInnerGameState(state);
     FreeInnerGameLog(game_log);
