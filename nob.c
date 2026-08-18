@@ -53,10 +53,10 @@ bool compile_raylib() {
     nob_cmd_append(&cmd, "-O2");
 
 #if defined(__clang__)
-    nob_cmd_append(&cmd, "-flto=auto");
+    nob_cmd_append(&cmd, "-flto");
     nob_cmd_append(&cmd, "-fuse-ld=lld");
 #elif !defined(_WIN32)
-    nob_cmd_append(&cmd, "-flto=auto");
+    nob_cmd_append(&cmd, "-flto");
 #endif
 
     nob_cmd_append(&cmd, "-Iexternal/raylib");
@@ -167,10 +167,10 @@ void AddCompileModeFlags(Nob_Cmd *cmd, bool headless, bool debug,
     nob_cmd_append(cmd, "-g", "-O2", "-fno-omit-frame-pointer");
   } else {
 #if defined(__clang__)
-    nob_cmd_append(cmd, "-flto=auto");
+    nob_cmd_append(cmd, "-flto");
     nob_cmd_append(cmd, "-fuse-ld=lld");
 #elif !defined(_WIN32)
-    nob_cmd_append(cmd, "-flto=auto");
+    nob_cmd_append(cmd, "-flto");
 #endif
     nob_cmd_append(cmd, "-O2");
   }
