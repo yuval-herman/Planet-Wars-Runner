@@ -25,12 +25,15 @@ int main(int argc, char *argv[]) {
     GameLog game_log = {0};
     FILE *save_file = fopen(configs.save_file, "rb");
     if (!save_file) {
-      nob_log(NOB_ERROR, "Failed opening save file \"%s\": %s",
+      nob_log(NOB_ERROR, "Failed opening save file \"%s\": %s.",
               configs.save_file, strerror(errno));
       exit_code = 1;
     } else {
-      ReadGameLogFromFile(save_file, &game_log);
-      RunViewerForGame(game_log);
+      if (!ReadGameLogFromFile(save_file, &game_log)) {
+        nob_log(NOB_ERROR, "Failed reading \"%s\".", configs.save_file);
+      } else {
+        RunViewerForGame(game_log);
+      }
       FreeInnerGameLog(game_log);
       fclose(save_file);
     }

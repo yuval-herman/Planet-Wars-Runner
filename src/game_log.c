@@ -39,7 +39,7 @@ static bool InitCompressedWriter(CompressedWriter *cw, FILE *file) {
   return true;
 }
 
-static void FlushDeflateBuffer(CompressedWriter *cw, int flush) {
+static bool FlushDeflateBuffer(CompressedWriter *cw, int flush) {
   cw->stream.next_in = cw->in_buf;
   while (1) {
     cw->stream.next_out = cw->out_buf;
@@ -48,14 +48,14 @@ static void FlushDeflateBuffer(CompressedWriter *cw, int flush) {
     int status = mz_deflate(&cw->stream, flush);
     if (status != MZ_OK && status != MZ_STREAM_END && status != MZ_BUF_ERROR) {
       nob_log(NOB_ERROR, "deflate() failed with status %d.", status);
-      exit(1);
+      return false;
     }
 
     size_t produced = COMPRESSESOR_BUF_SIZE - cw->stream.avail_out;
     if (produced > 0) {
       if (fwrite(cw->out_buf, 1, produced, cw->file) != produced) {
         nob_log(NOB_ERROR, "Failed writing to save file.");
-        exit(1);
+        return false;
       }
     }
 
@@ -69,14 +69,17 @@ static void FlushDeflateBuffer(CompressedWriter *cw, int flush) {
   }
   cw->stream.avail_in = 0;
   cw->stream.next_in = cw->in_buf;
+  return true;
 }
 
-static void WriteCompressed(CompressedWriter *cw, const void *data,
+static bool WriteCompressed(CompressedWriter *cw, const void *data,
                             size_t size) {
   const unsigned char *src = (const unsigned char *)data;
   while (size > 0) {
     if (cw->stream.avail_in == COMPRESSESOR_BUF_SIZE) {
-      FlushDeflateBuffer(cw, MZ_NO_FLUSH);
+      if (!FlushDeflateBuffer(cw, MZ_NO_FLUSH)) {
+        return false;
+      }
     }
     size_t to_copy = COMPRESSESOR_BUF_SIZE - cw->stream.avail_in;
     if (to_copy > size)
@@ -86,14 +89,16 @@ static void WriteCompressed(CompressedWriter *cw, const void *data,
     src += to_copy;
     size -= to_copy;
   }
+  return true;
 }
 
-static void FinishCompressedWriter(CompressedWriter *cw) {
-  FlushDeflateBuffer(cw, MZ_FINISH);
+static bool FinishCompressedWriter(CompressedWriter *cw) {
+  bool ok = FlushDeflateBuffer(cw, MZ_FINISH);
   if (mz_deflateEnd(&cw->stream) != MZ_OK) {
     nob_log(NOB_ERROR, "deflateEnd() failed.");
-    exit(1);
+    return false;
   }
+  return ok;
 }
 
 // ============================================================================
@@ -170,17 +175,23 @@ static bool ReadCompressed(CompressedReader *cr, void *dest, size_t size) {
 // Main Serialization Functions
 // ============================================================================
 
-void WriteGameLogToFile(FILE *file, GameLog game_log) {
+bool WriteGameLogToFile(FILE *file, GameLog game_log) {
   // 1. Write uncompressed header (Magic & Version)
-  fwrite(magic, 1, sizeof(magic), file);
+  if (fwrite(magic, 1, sizeof(magic), file) != sizeof(magic)) {
+    nob_log(NOB_ERROR, "Failed to write magic header.");
+    return false;
+  }
   uint16_t version_net = htons((uint16_t)version);
-  fwrite(&version_net, sizeof(version_net), 1, file);
+  if (fwrite(&version_net, sizeof(version_net), 1, file) != 1) {
+    nob_log(NOB_ERROR, "Failed to write version.");
+    return false;
+  }
 
   // 2. Initialize compressed stream writer
   CompressedWriter cw;
   if (!InitCompressedWriter(&cw, file)) {
     nob_log(NOB_ERROR, "deflateInit() failed!\n");
-    exit(1);
+    return false;
   }
 
   union {
@@ -191,16 +202,25 @@ void WriteGameLogToFile(FILE *file, GameLog game_log) {
   uint32_t wrt_32;
 
 #define WRITE(var) WriteCompressed(&cw, &(var), sizeof(var))
-#define WRITE_8(var) WRITE(var)
+#define WRITE_ERROR_CHK(cond)                                                  \
+  do {                                                                         \
+    if (!(cond)) {                                                             \
+      nob_log(NOB_ERROR, "Writing error while writing to plws file.");         \
+      mz_deflateEnd(&cw.stream);                                               \
+      return false;                                                            \
+    }                                                                          \
+  } while (0)
+
+#define WRITE_8(var) WRITE_ERROR_CHK(WRITE(var))
 #define WRITE_16(var)                                                          \
   do {                                                                         \
     wrt_16 = htons((uint16_t)(var));                                           \
-    WRITE(wrt_16);                                                             \
+    WRITE_ERROR_CHK(WRITE(wrt_16));                                            \
   } while (0)
 #define WRITE_32(var)                                                          \
   do {                                                                         \
     wrt_32 = htonl((uint32_t)(var));                                           \
-    WRITE(wrt_32);                                                             \
+    WRITE_ERROR_CHK(WRITE(wrt_32));                                            \
   } while (0)
 #define WRITE_float(var)                                                       \
   do {                                                                         \
@@ -247,13 +267,18 @@ void WriteGameLogToFile(FILE *file, GameLog game_log) {
     }
   }
 
-  FinishCompressedWriter(&cw);
+  if (!FinishCompressedWriter(&cw)) {
+    return false;
+  }
 
 #undef WRITE_float
 #undef WRITE_32
 #undef WRITE_16
 #undef WRITE_8
+#undef WRITE_ERROR_CHK
 #undef WRITE
+
+  return true;
 }
 
 bool ReadGameLogFromFile(FILE *file, GameLog *game_log) {
