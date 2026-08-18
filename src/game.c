@@ -29,18 +29,17 @@ void FreeInnerGameState(GameState state) {
 
 // Parse map file, saving the map into the game state and returning the amount
 // of different planet owners it has
-unsigned ParseMapFile(GameState *state, const char *map_path) {
+bool ParseMapFile(unsigned *owner_count, GameState *state,
+                  const char *map_path) {
   FILE *map_file = fopen(map_path, "r");
   if (!map_file) {
     perror("Failed loading map file");
-    // TODO: shouldn't exit here, or at all in this function. It should return a
-    // bool and move the amount of planets to a pointer argument
-    exit(1);
+    return false;
   }
 
   char buf[256];
   unsigned file_line = 0;
-  int bot_count = 0;
+  *owner_count = 0;
   state->player_bit_set = 0;
 
   while (fgets(buf, sizeof buf, map_file)) {
@@ -50,7 +49,7 @@ unsigned ParseMapFile(GameState *state, const char *map_path) {
       nob_log(NOB_ERROR,
               "Map file contains lines longer then 256 characters and "
               "cannot be read.");
-      exit(1);
+      return false;
     }
 
     if (buf[0] != 'P')
@@ -60,19 +59,19 @@ unsigned ParseMapFile(GameState *state, const char *map_path) {
     if (!ParsePlanetLine(buf, buf_len, &planet)) {
       nob_log(NOB_ERROR, "Invalid map file.\nSyntax error at line %u.",
               file_line);
-      exit(1);
+      return false;
     }
     if (planet.owner > MAX_PLAYER_AMOUNT) {
       nob_log(NOB_ERROR,
               "Map containes more owners then the max bot count. Encountered "
               "in line: %u\nOwner found: %d\nMax bot count: %d",
               file_line, planet.owner, MAX_PLAYER_AMOUNT);
-      exit(1);
+      return false;
     }
 
     if (planet.owner != 0 &&
         !TestBit(state->player_bit_set, planet.owner - 1)) {
-      bot_count++;
+      (*owner_count)++;
       SetBit(state->player_bit_set, planet.owner - 1);
     }
 
@@ -83,7 +82,7 @@ unsigned ParseMapFile(GameState *state, const char *map_path) {
   }
 
   fclose(map_file);
-  return bot_count;
+  return true;
 }
 
 GameState MakeGame(const char *map_file_path, unsigned player_count) {
@@ -91,7 +90,11 @@ GameState MakeGame(const char *map_file_path, unsigned player_count) {
 
   // ----- MAP -----
   nob_log(NOB_INFO, "Loading map file from %s.", map_file_path);
-  unsigned owner_count = ParseMapFile(&state, map_file_path);
+  unsigned owner_count = 0;
+  if(!ParseMapFile(&owner_count, &state, map_file_path)) {
+    nob_log(NOB_ERROR, "Failed parsing map file.");
+    exit(1);
+  }
   if (owner_count != player_count) {
     nob_log(NOB_ERROR,
             "Provided map requires %u players, yet %u players were given as "
