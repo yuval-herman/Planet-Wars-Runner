@@ -375,7 +375,33 @@ static bool compile_and_run_tests(Nob_Cmd *cmd,
 // Entry point
 // ---------------------------------------------------------------------------
 
+static void color_log_handler(Nob_Log_Level level, const char *fmt, va_list args)
+{
+    switch (level) {
+    case NOB_DEBUG:
+        fprintf(stderr, "[DEBUG] ");
+        break;
+    case NOB_INFO:
+        fprintf(stderr, "\x1b[36m[INFO]\x1b[0m ");
+        break;
+    case NOB_WARNING:
+        fprintf(stderr, "\x1b[33m[WARNING]\x1b[0m ");
+        break;
+    case NOB_ERROR:
+        fprintf(stderr, "\x1b[31m[ERROR]\x1b[0m ");
+        break;
+    case NOB_NO_LOGS: return;
+    default:
+        NOB_UNREACHABLE("Nob_Log_Level");
+    }
+
+    vfprintf(stderr, fmt, args);
+    fprintf(stderr, "\n");
+}
+
 int main(int argc, char **argv) {
+  nob_set_log_handler(color_log_handler);
+
   NOB_GO_REBUILD_URSELF(argc, argv);
 
   const bool *debug_flag =
