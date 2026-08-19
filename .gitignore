@@ -12,3 +12,4 @@
 /.cache
 /compile_commands.json
 /prev-comp.txt
+/tests.log
