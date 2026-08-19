@@ -211,15 +211,13 @@ static bool should_recompile_all(bool headless, bool debug, bool profile) {
   Nob_String_Builder curr = {0};
   bool ret = false;
 
-  if (!nob_file_exists(flag_file_path))
+  if (!nob_file_exists(flag_file_path) || !nob_read_entire_file(flag_file_path, &prev)) {
     ret = true;
-  if (!nob_read_entire_file(flag_file_path, &prev))
-    ret = true;
+  } 
 
   nob_sb_appendf(&curr, "headless=%s\n", headless ? "true" : "false");
   nob_sb_appendf(&curr, "debug=%s\n",    debug    ? "true" : "false");
   nob_sb_appendf(&curr, "profile=%s\n",  profile  ? "true" : "false");
-  nob_sb_appendf(&curr, "test=%s\n",     "false"); // reserved for future use
 
   nob_write_entire_file(flag_file_path, curr.items, curr.count);
 
@@ -267,16 +265,18 @@ static bool compile_file(Nob_Cmd *cmd, Nob_Procs *procs,
   add_compile_mode_flags(cmd, debug, profile);
 
   // Append entry to the compilation database
-  fprintf(compile_commands_file,
-          "{\"directory\":\"%s\","
-          "\"file\":\"%s\","
-          "\"output\":\"%s\","
-          "\"arguments\":[",
-          nob_get_current_dir_temp(), file_path, output_path);
-  nob_da_foreach(const char *, arg, cmd) {
-    fprintf(compile_commands_file, "\"%s\",", *arg);
+  if (compile_commands_file) {
+    fprintf(compile_commands_file,
+            "{\"directory\":\"%s\","
+            "\"file\":\"%s\","
+            "\"output\":\"%s\","
+            "\"arguments\":[",
+            nob_get_current_dir_temp(), file_path, output_path);
+    nob_da_foreach(const char *, arg, cmd) {
+      fprintf(compile_commands_file, "\"%s\",", *arg);
+    }
+    fprintf(compile_commands_file, "]},");
   }
-  fprintf(compile_commands_file, "]},");
 
   const char *sources[] = {file_path, c_to_h(file_path)};
   unsigned source_count = NOB_ARRAY_LEN(sources);
@@ -302,7 +302,6 @@ static bool link_main_executable(Nob_Cmd *cmd,
                                   unsigned source_files_count,
                                   const char *headed_source_files[],
                                   unsigned headed_source_files_count,
-                                  FILE *compile_commands_file,
                                   bool headless, bool debug, bool profile) {
   nob_cc(cmd);
   for (unsigned i = 0; i < source_files_count; i++) {
@@ -328,8 +327,6 @@ static bool link_main_executable(Nob_Cmd *cmd,
   nob_cc_output(cmd, "planet_wars");
 #endif
 
-  fprintf(compile_commands_file, "]");
-  fclose(compile_commands_file);
   return nob_cmd_run(cmd);
 }
 
@@ -483,6 +480,12 @@ int main(int argc, char **argv) {
   if (!nob_procs_flush(&procs))
     return 1;
 
+  // Finalize and close the compilation database
+  if (compile_commands_file) {
+    fprintf(compile_commands_file, "]");
+    fclose(compile_commands_file);
+  }
+
   if (*test_flag) {
     if (!compile_and_run_tests(&cmd, source_files, NOB_ARRAY_LEN(source_files),
                                 *debug_flag, *profile_flag))
@@ -492,7 +495,6 @@ int main(int argc, char **argv) {
                                    source_files, NOB_ARRAY_LEN(source_files),
                                    headed_source_files,
                                    NOB_ARRAY_LEN(headed_source_files),
-                                   compile_commands_file,
                                    *headless_flag, *debug_flag, *profile_flag);
     print_banner(ok ? "COMPILATION FINISHED SUCCESSFULLY" : "COMPILATION FAILED");
     if (!ok) return 1;
