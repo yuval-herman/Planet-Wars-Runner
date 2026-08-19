@@ -310,31 +310,36 @@ typedef struct {
   bool debug;
   bool profile;
   bool *first_entry;
+  Nob_Cmd *cmd;
 } Test_Walker_Context;
 
 static bool append_test_file_walker(Nob_Walk_Entry entry) {
   Test_Walker_Context *ctx = entry.data;
   if (entry.type == NOB_FILE_REGULAR) {
-    size_t len = strlen(entry.path);
-    if (len > 2 && strcmp(entry.path + len - 2, ".c") == 0) {
-      Nob_Cmd cmd = {0};
-      create_test_compile_cmd(&cmd, entry.path, NULL, ctx->debug, ctx->profile);
-      append_compile_command(ctx->file, entry.path, NULL, &cmd, ctx->first_entry);
-      nob_cmd_free(cmd);
+    Nob_String_View sv = nob_sv_from_cstr(entry.path);
+    if (nob_sv_ends_with_cstr(sv, ".c") == 0) {
+      ctx->cmd->count = 0;
+      create_test_compile_cmd(ctx->cmd, entry.path, NULL, ctx->debug,
+                              ctx->profile);
+      append_compile_command(ctx->file, entry.path, NULL, ctx->cmd,
+                             ctx->first_entry);
     }
   }
   return true;
 }
 
-static void append_test_compile_commands(FILE *f, bool debug, bool profile,
-                                        bool *first_entry) {
+static void append_tests_compile_commands(FILE *f, bool debug, bool profile,
+                                          bool *first_entry) {
+  Nob_Cmd cmd = {0};
   Test_Walker_Context ctx = {
       .file = f,
       .debug = debug,
       .profile = profile,
       .first_entry = first_entry,
+      .cmd = &cmd,
   };
   nob_walk_dir("tests", append_test_file_walker, .data = &ctx);
+  cmd_free(cmd);
 }
 
 static bool compile_file(Nob_Cmd *cmd, Nob_Procs *procs, const char *file_path,
@@ -562,8 +567,8 @@ int main(int argc, char **argv) {
 
     create_compile_cmd(&cmd, file_path, output_path, *headless_flag,
                        *debug_flag, *profile_flag);
-    append_compile_command(compile_commands_file, file_path, output_path,
-                           &cmd, &first_compile_cmd);
+    append_compile_command(compile_commands_file, file_path, output_path, &cmd,
+                           &first_compile_cmd);
 
     if (!compile_file(&cmd, &procs, file_path, output_path, force_rebuild))
       return 1;
@@ -584,9 +589,10 @@ int main(int argc, char **argv) {
     }
   }
 
-  // Always register test files into the compilation database so editors/LSP work seamlessly
-  append_test_compile_commands(compile_commands_file, *debug_flag,
-                               *profile_flag, &first_compile_cmd);
+  // Always register test files into the compilation database so editors/LSP
+  // work seamlessly
+  append_tests_compile_commands(compile_commands_file, *debug_flag,
+                                *profile_flag, &first_compile_cmd);
 
   if (!nob_procs_flush(&procs))
     return 1;
