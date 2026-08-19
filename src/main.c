@@ -2,10 +2,16 @@
 #include "viewer.h"
 #endif // HEADLESS_MODE
 
+#if defined(HEADLESS_MODE)
+#define RAYMATH_IMPLEMENTATION
+#include "raymath.h"
+#endif // HEADLESS_MODE
+
 #include "configs.h"
 #include "game.h"
-#include "miniz.c"
 #include "runner.h"
+
+#include "miniz.c"
 
 #define NOB_IMPLEMENTATION
 #include "nob.h"
@@ -21,23 +27,7 @@ int main(int argc, char *argv[]) {
     exit_code = 1;
   }
 
-  if (exit_code == 0 && configs.mode == MODE_REPLAY) {
-    GameLog game_log = {0};
-    FILE *save_file = fopen(configs.save_file, "rb");
-    if (!save_file) {
-      nob_log(NOB_ERROR, "Failed opening save file \"%s\": %s.",
-              configs.save_file, strerror(errno));
-      exit_code = 1;
-    } else {
-      if (!ReadGameLogFromFile(save_file, &game_log)) {
-        nob_log(NOB_ERROR, "Failed reading \"%s\".", configs.save_file);
-      } else {
-        RunViewerForGame(game_log);
-      }
-      FreeInnerGameLog(game_log);
-      fclose(save_file);
-    }
-  } else if (exit_code == 0 && configs.mode == MODE_TOURNAMENT) {
+  if (exit_code == 0 && configs.mode == MODE_TOURNAMENT) {
     TournametData tournament = {0};
     RunTournament(&tournament, configs.map_file, configs.players);
     FreeInnerTournametData(tournament);
@@ -65,6 +55,25 @@ int main(int argc, char *argv[]) {
     FreeInnerGameState(state);
     FreeInnerGameLog(game_log);
   }
+#ifndef HEADLESS_MODE
+  else if (exit_code == 0 && configs.mode == MODE_REPLAY) {
+    GameLog game_log = {0};
+    FILE *save_file = fopen(configs.save_file, "rb");
+    if (!save_file) {
+      nob_log(NOB_ERROR, "Failed opening save file \"%s\": %s.",
+              configs.save_file, strerror(errno));
+      exit_code = 1;
+    } else {
+      if (!ReadGameLogFromFile(save_file, &game_log)) {
+        nob_log(NOB_ERROR, "Failed reading \"%s\".", configs.save_file);
+      } else {
+        RunViewerForGame(game_log);
+      }
+      FreeInnerGameLog(game_log);
+      fclose(save_file);
+    }
+  }
+#endif // HEADLESS_MODE
   FreeConfigs(configs);
   return 0;
 }

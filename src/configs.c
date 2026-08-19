@@ -209,10 +209,12 @@ bool ParseConfigsFromCLI(Configs *configs, int argc, char *argv[]) {
   if (map_file) {
     configs->map_file = DupeString(map_file);
   }
+#ifndef HEADLESS_MODE
   if (save_file) {
     free(configs->save_file);
     configs->save_file = DupeString(save_file);
   }
+#endif // HEADLESS_MODE
 
   if (bot_names.count != bot_commands.count) {
     nob_log(NOB_ERROR,
