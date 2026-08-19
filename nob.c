@@ -10,10 +10,10 @@
 #define BUILD_DIR "build"
 #ifdef _WIN32
 #define RAYLIB_LIB BUILD_DIR "/libraylib.lib"
-#define PATH_SEP   "\\"
+#define PATH_SEP "\\"
 #else
 #define RAYLIB_LIB BUILD_DIR "/libraylib.a"
-#define PATH_SEP   "/"
+#define PATH_SEP "/"
 #endif
 
 /**
@@ -166,8 +166,8 @@ static bool embed_files_walker(Nob_Walk_Entry entry) {
     // Strip file extension
     sv = nob_sv_chop_by_delim(&sv, '.');
 
-    fprintf(shaders_file, "const char %.*s_shader_source[] = ",
-            (int)sv.count, sv.data);
+    fprintf(shaders_file, "const char %.*s_shader_source[] = ", (int)sv.count,
+            sv.data);
 
     sv.data = sb.items;
     sv.count = sb.count;
@@ -209,19 +209,22 @@ static bool should_recompile_all(bool headless, bool debug, bool profile) {
   Nob_String_Builder curr = {0};
   bool ret = false;
 
-  if (!nob_file_exists(flag_file_path) || !nob_read_entire_file(flag_file_path, &prev)) {
+  if (!nob_file_exists(flag_file_path) ||
+      !nob_read_entire_file(flag_file_path, &prev)) {
     ret = true;
-  } 
+  }
 
   nob_sb_appendf(&curr, "headless=%s\n", headless ? "true" : "false");
-  nob_sb_appendf(&curr, "debug=%s\n",    debug    ? "true" : "false");
-  nob_sb_appendf(&curr, "profile=%s\n",  profile  ? "true" : "false");
+  nob_sb_appendf(&curr, "debug=%s\n", debug ? "true" : "false");
+  nob_sb_appendf(&curr, "profile=%s\n", profile ? "true" : "false");
 
   nob_write_entire_file(flag_file_path, curr.items, curr.count);
 
   // ret == true means recompilation IS required; equal flags → no recompile
-  if (!ret) ret = prev.count != curr.count;
-  if (!ret) ret = 0 != memcmp(prev.items, curr.items, prev.count);
+  if (!ret)
+    ret = prev.count != curr.count;
+  if (!ret)
+    ret = 0 != memcmp(prev.items, curr.items, prev.count);
 
   nob_sb_free(curr);
   nob_sb_free(prev);
@@ -229,10 +232,9 @@ static bool should_recompile_all(bool headless, bool debug, bool profile) {
 }
 
 static bool compile_file(Nob_Cmd *cmd, Nob_Procs *procs,
-                          FILE *compile_commands_file,
-                          const char *file_path,
-                          bool headless, bool debug, bool profile,
-                          bool force_recompile) {
+                         FILE *compile_commands_file, const char *file_path,
+                         bool headless, bool debug, bool profile,
+                         bool force_recompile) {
   const char *output_path = c_to_o_path(file_path);
 
   nob_cc(cmd);
@@ -282,7 +284,8 @@ static bool compile_file(Nob_Cmd *cmd, Nob_Procs *procs,
   if (!nob_file_exists(sources[1]))
     source_count--;
 
-  if (force_recompile || nob_needs_rebuild(output_path, sources, source_count)) {
+  if (force_recompile ||
+      nob_needs_rebuild(output_path, sources, source_count)) {
     return nob_cmd_run(cmd, .async = procs);
   } else {
     nob_log(NOB_INFO, "Skipped building %s", file_path);
@@ -295,12 +298,11 @@ static bool compile_file(Nob_Cmd *cmd, Nob_Procs *procs,
 // Link steps
 // ---------------------------------------------------------------------------
 
-static bool link_main_executable(Nob_Cmd *cmd,
-                                  const char *source_files[],
-                                  unsigned source_files_count,
-                                  const char *headed_source_files[],
-                                  unsigned headed_source_files_count,
-                                  bool headless, bool debug, bool profile) {
+static bool link_main_executable(Nob_Cmd *cmd, const char *source_files[],
+                                 unsigned source_files_count,
+                                 const char *headed_source_files[],
+                                 unsigned headed_source_files_count,
+                                 bool headless, bool debug, bool profile) {
   nob_cc(cmd);
   for (unsigned i = 0; i < source_files_count; i++) {
     nob_cmd_append(cmd, c_to_o_path(source_files[i]));
@@ -328,10 +330,9 @@ static bool link_main_executable(Nob_Cmd *cmd,
   return nob_cmd_run(cmd);
 }
 
-static bool compile_and_run_tests(Nob_Cmd *cmd,
-                                   const char *source_files[],
-                                   unsigned source_files_count,
-                                   bool debug, bool profile) {
+static bool compile_and_run_tests(Nob_Cmd *cmd, const char *source_files[],
+                                  unsigned source_files_count, bool debug,
+                                  bool profile) {
   nob_cc(cmd);
   nob_cc_flags(cmd);
   nob_cc_inputs(cmd, "tests/test-runner.c");
@@ -375,28 +376,29 @@ static bool compile_and_run_tests(Nob_Cmd *cmd,
 // Entry point
 // ---------------------------------------------------------------------------
 
-static void color_log_handler(Nob_Log_Level level, const char *fmt, va_list args)
-{
-    switch (level) {
-    case NOB_DEBUG:
-        fprintf(stderr, "[DEBUG] ");
-        break;
-    case NOB_INFO:
-        fprintf(stderr, "\x1b[36m[INFO]\x1b[0m ");
-        break;
-    case NOB_WARNING:
-        fprintf(stderr, "\x1b[33m[WARNING]\x1b[0m ");
-        break;
-    case NOB_ERROR:
-        fprintf(stderr, "\x1b[31m[ERROR]\x1b[0m ");
-        break;
-    case NOB_NO_LOGS: return;
-    default:
-        NOB_UNREACHABLE("Nob_Log_Level");
-    }
+static void color_log_handler(Nob_Log_Level level, const char *fmt,
+                              va_list args) {
+  switch (level) {
+  case NOB_DEBUG:
+    fprintf(stderr, "[DEBUG] ");
+    break;
+  case NOB_INFO:
+    fprintf(stderr, "\x1b[36m[INFO]\x1b[0m ");
+    break;
+  case NOB_WARNING:
+    fprintf(stderr, "\x1b[33m[WARNING]\x1b[0m ");
+    break;
+  case NOB_ERROR:
+    fprintf(stderr, "\x1b[31m[ERROR]\x1b[0m ");
+    break;
+  case NOB_NO_LOGS:
+    return;
+  default:
+    NOB_UNREACHABLE("Nob_Log_Level");
+  }
 
-    vfprintf(stderr, fmt, args);
-    fprintf(stderr, "\n");
+  vfprintf(stderr, fmt, args);
+  fprintf(stderr, "\n");
 }
 
 int main(int argc, char **argv) {
@@ -494,15 +496,16 @@ int main(int argc, char **argv) {
 
   for (unsigned i = 0; i < NOB_ARRAY_LEN(source_files); i++) {
     if (!compile_file(&cmd, &procs, compile_commands_file, source_files[i],
-                      *headless_flag, *debug_flag, *profile_flag, force_rebuild))
+                      *headless_flag, *debug_flag, *profile_flag,
+                      force_rebuild))
       return 1;
   }
 
   if (!*headless_flag) {
     for (unsigned i = 0; i < NOB_ARRAY_LEN(headed_source_files); i++) {
       if (!compile_file(&cmd, &procs, compile_commands_file,
-                         headed_source_files[i], *headless_flag, *debug_flag,
-                         *profile_flag, force_rebuild))
+                        headed_source_files[i], *headless_flag, *debug_flag,
+                        *profile_flag, force_rebuild))
         return 1;
     }
   }
@@ -518,16 +521,17 @@ int main(int argc, char **argv) {
 
   if (*test_flag) {
     if (!compile_and_run_tests(&cmd, source_files, NOB_ARRAY_LEN(source_files),
-                                *debug_flag, *profile_flag))
+                               *debug_flag, *profile_flag))
       return 1;
   } else {
-    bool ok = link_main_executable(&cmd,
-                                   source_files, NOB_ARRAY_LEN(source_files),
-                                   headed_source_files,
-                                   NOB_ARRAY_LEN(headed_source_files),
-                                   *headless_flag, *debug_flag, *profile_flag);
-    print_banner(ok ? "COMPILATION FINISHED SUCCESSFULLY" : "COMPILATION FAILED");
-    if (!ok) return 1;
+    bool ok = link_main_executable(
+        &cmd, source_files, NOB_ARRAY_LEN(source_files), headed_source_files,
+        NOB_ARRAY_LEN(headed_source_files), *headless_flag, *debug_flag,
+        *profile_flag);
+    print_banner(ok ? "COMPILATION FINISHED SUCCESSFULLY"
+                    : "COMPILATION FAILED");
+    if (!ok)
+      return 1;
   }
 
   return 0;
