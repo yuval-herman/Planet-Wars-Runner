@@ -1,34 +1,35 @@
-#include "test-utils.h"
 #include "game.h"
+
+#include "test-utils.h"
+
 #include <cmocka.h>
 
-/* A test case that does nothing and succeeds. */
-static void null_test_success(void **state) { (void)state; }
-
 static int setup(void **state) {
-  int *answer = malloc(sizeof(int));
+  GameState *game_state = calloc(1, sizeof(GameState));
 
-  assert_non_null(answer);
-  *answer = 42;
+  assert_non_null(game_state);
 
-  *state = answer;
+  assert_true(MakeGame(game_state, "../maps/default_map.txt", 2));
+
+  *state = game_state;
 
   return 0;
 }
 
 static int teardown(void **state) {
-  free(*state);
+  GameState *game_state = *state;
+  FreeInnerGameState(*game_state);
+  free(game_state);
 
   return 0;
 }
 
 /* A test case that does check if an int is equal. */
 static void int_test_success(void **state) {
-  int *answer = *state;
+  GameState *game_state = *state;
 
-  assert_int_equal(*answer, 42);
+  assert_int_equal(game_state->turn, 0);
 }
 
-DEFINE_TESTS(game, cmocka_unit_test(null_test_success),
-             cmocka_unit_test_setup_teardown(int_test_success, setup,
-                                             teardown), )
+DEFINE_TESTS(game,
+             cmocka_unit_test_setup_teardown(int_test_success, setup, teardown))

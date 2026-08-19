@@ -33,7 +33,8 @@ bool ParseMapFile(unsigned *owner_count, GameState *state,
                   const char *map_path) {
   FILE *map_file = fopen(map_path, "r");
   if (!map_file) {
-    perror("Failed loading map file");
+    nob_log(NOB_ERROR, "Failed loading map file \"%s\": %s", map_path,
+            strerror(errno));
     return false;
   }
 
