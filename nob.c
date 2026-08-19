@@ -278,6 +278,41 @@ bool ShouldRecompileAll(bool headless, bool debug, bool profile) {
   return ret;
 }
 
+bool CompileMainExecutable(Nob_Cmd *cmd, const char *source_files[],
+                           unsigned source_files_count,
+                           const char *headed_source_files[],
+                           unsigned headed_source_files_count,
+                           FILE *compile_commands_file, bool headless,
+                           bool debug, bool profile) {
+  nob_cc(cmd);
+  for (unsigned i = 0; i < source_files_count; i++) {
+    nob_cmd_append(cmd, c_to_o_path(source_files[i]));
+  }
+
+  if (!headless) {
+    for (unsigned i = 0; i < headed_source_files_count; i++) {
+      nob_cmd_append(cmd, c_to_o_path(headed_source_files[i]));
+    }
+    nob_cmd_append(cmd, RAYLIB_LIB);
+  }
+
+  AddCompileModeFlags(cmd, headless, debug, profile);
+
+#if !defined(_WIN32) || defined(__GNUC__)
+  nob_cmd_append(cmd, "-lm");
+#endif
+
+#ifdef _WIN32
+  nob_cc_output(cmd, "planet_wars.exe");
+#else
+  nob_cc_output(cmd, "planet_wars");
+#endif // _WIN32
+
+  fprintf(compile_commands_file, "]");
+  fclose(compile_commands_file);
+  return nob_cmd_run(cmd);
+}
+
 int main(int argc, char **argv) {
   NOB_GO_REBUILD_URSELF(argc, argv);
 
@@ -303,6 +338,12 @@ int main(int argc, char **argv) {
       "Force recompilation of project file, even if they are unchanged. This "
       "does not force recompilation of library files, if you want to recompile "
       "everything completely, simply delete the build directory.");
+
+  const bool *test_flag = flag_bool(
+      "test", false,
+      "Run project tests. This compiles the test programs, does not "
+      "recompile the entire project. Unless you know what you doing, "
+      "it's best to run this together with the -force and -debug flags.");
 
   const bool *help_flag = flag_bool("help", false, "Show help.");
   if (!flag_parse(argc, argv)) {
@@ -345,9 +386,9 @@ int main(int argc, char **argv) {
 
   Nob_Cmd cmd = {0};
   Nob_Procs procs = {0};
-  const char *source_files[] = {"src/main.c",    "src/game.c", "src/runner.c",
-                                "src/configs.c", "src/bot.c",  "src/player.c",
-                                "src/utils.c", "src/game_log.c"};
+  const char *source_files[] = {
+      "src/main.c", "src/game.c",   "src/runner.c", "src/configs.c",
+      "src/bot.c",  "src/player.c", "src/utils.c",  "src/game_log.c"};
   const char *headed_source_files[] = {"src/viewer.c"};
 
   for (unsigned i = 0; i < NOB_ARRAY_LEN(source_files); i++) {
@@ -367,34 +408,41 @@ int main(int argc, char **argv) {
   if (!nob_procs_flush(&procs))
     return 1;
 
-  nob_cc(&cmd);
-  for (unsigned i = 0; i < NOB_ARRAY_LEN(source_files); i++) {
-    nob_cmd_append(&cmd, c_to_o_path(source_files[i]));
-  }
-
-  if (!*headless_flag) {
-    for (unsigned i = 0; i < NOB_ARRAY_LEN(headed_source_files); i++) {
-      nob_cmd_append(&cmd, c_to_o_path(headed_source_files[i]));
-    }
-    nob_cmd_append(&cmd, RAYLIB_LIB);
-  }
-
-  AddCompileModeFlags(&cmd, *headless_flag, *debug_flag, *profile_flag);
-
-#if !defined(_WIN32) || defined(__GNUC__)
-  nob_cmd_append(&cmd, "-lm");
-#endif
-
+  if (*test_flag) {
+    nob_cc(&cmd);
+    nob_cc_flags(&cmd);
+    AddCompileModeFlags(&cmd, *headless_flag, *debug_flag, *profile_flag);
+    nob_cmd_append(&cmd, "-lcmocka");
+    nob_cc_inputs(&cmd, "tests/test.c");
 #ifdef _WIN32
-  nob_cc_output(&cmd, "planet_wars.exe");
+    nob_cc_output(&cmd, BUILD_DIR PATH_SEPERATOR "test.exe");
 #else
-  nob_cc_output(&cmd, "planet_wars");
+    nob_cc_output(&cmd, BUILD_DIR PATH_SEPERATOR "test");
 #endif // _WIN32
+    if (!nob_cmd_run(&cmd)) {
+      nob_log(NOB_ERROR, "Failed to compile tests.");
+      return 1;
+    }
+    printf("=============== STARTING TESTS ===============\n");
+#ifdef _WIN32
+    nob_cmd_append(&cmd, ".\\build\\test");
+#else
+    nob_cmd_append(&cmd, "./build/test");
+#endif // _WIN32
+    nob_cmd_run(&cmd);
+  } else {
+    if (CompileMainExecutable(&cmd, source_files, NOB_ARRAY_LEN(source_files),
+                              headed_source_files,
+                              NOB_ARRAY_LEN(headed_source_files),
+                              compile_commands_file, *headless_flag,
+                              *debug_flag, *profile_flag)) {
+      printf("=============== COMPILATION FINISHED SUCCESSFULLY "
+             "===============\n");
+    } else {
+      printf("=============== COMPILATION FAILED ===============\n");
+      return 1;
+    }
+  }
 
-  fprintf(compile_commands_file, "]");
-  fclose(compile_commands_file);
-  if (!nob_cmd_run(&cmd))
-    return 1;
-  printf("=============== COMPILATION FINISHED SUCCESSFULLY ===============\n");
   return 0;
 }
