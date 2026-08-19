@@ -76,16 +76,30 @@ command = ./best_bot
 * Raylib dependencies. Make sure to read raylibs compilation page before this.
   If you don't want to compile raylib from scratch, you can also download a raylib release from [here](https://github.com/raysan5/raylib/releases) and place the `libraylib.a`(Linux) or `libraylib.lib`(windows) file inside the `build` folder.
 
+### Building
+
 The project uses `nob.c` to compile dependencies, including Raylib, alongside the main target automatically.
 
 1. Bootstrap the build system and compile the project:
-```bash
+```shell
 gcc -o nob nob.c
 ./nob
 ```
 
 2. Subsequent builds:
 The build script supports auto-rebuilding via `NOB_GO_REBUILD_URSELF`. Execute `./nob` whenever modifications are made to `nob.c` or project source files.
+
+The compiled nob file has some flags to change functionallity, you can inspect them by passinh `-help`.
+
+### Running tests
+
+We use cmocka for testing. You can compile the program and use it without the tests, but you need to install cmocka if you want to contribute to this project. You can find instructions on how to install cmocka [on the cmocka repository](https://gitlab.com/cmocka/cmocka).
+
+After installing cmocka and compiling nob, you can run tests by running this command:
+
+```shell
+./nob -test -debug -force
+```
 
 ## License
 
