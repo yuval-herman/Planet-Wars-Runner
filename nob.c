@@ -176,6 +176,14 @@ void AddCompileModeFlags(Nob_Cmd *cmd, bool headless, bool debug,
   }
 }
 
+void AddIncludePath(Nob_Cmd *cmd) {
+  nob_cmd_append(cmd, "-isystemexternal/raylib");
+  nob_cmd_append(cmd, "-isystemexternal/inih");
+  nob_cmd_append(cmd, "-isystemexternal/miniz");
+  nob_cmd_append(cmd, "-isystemexternal");
+  nob_cmd_append(cmd, "-isystem.");
+}
+
 bool CompileFile(Nob_Cmd *cmd, Nob_Procs *procs, FILE *compile_commands_file,
                  const char *file_path, bool headless, bool debug, bool profile,
                  bool force_recompile) {
@@ -193,11 +201,7 @@ bool CompileFile(Nob_Cmd *cmd, Nob_Procs *procs, FILE *compile_commands_file,
   if (headless)
     nob_cmd_append(cmd, "-DHEADLESS_MODE");
 
-  nob_cmd_append(cmd, "-isystemexternal/raylib");
-  nob_cmd_append(cmd, "-isystemexternal/inih");
-  nob_cmd_append(cmd, "-isystemexternal/miniz");
-  nob_cmd_append(cmd, "-isystemexternal");
-  nob_cmd_append(cmd, "-isystem.");
+  AddIncludePath(cmd);
 
   nob_cmd_append(cmd, "-std=gnu11");
 
@@ -327,7 +331,7 @@ int main(int argc, char **argv) {
                 "but leaves optimizations on, as well as setting other flags "
                 "to help clean profiling.");
 
-  const bool *headless_flag =
+  bool *headless_flag =
       flag_bool("headless", false,
                 "Enable headless mode compilation. This compiles the "
                 "executable without raylib and without UI support at all. This "
@@ -358,6 +362,10 @@ int main(int argc, char **argv) {
     nob_log(NOB_ERROR, "Debug and profile flags are mutually exclusive. You "
                        "may specify only one.");
     return 1;
+  }
+  if (*test_flag && !*headless_flag) {
+    nob_log(NOB_WARNING, "Compiling tests automatically uses headless mode.");
+    *headless_flag = true;
   }
 
   // function comes first because we want it to run every time, even if force
@@ -411,9 +419,21 @@ int main(int argc, char **argv) {
   if (*test_flag) {
     nob_cc(&cmd);
     nob_cc_flags(&cmd);
+    nob_cc_inputs(&cmd, "tests/test-runner.c");
     AddCompileModeFlags(&cmd, *headless_flag, *debug_flag, *profile_flag);
+
+    // Skip first item because its the main file
+    for (unsigned i = 1; i < NOB_ARRAY_LEN(source_files); i++) {
+      nob_cmd_append(&cmd, c_to_o_path(source_files[i]));
+    }
+    AddIncludePath(&cmd);
+    nob_cmd_append(&cmd, "-Isrc");
     nob_cmd_append(&cmd, "-lcmocka");
-    nob_cc_inputs(&cmd, "tests/test.c");
+
+#if !defined(_WIN32) || defined(__GNUC__)
+    nob_cmd_append(&cmd, "-lm");
+#endif
+
 #ifdef _WIN32
     nob_cc_output(&cmd, BUILD_DIR PATH_SEPERATOR "test.exe");
 #else
