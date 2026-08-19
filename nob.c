@@ -231,16 +231,15 @@ static bool should_recompile_all(bool headless, bool debug, bool profile) {
   return ret;
 }
 
-static bool compile_file(Nob_Cmd *cmd, Nob_Procs *procs,
-                         FILE *compile_commands_file, const char *file_path,
-                         bool headless, bool debug, bool profile,
-                         bool force_recompile) {
-  const char *output_path = c_to_o_path(file_path);
-
+static void create_compile_cmd(Nob_Cmd *cmd, const char *file_path,
+                               const char *output_path, bool headless,
+                               bool debug, bool profile) {
   nob_cc(cmd);
   nob_cmd_append(cmd, "-c");
   nob_cmd_append(cmd, "-Wall", "-Wextra", "-Wno-unused-function");
-  nob_cmd_append(cmd, "-o", output_path);
+  if (output_path) {
+    nob_cmd_append(cmd, "-o", output_path);
+  }
   nob_cmd_append(cmd, file_path);
 
   if (headless)
@@ -263,21 +262,83 @@ static bool compile_file(Nob_Cmd *cmd, Nob_Procs *procs,
   }
 
   add_compile_mode_flags(cmd, debug, profile);
+}
 
-  // Append entry to the compilation database
-  if (compile_commands_file) {
-    fprintf(compile_commands_file,
-            "{\"directory\":\"%s\","
-            "\"file\":\"%s\","
-            "\"output\":\"%s\","
-            "\"arguments\":[",
-            nob_get_current_dir_temp(), file_path, output_path);
-    nob_da_foreach(const char *, arg, cmd) {
-      fprintf(compile_commands_file, "\"%s\",", *arg);
-    }
-    fprintf(compile_commands_file, "]},");
+static void create_test_compile_cmd(Nob_Cmd *cmd, const char *file_path,
+                                    const char *output_path, bool debug,
+                                    bool profile) {
+  nob_cc(cmd);
+  nob_cmd_append(cmd, "-c");
+  nob_cmd_append(cmd, "-Wall", "-Wextra", "-Wno-unused-function");
+  if (output_path) {
+    nob_cmd_append(cmd, "-o", output_path);
   }
+  nob_cmd_append(cmd, file_path);
+  nob_cmd_append(cmd, "-DHEADLESS_MODE");
+  add_include_paths(cmd);
+  nob_cmd_append(cmd, "-Isrc");
+  nob_cmd_append(cmd, "-std=gnu11");
+  add_compile_mode_flags(cmd, debug, profile);
+}
 
+static void append_compile_command(FILE *f, const char *file_path,
+                                   const char *output_path, const Nob_Cmd *cmd,
+                                   bool *first_entry) {
+  if (!f)
+    return;
+
+  if (!*first_entry) {
+    fprintf(f, ",\n");
+  }
+  *first_entry = false;
+
+  fprintf(f, "  {\n");
+  fprintf(f, "    \"directory\": \"%s\",\n", nob_get_current_dir_temp());
+  fprintf(f, "    \"file\": \"%s\",\n", file_path);
+  if (output_path) {
+    fprintf(f, "    \"output\": \"%s\",\n", output_path);
+  }
+  fprintf(f, "    \"arguments\": [");
+  for (size_t i = 0; i < cmd->count; ++i) {
+    fprintf(f, "%s\"%s\"", (i > 0 ? ", " : ""), cmd->items[i]);
+  }
+  fprintf(f, "]\n  }");
+}
+
+typedef struct {
+  FILE *file;
+  bool debug;
+  bool profile;
+  bool *first_entry;
+} Test_Walker_Context;
+
+static bool append_test_file_walker(Nob_Walk_Entry entry) {
+  Test_Walker_Context *ctx = entry.data;
+  if (entry.type == NOB_FILE_REGULAR) {
+    size_t len = strlen(entry.path);
+    if (len > 2 && strcmp(entry.path + len - 2, ".c") == 0) {
+      Nob_Cmd cmd = {0};
+      create_test_compile_cmd(&cmd, entry.path, NULL, ctx->debug, ctx->profile);
+      append_compile_command(ctx->file, entry.path, NULL, &cmd, ctx->first_entry);
+      nob_cmd_free(cmd);
+    }
+  }
+  return true;
+}
+
+static void append_test_compile_commands(FILE *f, bool debug, bool profile,
+                                        bool *first_entry) {
+  Test_Walker_Context ctx = {
+      .file = f,
+      .debug = debug,
+      .profile = profile,
+      .first_entry = first_entry,
+  };
+  nob_walk_dir("tests", append_test_file_walker, .data = &ctx);
+}
+
+static bool compile_file(Nob_Cmd *cmd, Nob_Procs *procs, const char *file_path,
+                         const char *output_path, bool force_recompile) {
   const char *sources[] = {file_path, c_to_h(file_path)};
   unsigned source_count = NOB_ARRAY_LEN(sources);
   // Don't include the .h if it doesn't exist when checking rebuild need
@@ -344,7 +405,7 @@ static bool compile_and_run_tests(Nob_Cmd *cmd, const char *source_files[],
   }
 
   add_include_paths(cmd);
-  nob_cmd_append(cmd, "-Isrc");
+  nob_cmd_append(cmd, "-Isrc", "-Itests");
   nob_cmd_append(cmd, "-lcmocka");
 
 #if !defined(_WIN32) || defined(__GNUC__)
@@ -471,11 +532,12 @@ int main(int argc, char **argv) {
       *force_flag;
 
   FILE *compile_commands_file = fopen("compile_commands.json", "w");
+  bool first_compile_cmd = true;
   if (!compile_commands_file) {
     nob_log(NOB_WARNING, "Failed creating compile_commands.json: %s",
             strerror(errno));
   } else {
-    fprintf(compile_commands_file, "[");
+    fprintf(compile_commands_file, "[\n");
   }
 
   embed_shaders();
@@ -495,27 +557,43 @@ int main(int argc, char **argv) {
   const char *headed_source_files[] = {"src/viewer.c"};
 
   for (unsigned i = 0; i < NOB_ARRAY_LEN(source_files); i++) {
-    if (!compile_file(&cmd, &procs, compile_commands_file, source_files[i],
-                      *headless_flag, *debug_flag, *profile_flag,
-                      force_rebuild))
+    const char *file_path = source_files[i];
+    const char *output_path = c_to_o_path(file_path);
+
+    create_compile_cmd(&cmd, file_path, output_path, *headless_flag,
+                       *debug_flag, *profile_flag);
+    append_compile_command(compile_commands_file, file_path, output_path,
+                           &cmd, &first_compile_cmd);
+
+    if (!compile_file(&cmd, &procs, file_path, output_path, force_rebuild))
       return 1;
   }
 
   if (!*headless_flag) {
     for (unsigned i = 0; i < NOB_ARRAY_LEN(headed_source_files); i++) {
-      if (!compile_file(&cmd, &procs, compile_commands_file,
-                        headed_source_files[i], *headless_flag, *debug_flag,
-                        *profile_flag, force_rebuild))
+      const char *file_path = headed_source_files[i];
+      const char *output_path = c_to_o_path(file_path);
+
+      create_compile_cmd(&cmd, file_path, output_path, *headless_flag,
+                         *debug_flag, *profile_flag);
+      append_compile_command(compile_commands_file, file_path, output_path,
+                             &cmd, &first_compile_cmd);
+
+      if (!compile_file(&cmd, &procs, file_path, output_path, force_rebuild))
         return 1;
     }
   }
+
+  // Always register test files into the compilation database so editors/LSP work seamlessly
+  append_test_compile_commands(compile_commands_file, *debug_flag,
+                               *profile_flag, &first_compile_cmd);
 
   if (!nob_procs_flush(&procs))
     return 1;
 
   // Finalize and close the compilation database
   if (compile_commands_file) {
-    fprintf(compile_commands_file, "]");
+    fprintf(compile_commands_file, "\n]\n");
     fclose(compile_commands_file);
   }
 
