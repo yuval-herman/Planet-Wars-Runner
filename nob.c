@@ -50,11 +50,9 @@ static char *c_to_h(const char *source_file_path) {
 
 static void add_compile_mode_flags(Nob_Cmd *cmd, bool debug, bool profile) {
   if (debug) {
-    nob_log(NOB_WARNING, "Compiling program in debug mode");
     nob_cmd_append(cmd, "-fsanitize=address,undefined", "-g", "-O0",
                    "-fno-omit-frame-pointer");
   } else if (profile) {
-    nob_log(NOB_WARNING, "Compiling program in profiling mode");
     nob_cmd_append(cmd, "-g", "-O2", "-fno-omit-frame-pointer");
   } else {
 #if defined(__clang__)
@@ -430,6 +428,12 @@ int main(int argc, char **argv) {
   if (*test_flag && !*headless_flag) {
     nob_log(NOB_WARNING, "Compiling tests automatically uses headless mode.");
     *headless_flag = true;
+  }
+
+  if (*debug_flag) {
+    nob_log(NOB_WARNING, "Compiling program in debug mode");
+  } else if (*profile_flag) {
+    nob_log(NOB_WARNING, "Compiling program in profiling mode");
   }
 
   // should_recompile_all() must run before the force flag is OR-ed in, because
