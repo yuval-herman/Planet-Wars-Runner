@@ -50,7 +50,8 @@ static char *c_to_h(const char *source_file_path) {
 
 static void add_compile_mode_flags(Nob_Cmd *cmd, bool debug, bool profile) {
   if (debug) {
-    nob_cmd_append(cmd, "-fsanitize=address,undefined", "-g", "-O0",
+    nob_cmd_append(cmd, "-fsanitize=address,undefined",
+                   "-fno-sanitize-recover=undefined", "-g", "-O0",
                    "-fno-omit-frame-pointer", "-fno-lto");
   } else if (profile) {
     nob_cmd_append(cmd, "-g", "-O2", "-fno-omit-frame-pointer");
