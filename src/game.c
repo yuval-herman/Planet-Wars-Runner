@@ -336,6 +336,9 @@ void AdvanceTurn(GameState *state) {
     }
   }
 
+  if (state->fleets.count == 0)
+    return;
+
   qsort(state->fleets.items, state->fleets.count,
         sizeof(state->fleets.items[0]), cmp_fleet_owner_remaining);
 
