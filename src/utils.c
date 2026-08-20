@@ -111,3 +111,56 @@ int ParseBool(const char *str) {
 
   return -1;
 }
+
+bool ReadEntireFile(FILE *file, size_t max_size, char **data, size_t *length) {
+  char *buffer = NULL;
+  size_t file_size;
+  size_t bytes_read;
+
+#ifdef _WIN32
+  struct _stat64 info;
+#else
+  struct stat info;
+#endif
+
+  if (file == NULL || data == NULL || length == NULL) {
+    return false;
+  }
+
+  *data = NULL;
+  *length = 0;
+
+#ifdef _WIN32
+  if (_fstat64(_fileno(file), &info) != 0) {
+#else
+  if (fstat(fileno(file), &info) != 0) {
+#endif
+    return false;
+  }
+
+  if (info.st_size < 0 || (uintmax_t)info.st_size > max_size) {
+    return false;
+  }
+
+  // The physical size is an upper bound for the text-mode result
+  // on Linux and Windows. Add one byte for the terminating '\0'.
+  file_size = (size_t)info.st_size;
+
+  buffer = malloc(file_size + 1);
+  if (buffer == NULL) {
+    return false;
+  }
+
+  bytes_read = fread(buffer, 1, file_size, file);
+
+  if (ferror(file)) {
+    free(buffer);
+    return false;
+  }
+
+  buffer[bytes_read] = '\0';
+
+  *data = buffer;
+  *length = bytes_read;
+  return true;
+}

@@ -3,7 +3,6 @@
 
 #include "nob.h"
 
-
 // ----- MACROS -----
 
 #if defined(_MSC_VER)
@@ -61,6 +60,16 @@ static FORCEINLINE int bit_index(uint32_t x) {
 
 void sleep_ns(uint64_t ns);
 void sleep_ms(unsigned ms);
+
+// Reads the entire file, supports text mode.
+// If the file is bigger then `max_size` nothing is read and en error is
+// returned.
+//
+// The returned buffer is NUL-terminated.
+// Caller must free(*data).
+//
+// Returns true on success, false on failure.
+bool ReadEntireFile(FILE *file, size_t max_size, char **data, size_t *length);
 
 // A version of `SplitStringByDelim` that accepts a Nob_Cmd pointer. If you
 // already used one and it has memory this can save allocations and time.

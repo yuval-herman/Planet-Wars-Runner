@@ -36,26 +36,37 @@ bool ParseMapFile(unsigned *owner_count, GameState *state,
     return false;
   }
 
-  char buf[256];
+  char *data;
+  size_t length;
+  if (!ReadEntireFile(map_file, MAX_MAP_FILE_SIZE, &data, &length)) {
+    nob_log(NOB_ERROR,
+            "Failed loading map file \"%s\"\n Perhapas the map file is bigger "
+            "then the max map size allowed?. Max map file size allowed is %u",
+            map_path, MAX_MAP_FILE_SIZE);
+    return false;
+  }
+
+  bool parsing_result = ParseMapBuffer(owner_count, state, data, length);
+  free(data);
+  return parsing_result;
+}
+
+bool ParseMapBuffer(unsigned *owner_count, GameState *state,
+                    const char *map_buffer, unsigned buffer_length) {
+  Nob_String_View content = nob_sv_from_parts(map_buffer, buffer_length);
   unsigned file_line = 0;
   *owner_count = 0;
   state->player_bit_set = 0;
 
-  while (fgets(buf, sizeof buf, map_file)) {
+  while (content.count > 0) {
     file_line += 1;
-    const unsigned buf_len = strlen(buf);
-    if (buf_len == sizeof(buf) - 1 && buf[buf_len - 1] != '\n') {
-      nob_log(NOB_ERROR,
-              "Map file contains lines longer then 256 characters and "
-              "cannot be read.");
-      return false;
-    }
+    Nob_String_View line = nob_sv_trim(nob_sv_chop_by_delim(&content, '\n'));
 
-    if (buf[0] != 'P')
+    if (line.count == 0 || line.data[0] != 'P')
       continue;
 
     Planet planet;
-    if (!ParsePlanetLine(buf, buf_len, &planet)) {
+    if (!ParsePlanetLine(line.data, line.count, &planet)) {
       nob_log(NOB_ERROR, "Invalid map file.\nSyntax error at line %u.",
               file_line);
       return false;
@@ -80,7 +91,6 @@ bool ParseMapFile(unsigned *owner_count, GameState *state,
     nob_da_append(&state->planets, planet);
   }
 
-  fclose(map_file);
   return true;
 }
 

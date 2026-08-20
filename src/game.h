@@ -10,6 +10,10 @@
 // architecture!
 #define MESSAGE_DELIMETER "go" NOB_LINE_END
 
+// Arbitrary limitation on map sizes. This is so we won't crash on malicious map
+// files.
+#define MAX_MAP_FILE_SIZE 10000U
+
 typedef uint32_t PlayerBitset;
 _Static_assert(MAX_PLAYER_AMOUNT <= sizeof(PlayerBitset) * CHAR_BIT,
                "PlayerBitset is not wide enough to hold max amount of players");
@@ -29,9 +33,14 @@ bool MakeGame(GameState *state, const char *map_file_path,
               unsigned player_count);
 
 // Parse map file, saving the map into the game state and returning the amount
-// of different planet owners it has
+// of different planet owners it has.
 bool ParseMapFile(unsigned *owner_count, GameState *state,
                   const char *map_path);
+
+// Parse map file, saving the map into the game state and returning the amount
+// of different planet owners it has.
+bool ParseMapBuffer(unsigned *owner_count, GameState *state,
+                    const char *map_buffer, unsigned buffer_length);
 
 // Get map representation for a specific player. Each player should see itself
 // as player 1 according to the protocol. This function takes care of that. If
