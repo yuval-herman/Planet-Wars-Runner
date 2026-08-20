@@ -9,8 +9,7 @@
 #include <stdint.h>
 #include <stdio.h>
 
-
-#define MAX_BOT_AMOUNT 32
+#define MAX_PLAYER_AMOUNT 32
 
 // TODO Add verification when accepting data, like parsing maps, that all values
 // are within the limits we use here. For example allowing up to 255 turns for a
@@ -18,8 +17,8 @@
 typedef struct {
   Vector2 coords;
   // Used to save time on printing data that does not change
-  // TODO investigate whether 20 is always enough
-  char print_prefix[20];
+  // TODO investigate whether 64 is always enough
+  char print_prefix[64];
   uint8_t owner;
   uint8_t growth;
   uint16_t ships;
@@ -87,14 +86,20 @@ static bool ParsePlanetLine(const char *line, unsigned line_len,
   ParseUint(ships);
   ParseUint(growth);
 
+  if (s_idx != e_idx && *s_idx != '\0' && *s_idx != '\n') {
+    fprintf(stderr, "Planet line must terminate with a NULL, newline, or on "
+                    "the last parsed number.");
+    return false;
+  }
+
 #undef ParseFloat
 #undef ParseUint
 
-  if (owner > MAX_BOT_AMOUNT) {
+  if (owner > MAX_PLAYER_AMOUNT) {
     fprintf(stderr,
             "Invalid number of player owned planets. There must be "
             "between 1 to %d players.\n",
-            MAX_BOT_AMOUNT);
+            MAX_PLAYER_AMOUNT);
     return false;
   }
 

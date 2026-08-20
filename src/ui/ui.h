@@ -3,7 +3,7 @@
 
 #include "raylib.h"
 
-#include "../game.h"
+#include "../game_log.h"
 
 enum Screens {
   SCREEN_NULL, // Starting empty screen

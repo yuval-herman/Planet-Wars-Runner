@@ -5,66 +5,68 @@
 #include "utils.h"
 
 #include <stdint.h>
-#include <stdio.h>
 
-#define LOG_FILE "log.txt"
-// Time in nanoseconds, currently set to 100ms
-#define MAX_BOT_RESPONSE_TIME (1000 * 1000 * 100)
-// How much time to sleep between checks on bots responses in nanoseconds,
-// currently set to 100 microseconds
-#define WAIT_SLEEP_TIME (1000 * 100)
-// A string used to denote the end of a message by the bots and engine
+// TODO defined in two places, here and in bot.h. Please work on your
+// architecture!
 #define MESSAGE_DELIMETER "go" NOB_LINE_END
 
-typedef uint32_t BotBitset;
-_Static_assert(MAX_BOT_AMOUNT <= sizeof(BotBitset) * CHAR_BIT,
-               "BotBitset is not wide enough to hold max amount of bots");
+// Arbitrary limitation on map sizes. This is so we won't crash on malicious map
+// files.
+#define MAX_MAP_FILE_SIZE 10000U
 
-DefineComplexStruct(LogEntry, {
-  Fleet *fleets;
-  Planet *planets;
-  unsigned planet_count;
-  unsigned fleet_count;
-  unsigned remaining_bots;
-});
-
-DefineComplexStruct(Bot, {
-  char *name;
-  char *start_command;
-  struct subprocess_s *process;
-});
-
-DefineComplexStruct(BotsDA, {
-  Bot *items;
-  unsigned count;
-  unsigned capacity;
-});
-
-DefineComplexStruct(GameLog, {
-  LogEntry *items;
-  BotsDA bots;
-  unsigned count;
-  unsigned capacity;
-  uint8_t winning_bot;
-  bool draw; // If no one won (a draw) this will be set true
-});
+typedef uint32_t PlayerBitset;
+_Static_assert(MAX_PLAYER_AMOUNT <= sizeof(PlayerBitset) * CHAR_BIT,
+               "PlayerBitset is not wide enough to hold max amount of players");
 
 DefineComplexStruct(GameState, {
-  GameLog game_log;
   PlanetDA planets;
   FleetsDA fleets;
-  BotsDA bots;
-  FILE *log_file;
-  BotBitset bot_bit_set;
-  unsigned remaining_bots;
-  unsigned turn;
+  PlayerBitset player_bit_set;
+  unsigned player_count; // The starting amount of players
+  unsigned remaining_players;
 });
 
-GameState MakeGame(const char *map_file_path, BotsDA bots, bool log);
-void StopBot(Bot bot);
-void StartBot(Bot bot);
-void RunGame(GameState *state);
-void WriteGameLogToFile(FILE *file, GameLog game_log);
-bool ReadGameLogFromFile(FILE *file, GameLog *game_log);
+// Make game is essentially a safe wrapper around `ParseMapFile`. It adds a few
+// extra checks like verifying the number of players is correct.
+bool MakeGame(GameState *state, const char *map_file_path,
+              unsigned player_count);
+
+// Parse map file, saving the map into the game state and returning the amount
+// of different planet owners it has.
+bool ParseMapFile(unsigned *owner_count, GameState *state,
+                  const char *map_path);
+
+// Parse map file, saving the map into the game state and returning the amount
+// of different planet owners it has.
+bool ParseMapBuffer(unsigned *owner_count, GameState *state,
+                    const char *map_buffer, unsigned buffer_length);
+
+// Get map representation for a specific player. Each player should see itself
+// as player 1 according to the protocol. This function takes care of that. If
+// `player_idx` is 0 the real map is returned with no modification.
+void GetMapRepresentation(GameState *state, Nob_String_Builder *sb,
+                          unsigned player_idx);
+
+// Return true if the player can play this actions. Return false in case the
+// player has bean disqualified for attempting an invalid action.
+bool SendPlayerShips(GameState *state, unsigned player_idx, uint16_t src_id,
+                     uint16_t dst_id, uint16_t ships);
+
+// Play player actions from string. Parses the string and calls
+// `SendPlayerShips`.
+bool SendPlayerShipsStr(GameState *state, unsigned player_idx,
+                        Nob_String_View order_sv);
+
+// Runs one game turn using the planets and fleets saved.
+// Appends an entry to the game log.
+void AdvanceTurn(GameState *state);
+
+void DisqualifyPlayer(GameState *state, unsigned player_idx);
+
+// Whether the player is still in the game, or has been defeated or
+// disqualified.
+static FORCEINLINE bool IsPlayerAlive(GameState *state, unsigned player_idx) {
+  return TestBit(state->player_bit_set, player_idx);
+}
 
 #endif // GAME_H
