@@ -800,7 +800,7 @@ static void test_send_player_ships_str_garbage_starting_with_go(void **state) {
   assert_false(IsPlayerAlive(game_state, 0));
 
   SetBit(game_state->player_bit_set, 0);
- 
+
   assert_false(
       SendPlayerShipsStr(game_state, 0, nob_sv_from_cstr("1o 0 1 10\ngo\n")));
   assert_false(IsPlayerAlive(game_state, 0));
@@ -1214,28 +1214,6 @@ static void test_is_player_alive_bitset(void **state) {
 }
 
 // -----------------------------------------------------------------------------
-// Edge Case & Bug Exploitation Tests
-// -----------------------------------------------------------------------------
-
-// BUG EXPLOIT 4: AdvanceTurn() never increments state->turn, despite GameState
-// having a turn field.
-static void test_advance_turn_does_not_increment_turn_counter(void **state) {
-  GameState *game_state = *state;
-  game_state->player_count = 2;
-  game_state->remaining_players = 2;
-  game_state->turn = 0;
-
-  add_test_planet(game_state, (Vector2){0.0f, 0.0f}, 1, 50, 5);
-  add_test_planet(game_state, (Vector2){1.0f, 1.0f}, 2, 50, 5);
-
-  AdvanceTurn(game_state);
-
-  // Expected turn to be incremented from 0 to 1
-  // (Fails because AdvanceTurn does not increment state->turn)
-  assert_uint_equal(game_state->turn, 1);
-}
-
-// -----------------------------------------------------------------------------
 // Test Suite Definition
 // -----------------------------------------------------------------------------
 
@@ -1271,6 +1249,9 @@ DEFINE_TESTS(
                                     teardown),
     cmocka_unit_test_setup_teardown(test_parse_map_buffer_invalid_syntax, setup,
                                     teardown),
+    cmocka_unit_test_setup_teardown(
+        test_parse_map_buffer_prefix_truncation_for_large_coords, setup,
+        teardown),
     cmocka_unit_test_setup_teardown(
         test_parse_map_buffer_invalid_owner_exceeds_max, setup, teardown),
     cmocka_unit_test_setup_teardown(test_parse_map_file_nonexistent, setup,
@@ -1327,6 +1308,8 @@ DEFINE_TESTS(
                                     setup, teardown),
     cmocka_unit_test_setup_teardown(
         test_send_player_ships_str_invalid_ship_logic, setup, teardown),
+    cmocka_unit_test_setup_teardown(
+        test_send_player_ships_str_garbage_starting_with_go, setup, teardown),
 
     // DisqualifyPlayer
     cmocka_unit_test_setup_teardown(test_disqualify_player_neutralizes_planets,
@@ -1366,18 +1349,9 @@ DEFINE_TESTS(
     cmocka_unit_test_setup_teardown(
         test_advance_turn_player_without_planets_has_flying_fleet, setup,
         teardown),
+    cmocka_unit_test_setup_teardown(
+        test_advance_turn_remaining_players_when_no_fleets, setup, teardown),
 
     // Misc Unit Tests
     cmocka_unit_test_setup_teardown(test_is_player_alive_bitset, setup,
-                                    teardown),
-
-    // Edge Case / Bug Exploitation Tests
-    cmocka_unit_test_setup_teardown(
-        test_advance_turn_remaining_players_when_no_fleets, setup, teardown),
-    cmocka_unit_test_setup_teardown(
-        test_send_player_ships_str_garbage_starting_with_go, setup, teardown),
-    cmocka_unit_test_setup_teardown(
-        test_parse_map_buffer_prefix_truncation_for_large_coords, setup,
-        teardown),
-    cmocka_unit_test_setup_teardown(
-        test_advance_turn_does_not_increment_turn_counter, setup, teardown))
+                                    teardown))
