@@ -23,8 +23,15 @@ DefineComplexStruct(GameState, {
   unsigned turn;
 });
 
+// Make game is essentially a safe wrapper around `ParseMapFile`. It adds a few
+// extra checks like verifying the number of players is correct.
 bool MakeGame(GameState *state, const char *map_file_path,
               unsigned player_count);
+
+// Parse map file, saving the map into the game state and returning the amount
+// of different planet owners it has
+bool ParseMapFile(unsigned *owner_count, GameState *state,
+                  const char *map_path);
 
 // Get map representation for a specific player. Each player should see itself
 // as player 1 according to the protocol. This function takes care of that. If
