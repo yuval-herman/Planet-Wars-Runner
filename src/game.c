@@ -256,13 +256,8 @@ bool SendPlayerShips(GameState *state, unsigned player_idx, uint16_t src_id,
 
 bool SendPlayerShipsStr(GameState *state, unsigned player_idx,
                         Nob_String_View order_sv) {
-  if (order_sv.count < 2 ||
-      (order_sv.data[0] == 'g' && order_sv.data[1] == 'o')) {
-    return true;
-  }
-
-  while (order_sv.count > 1 && order_sv.data[0] != 'g' &&
-         order_sv.data[1] != 'o') {
+  while (order_sv.count > 1 &&
+         !(order_sv.data[0] == 'g' && order_sv.data[1] == 'o')) {
     nob_log(NOB_DEBUG, "parsing bot %u fleets", player_idx);
     unsigned parsed_uint;
     uint16_t src_id, dst_id, ships;

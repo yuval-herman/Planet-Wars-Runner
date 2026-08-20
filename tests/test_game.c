@@ -1184,23 +1184,21 @@ static void test_is_player_alive_bitset(void **state) {
 // Edge Case & Bug Exploitation Tests
 // -----------------------------------------------------------------------------
 
-// BUG EXPLOIT 2: In SendPlayerShipsStr(), the condition
-// (order_sv.data[0] != 'g' && order_sv.data[1] != 'o') prematurely stops
-// parsing if any character starts with 'g' (e.g. invalid command "g 0 1
-// 10\ngo\n") or contains 'o' as the second character (e.g. "1o 2 3"), without
-// flagging an error or executing.
-static void test_send_player_ships_str_garbage_starting_with_g(void **state) {
+static void test_send_player_ships_str_garbage_starting_with_go(void **state) {
   GameState *game_state = *state;
   game_state->player_count = 2;
   game_state->remaining_players = 2;
 
   add_test_planet(game_state, (Vector2){0.0f, 0.0f}, 1, 50, 5);
   add_test_planet(game_state, (Vector2){1.0f, 1.0f}, 2, 30, 5);
+  assert_true(IsPlayerAlive(game_state, 0));
 
-  // Invalid command "g 0 1 10\ngo\n" should fail and disqualify the bot
-  // (Fails because SendPlayerShipsStr exits while loop and returns true)
   assert_false(
       SendPlayerShipsStr(game_state, 0, nob_sv_from_cstr("g 0 1 10\ngo\n")));
+  assert_false(IsPlayerAlive(game_state, 0));
+
+  SetBit(game_state->player_bit_set, 0);
+ 
   assert_false(
       SendPlayerShipsStr(game_state, 0, nob_sv_from_cstr("1o 0 1 10\ngo\n")));
   assert_false(IsPlayerAlive(game_state, 0));
@@ -1384,7 +1382,7 @@ DEFINE_TESTS(
     cmocka_unit_test_setup_teardown(
         test_advance_turn_remaining_players_when_no_fleets, setup, teardown),
     cmocka_unit_test_setup_teardown(
-        test_send_player_ships_str_garbage_starting_with_g, setup, teardown),
+        test_send_player_ships_str_garbage_starting_with_go, setup, teardown),
     cmocka_unit_test_setup_teardown(
         test_parse_map_buffer_prefix_truncation_for_large_coords, setup,
         teardown),
