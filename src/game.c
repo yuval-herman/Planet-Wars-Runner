@@ -27,8 +27,6 @@ void FreeInnerGameState(GameState state) {
   nob_da_free(state.fleets);
 }
 
-// Parse map file, saving the map into the game state and returning the amount
-// of different planet owners it has
 bool ParseMapFile(unsigned *owner_count, GameState *state,
                   const char *map_path) {
   FILE *map_file = fopen(map_path, "r");
