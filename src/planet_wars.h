@@ -17,8 +17,8 @@
 typedef struct {
   Vector2 coords;
   // Used to save time on printing data that does not change
-  // TODO investigate whether 20 is always enough
-  char print_prefix[20];
+  // TODO investigate whether 64 is always enough
+  char print_prefix[64];
   uint8_t owner;
   uint8_t growth;
   uint16_t ships;

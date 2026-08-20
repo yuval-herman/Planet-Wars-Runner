@@ -272,6 +272,19 @@ static void test_parse_map_buffer_multiple_planets_same_owner(void **state) {
   assert_true(TestBit(game_state->player_bit_set, 1));
 }
 
+static void
+test_parse_map_buffer_prefix_truncation_for_large_coords(void **state) {
+  GameState *game_state = *state;
+  unsigned owner_count = 0;
+  const char map[] = "P 10.000000 10.000000 1 100 5\n";
+
+  assert_true(ParseMapBuffer(&owner_count, game_state, map, strlen(map)));
+  assert_uint_equal(game_state->planets.count, 1);
+
+  assert_string_equal(game_state->planets.items[0].print_prefix,
+                      "P 10.000000 10.000000");
+}
+
 static void test_parse_map_buffer_all_neutral(void **state) {
   GameState *game_state = *state;
   unsigned owner_count = 0;
@@ -773,6 +786,26 @@ static void test_send_player_ships_str_invalid_ship_logic(void **state) {
   assert_false(IsPlayerAlive(game_state, 0));
 }
 
+static void test_send_player_ships_str_garbage_starting_with_go(void **state) {
+  GameState *game_state = *state;
+  game_state->player_count = 2;
+  game_state->remaining_players = 2;
+
+  add_test_planet(game_state, (Vector2){0.0f, 0.0f}, 1, 50, 5);
+  add_test_planet(game_state, (Vector2){1.0f, 1.0f}, 2, 30, 5);
+  assert_true(IsPlayerAlive(game_state, 0));
+
+  assert_false(
+      SendPlayerShipsStr(game_state, 0, nob_sv_from_cstr("g 0 1 10\ngo\n")));
+  assert_false(IsPlayerAlive(game_state, 0));
+
+  SetBit(game_state->player_bit_set, 0);
+ 
+  assert_false(
+      SendPlayerShipsStr(game_state, 0, nob_sv_from_cstr("1o 0 1 10\ngo\n")));
+  assert_false(IsPlayerAlive(game_state, 0));
+}
+
 // -----------------------------------------------------------------------------
 // DisqualifyPlayer Tests
 // -----------------------------------------------------------------------------
@@ -1183,46 +1216,6 @@ static void test_is_player_alive_bitset(void **state) {
 // -----------------------------------------------------------------------------
 // Edge Case & Bug Exploitation Tests
 // -----------------------------------------------------------------------------
-
-static void test_send_player_ships_str_garbage_starting_with_go(void **state) {
-  GameState *game_state = *state;
-  game_state->player_count = 2;
-  game_state->remaining_players = 2;
-
-  add_test_planet(game_state, (Vector2){0.0f, 0.0f}, 1, 50, 5);
-  add_test_planet(game_state, (Vector2){1.0f, 1.0f}, 2, 30, 5);
-  assert_true(IsPlayerAlive(game_state, 0));
-
-  assert_false(
-      SendPlayerShipsStr(game_state, 0, nob_sv_from_cstr("g 0 1 10\ngo\n")));
-  assert_false(IsPlayerAlive(game_state, 0));
-
-  SetBit(game_state->player_bit_set, 0);
- 
-  assert_false(
-      SendPlayerShipsStr(game_state, 0, nob_sv_from_cstr("1o 0 1 10\ngo\n")));
-  assert_false(IsPlayerAlive(game_state, 0));
-}
-
-// BUG EXPLOIT 3: Planet.print_prefix in planet_wars.h is fixed size char[20].
-// In ParseMapBuffer, snprintf(planet.print_prefix, 20, "P %8.6f %8.6f", x, y)
-// truncates when coordinates have 2 or more integer digits (e.g. 10.0, 10.0 ->
-// 21 chars).
-static void
-test_parse_map_buffer_prefix_truncation_for_large_coords(void **state) {
-  GameState *game_state = *state;
-  unsigned owner_count = 0;
-  const char map[] = "P 10.000000 10.000000 1 100 5\n";
-
-  assert_true(ParseMapBuffer(&owner_count, game_state, map, strlen(map)));
-  assert_uint_equal(game_state->planets.count, 1);
-
-  // Expected full prefix without truncation: "P 10.000000 10.000000" (21 chars)
-  // (Fails because char print_prefix[20] truncates it to 19 chars:
-  // "P 10.000000 10.0000")
-  assert_string_equal(game_state->planets.items[0].print_prefix,
-                      "P 10.000000 10.000000");
-}
 
 // BUG EXPLOIT 4: AdvanceTurn() never increments state->turn, despite GameState
 // having a turn field.
