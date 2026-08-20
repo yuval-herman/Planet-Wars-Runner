@@ -24,7 +24,6 @@ DefineComplexStruct(GameState, {
   PlayerBitset player_bit_set;
   unsigned player_count; // The starting amount of players
   unsigned remaining_players;
-  unsigned turn;
 });
 
 // Make game is essentially a safe wrapper around `ParseMapFile`. It adds a few
