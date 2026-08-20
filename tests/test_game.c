@@ -4,12 +4,16 @@
 
 #include <cmocka.h>
 
+const char test_map_buffer[] = "P 11.6135908004 11.6587374197 0 119 0\n"
+                              "P 1.2902863101 9.04078582767 1 100 5\n"
+                              "P 21.9368952907 14.2766890117 2 100 5\n"
+                              "P 5.64835767563 18.2659924733 0 21 4\n"
+                              "P 17.5788239251 5.05148236609 0 21 4\n";
+
 static int setup(void **state) {
   GameState *game_state = calloc(1, sizeof(GameState));
 
   assert_non_null(game_state);
-
-  assert_true(MakeGame(game_state, "../maps/default_map.txt", 2));
 
   *state = game_state;
 
@@ -24,12 +28,16 @@ static int teardown(void **state) {
   return 0;
 }
 
-/* A test case that does check if an int is equal. */
-static void int_test_success(void **state) {
+static void test_run_game_no_instructions(void **state) {
   GameState *game_state = *state;
+  unsigned player_count;
 
-  assert_int_equal(game_state->turn, 0);
+  assert_true(ParseMapBuffer(&player_count, game_state, test_map_buffer,
+                             NOB_ARRAY_LEN(test_map_buffer)));
+
+  AdvanceTurn(game_state);
 }
 
 DEFINE_TESTS(game,
-             cmocka_unit_test_setup_teardown(int_test_success, setup, teardown))
+             cmocka_unit_test_setup_teardown(test_run_game_no_instructions,
+                                             setup, teardown))
