@@ -51,7 +51,7 @@ static char *c_to_h(const char *source_file_path) {
 static void add_compile_mode_flags(Nob_Cmd *cmd, bool debug, bool profile) {
   if (debug) {
     nob_cmd_append(cmd, "-fsanitize=address,undefined", "-g", "-O0",
-                   "-fno-omit-frame-pointer");
+                   "-fno-omit-frame-pointer", "-fno-lto");
   } else if (profile) {
     nob_cmd_append(cmd, "-g", "-O2", "-fno-omit-frame-pointer");
   } else {
@@ -62,6 +62,25 @@ static void add_compile_mode_flags(Nob_Cmd *cmd, bool debug, bool profile) {
 #endif
     nob_cmd_append(cmd, "-O2");
   }
+}
+
+static void add_linker_flags(Nob_Cmd *cmd, bool headless) {
+#ifdef _WIN32
+  nob_cmd_append(cmd, "-lws2_32");
+#endif
+
+  if (!headless) {
+#ifdef _WIN32
+    nob_cmd_append(cmd, "-lgdi32", "-lwinmm", "-lshcore", "-luser32",
+                   "-lshell32");
+#else
+    nob_cmd_append(cmd, "-lX11");
+#endif
+  }
+
+#if !defined(_WIN32) || defined(__GNUC__)
+  nob_cmd_append(cmd, "-lm");
+#endif
 }
 
 static void add_include_paths(Nob_Cmd *cmd) {
@@ -111,9 +130,9 @@ static bool compile_raylib(void) {
     nob_cmd_append(&cmd, "-O2");
 
 #if defined(__clang__)
-    nob_cmd_append(&cmd, "-flto", "-fuse-ld=lld");
+    nob_cmd_append(&cmd, "-flto", "-ffat-lto-objects", "-fuse-ld=lld");
 #elif !defined(_WIN32)
-    nob_cmd_append(&cmd, "-flto");
+    nob_cmd_append(&cmd, "-flto", "-ffat-lto-objects");
 #endif
 
     nob_cmd_append(&cmd, "-Iexternal/raylib");
@@ -248,18 +267,7 @@ static void create_compile_cmd(Nob_Cmd *cmd, const char *file_path,
   add_include_paths(cmd);
   nob_cmd_append(cmd, "-std=gnu11");
 
-#ifdef _WIN32
-  nob_cmd_append(cmd, "-lws2_32");
-#endif
-
-  if (!headless) {
-#ifdef _WIN32
-    nob_cmd_append(cmd, "-lgdi32", "-lwinmm", "-lshcore", "-luser32",
-                   "-lshell32");
-#else
-    nob_cmd_append(cmd, "-lX11");
-#endif
-  }
+  add_linker_flags(cmd, headless);
 
   add_compile_mode_flags(cmd, debug, profile);
 }
@@ -383,9 +391,7 @@ static bool link_main_executable(Nob_Cmd *cmd, const char *source_files[],
 
   add_compile_mode_flags(cmd, debug, profile);
 
-#if !defined(_WIN32) || defined(__GNUC__)
-  nob_cmd_append(cmd, "-lm");
-#endif
+  add_linker_flags(cmd, headless);
 
 #ifdef _WIN32
   nob_cc_output(cmd, "planet_wars.exe");
