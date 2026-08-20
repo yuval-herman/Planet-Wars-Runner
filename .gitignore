@@ -8,7 +8,8 @@
 /planet_wars.exe
 /config.ini
 /*.plws
-/src/shaders.c
 /.cache
 /compile_commands.json
 /prev-comp.txt
+/tests.log
+shaders.c

@@ -1,7 +1,7 @@
 #include "raylib.h"
 
+#include "nob.h"
 #include "shaders.c"
-
 #include "viewer.h"
 
 typedef struct {
@@ -41,8 +41,8 @@ Vector2 Game2ScreenCoords(Vector2 coords) {
 
 static inline Color GetOwnerColor(int owner) {
   return owner == 0 ? GRAY
-                    : ColorFromHSV((((owner - 1) * 7) % MAX_BOT_AMOUNT) *
-                                       360.0f / MAX_BOT_AMOUNT,
+                    : ColorFromHSV((((owner - 1) * 7) % MAX_PLAYER_AMOUNT) *
+                                       360.0f / MAX_PLAYER_AMOUNT,
                                    1.0f, 1.0f);
 }
 
@@ -231,7 +231,7 @@ void DrawControls(GameLog game_log, unsigned *turn) {
   text_measurements = MeasureTextEx(font, player_text, font_size, spacing);
   float total_labels_width = (text_measurements.x + indicator_size +
                               text_margin + margin_between_players) *
-                                 game_log.bots.count -
+                                 game_log.players.count -
                              margin_between_players;
 
   Rectangle color_indicator = {.x = (GetScreenWidth() - total_labels_width) / 2,
@@ -239,7 +239,7 @@ void DrawControls(GameLog game_log, unsigned *turn) {
                                .width = indicator_size,
                                .height = indicator_size};
 
-  for (unsigned i = 0; i < game_log.bots.count; i++) {
+  for (unsigned i = 0; i < game_log.players.count; i++) {
     Color player_color = GetOwnerColor(i + 1);
 
     DrawRectangleRec(color_indicator, player_color);
