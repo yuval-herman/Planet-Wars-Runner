@@ -452,7 +452,8 @@ static void test_get_map_representation_player_1_perspective(void **state) {
   GetMapRepresentation(game_state, &sb, 1);
   nob_sb_append_null(&sb);
 
-  // Player 1 (bot 2) must see itself (owner 2) as 1, and owner 1 as 2, neutral 0 as 0
+  // Player 1 (bot 2) must see itself (owner 2) as 1, and owner 1 as 2, neutral
+  // 0 as 0
   const char expected[] = "P 1.000000 1.000000 2 50 5\n"
                           "P 2.000000 2.000000 1 60 5\n"
                           "P 3.000000 3.000000 0 10 0\n"
@@ -542,7 +543,8 @@ static void test_send_player_ships_valid(void **state) {
 
   // Planet 0 owned by player 1 (player_idx 0) with 50 ships at (0, 0)
   add_test_planet(game_state, (Vector2){0.0f, 0.0f}, 1, 50, 5);
-  // Planet 1 owned by player 2 (player_idx 1) with 30 ships at (3, 4) -> distance 5.0
+  // Planet 1 owned by player 2 (player_idx 1) with 30 ships at (3, 4) ->
+  // distance 5.0
   add_test_planet(game_state, (Vector2){3.0f, 4.0f}, 2, 30, 5);
 
   assert_true(SendPlayerShips(game_state, 0, 0, 1, 20));
@@ -689,7 +691,8 @@ static void test_send_player_ships_str_single_order(void **state) {
   add_test_planet(game_state, (Vector2){0.0f, 0.0f}, 1, 50, 5);
   add_test_planet(game_state, (Vector2){3.0f, 4.0f}, 2, 30, 5);
 
-  assert_true(SendPlayerShipsStr(game_state, 0, nob_sv_from_cstr("0 1 20\ngo\n")));
+  assert_true(
+      SendPlayerShipsStr(game_state, 0, nob_sv_from_cstr("0 1 20\ngo\n")));
   assert_uint_equal(game_state->planets.items[0].ships, 30);
   assert_uint_equal(game_state->fleets.count, 1);
   assert_uint_equal(game_state->fleets.items[0].ships, 20);
@@ -712,7 +715,8 @@ static void test_send_player_ships_str_multiple_orders(void **state) {
   assert_uint_equal(game_state->fleets.items[1].ships, 15);
 }
 
-static void test_send_player_ships_str_multiple_orders_single_line(void **state) {
+static void
+test_send_player_ships_str_multiple_orders_single_line(void **state) {
   GameState *game_state = *state;
   game_state->player_count = 2;
   game_state->remaining_players = 2;
@@ -947,8 +951,8 @@ static void test_advance_turn_attack_defended(void **state) {
   assert_uint_equal(game_state->fleets.count, 0);
 }
 
-static void test_advance_turn_simultaneous_reinforcement_and_attack(
-    void **state) {
+static void
+test_advance_turn_simultaneous_reinforcement_and_attack(void **state) {
   GameState *game_state = *state;
   game_state->player_count = 2;
   game_state->remaining_players = 2;
@@ -984,7 +988,8 @@ static void test_advance_turn_multiple_fleets_same_attacker(void **state) {
 
   AdvanceTurn(game_state);
 
-  // Attacker combined force = 25 vs Defender 10 -> Captured! Owner = 2, ships = 15
+  // Attacker combined force = 25 vs Defender 10 -> Captured! Owner = 2, ships =
+  // 15
   assert_uint_equal(game_state->planets.items[0].owner, 2);
   assert_uint_equal(game_state->planets.items[0].ships, 15);
   assert_uint_equal(game_state->fleets.count, 0);
@@ -1001,7 +1006,8 @@ static void test_advance_turn_3_way_battle_clear_winner(void **state) {
   add_test_planet(game_state, (Vector2){2.0f, 0.0f}, 2, 50, 0);
   add_test_planet(game_state, (Vector2){3.0f, 0.0f}, 3, 50, 0);
 
-  // Attacker 1 sends 30 ships, Attacker 2 sends 20 ships, Attacker 3 sends 10 ships
+  // Attacker 1 sends 30 ships, Attacker 2 sends 20 ships, Attacker 3 sends 10
+  // ships
   add_test_fleet(game_state, 1, 30, 1, 0, 5, 1);
   add_test_fleet(game_state, 2, 20, 2, 0, 5, 1);
   add_test_fleet(game_state, 3, 10, 3, 0, 5, 1);
@@ -1032,7 +1038,8 @@ static void test_advance_turn_3_way_battle_tie_between_attackers(void **state) {
 
   AdvanceTurn(game_state);
 
-  // Tie between top two forces (20 vs 20) -> ships = 0, owner remains 0 (neutral)
+  // Tie between top two forces (20 vs 20) -> ships = 0, owner remains 0
+  // (neutral)
   assert_uint_equal(game_state->planets.items[0].owner, 0);
   assert_uint_equal(game_state->planets.items[0].ships, 0);
   assert_uint_equal(game_state->fleets.count, 0);
@@ -1058,8 +1065,8 @@ static void test_advance_turn_battle_tie_defender_and_attacker(void **state) {
   assert_uint_equal(game_state->fleets.count, 0);
 }
 
-static void test_advance_turn_independent_battles_multiple_planets(
-    void **state) {
+static void
+test_advance_turn_independent_battles_multiple_planets(void **state) {
   GameState *game_state = *state;
   game_state->player_count = 2;
   game_state->remaining_players = 2;
@@ -1112,8 +1119,8 @@ static void test_advance_turn_arriving_and_future_fleets(void **state) {
   assert_uint_equal(game_state->planets.items[0].ships, 5);
 }
 
-static void test_advance_turn_player_without_planets_has_flying_fleet(
-    void **state) {
+static void
+test_advance_turn_player_without_planets_has_flying_fleet(void **state) {
   GameState *game_state = *state;
   game_state->player_count = 2;
   game_state->remaining_players = 2;
@@ -1182,9 +1189,10 @@ static void test_advance_turn_remaining_players_when_no_fleets(void **state) {
 }
 
 // BUG EXPLOIT 2: In SendPlayerShipsStr(), the condition
-// (order_sv.data[0] != 'g' && order_sv.data[1] != 'o') prematurely stops parsing
-// if any character starts with 'g' (e.g. invalid command "g 0 1 10\ngo\n") or contains 'o'
-// as the second character (e.g. "1o 2 3"), without flagging an error or executing.
+// (order_sv.data[0] != 'g' && order_sv.data[1] != 'o') prematurely stops
+// parsing if any character starts with 'g' (e.g. invalid command "g 0 1
+// 10\ngo\n") or contains 'o' as the second character (e.g. "1o 2 3"), without
+// flagging an error or executing.
 static void test_send_player_ships_str_garbage_starting_with_g(void **state) {
   GameState *game_state = *state;
   game_state->player_count = 2;
@@ -1202,8 +1210,10 @@ static void test_send_player_ships_str_garbage_starting_with_g(void **state) {
 
 // BUG EXPLOIT 3: Planet.print_prefix in planet_wars.h is fixed size char[20].
 // In ParseMapBuffer, snprintf(planet.print_prefix, 20, "P %8.6f %8.6f", x, y)
-// truncates when coordinates have 2 or more integer digits (e.g. 10.0, 10.0 -> 21 chars).
-static void test_parse_map_buffer_prefix_truncation_for_large_coords(void **state) {
+// truncates when coordinates have 2 or more integer digits (e.g. 10.0, 10.0 ->
+// 21 chars).
+static void
+test_parse_map_buffer_prefix_truncation_for_large_coords(void **state) {
   GameState *game_state = *state;
   unsigned owner_count = 0;
   const char map[] = "P 10.000000 10.000000 1 100 5\n";
@@ -1212,12 +1222,14 @@ static void test_parse_map_buffer_prefix_truncation_for_large_coords(void **stat
   assert_uint_equal(game_state->planets.count, 1);
 
   // Expected full prefix without truncation: "P 10.000000 10.000000" (21 chars)
-  // (Fails because char print_prefix[20] truncates it to 19 chars: "P 10.000000 10.0000")
+  // (Fails because char print_prefix[20] truncates it to 19 chars:
+  // "P 10.000000 10.0000")
   assert_string_equal(game_state->planets.items[0].print_prefix,
                       "P 10.000000 10.000000");
 }
 
-// BUG EXPLOIT 4: AdvanceTurn() never increments state->turn, despite GameState having a turn field.
+// BUG EXPLOIT 4: AdvanceTurn() never increments state->turn, despite GameState
+// having a turn field.
 static void test_advance_turn_does_not_increment_turn_counter(void **state) {
   GameState *game_state = *state;
   game_state->player_count = 2;
@@ -1264,7 +1276,8 @@ DEFINE_TESTS(
                                     teardown),
     cmocka_unit_test_setup_teardown(test_parse_map_buffer_empty_and_comments,
                                     setup, teardown),
-    cmocka_unit_test_setup_teardown(test_parse_map_buffer_crlf, setup, teardown),
+    cmocka_unit_test_setup_teardown(test_parse_map_buffer_crlf, setup,
+                                    teardown),
     cmocka_unit_test_setup_teardown(test_parse_map_buffer_max_32_players, setup,
                                     teardown),
     cmocka_unit_test_setup_teardown(test_parse_map_buffer_invalid_syntax, setup,
@@ -1318,7 +1331,7 @@ DEFINE_TESTS(
                                     setup, teardown),
     cmocka_unit_test_setup_teardown(
         test_send_player_ships_str_multiple_orders_single_line, setup,
-                                    teardown),
+        teardown),
     cmocka_unit_test_setup_teardown(test_send_player_ships_str_invalid_token,
                                     setup, teardown),
     cmocka_unit_test_setup_teardown(test_send_player_ships_str_overflow_token,
@@ -1327,16 +1340,16 @@ DEFINE_TESTS(
         test_send_player_ships_str_invalid_ship_logic, setup, teardown),
 
     // DisqualifyPlayer
-    cmocka_unit_test_setup_teardown(
-        test_disqualify_player_neutralizes_planets, setup, teardown),
+    cmocka_unit_test_setup_teardown(test_disqualify_player_neutralizes_planets,
+                                    setup, teardown),
     cmocka_unit_test_setup_teardown(test_disqualify_player_removes_fleets,
                                     setup, teardown),
-    cmocka_unit_test_setup_teardown(
-        test_disqualify_player_first_and_only_fleet, setup, teardown),
+    cmocka_unit_test_setup_teardown(test_disqualify_player_first_and_only_fleet,
+                                    setup, teardown),
 
     // AdvanceTurn Combat & Mechanics
-    cmocka_unit_test_setup_teardown(
-        test_advance_turn_growth_owned_vs_neutral, setup, teardown),
+    cmocka_unit_test_setup_teardown(test_advance_turn_growth_owned_vs_neutral,
+                                    setup, teardown),
     cmocka_unit_test_setup_teardown(test_advance_turn_fleet_in_transit, setup,
                                     teardown),
     cmocka_unit_test_setup_teardown(test_advance_turn_friendly_reinforcement,
@@ -1347,23 +1360,23 @@ DEFINE_TESTS(
                                     teardown),
     cmocka_unit_test_setup_teardown(
         test_advance_turn_simultaneous_reinforcement_and_attack, setup,
-                                    teardown),
+        teardown),
     cmocka_unit_test_setup_teardown(
         test_advance_turn_multiple_fleets_same_attacker, setup, teardown),
-    cmocka_unit_test_setup_teardown(
-        test_advance_turn_3_way_battle_clear_winner, setup, teardown),
+    cmocka_unit_test_setup_teardown(test_advance_turn_3_way_battle_clear_winner,
+                                    setup, teardown),
     cmocka_unit_test_setup_teardown(
         test_advance_turn_3_way_battle_tie_between_attackers, setup, teardown),
     cmocka_unit_test_setup_teardown(
         test_advance_turn_battle_tie_defender_and_attacker, setup, teardown),
     cmocka_unit_test_setup_teardown(
         test_advance_turn_independent_battles_multiple_planets, setup,
-                                    teardown),
+        teardown),
     cmocka_unit_test_setup_teardown(
         test_advance_turn_arriving_and_future_fleets, setup, teardown),
     cmocka_unit_test_setup_teardown(
         test_advance_turn_player_without_planets_has_flying_fleet, setup,
-                                    teardown),
+        teardown),
 
     // Misc Unit Tests
     cmocka_unit_test_setup_teardown(test_is_player_alive_bitset, setup,
