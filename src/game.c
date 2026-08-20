@@ -336,8 +336,10 @@ void AdvanceTurn(GameState *state) {
     }
   }
 
-  if (state->fleets.count == 0)
+  if (state->fleets.count == 0) {
+    state->remaining_players = bot_count;
     return;
+  }
 
   qsort(state->fleets.items, state->fleets.count,
         sizeof(state->fleets.items[0]), cmp_fleet_owner_remaining);

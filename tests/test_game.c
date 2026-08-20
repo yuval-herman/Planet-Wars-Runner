@@ -1139,6 +1139,25 @@ test_advance_turn_player_without_planets_has_flying_fleet(void **state) {
   assert_uint_equal(game_state->remaining_players, 2);
 }
 
+static void test_advance_turn_remaining_players_when_no_fleets(void **state) {
+  GameState *game_state = *state;
+  game_state->player_count = 2;
+  game_state->remaining_players = 2;
+
+  // Player 1 owns all planets, Player 2 owns no planets, 0 fleets in flight
+  add_test_planet(game_state, (Vector2){0.0f, 0.0f}, 1, 50, 5);
+  add_test_planet(game_state, (Vector2){1.0f, 1.0f}, 1, 30, 3);
+
+  AdvanceTurn(game_state);
+
+  // Player 1 is alive, Player 2 is eliminated
+  assert_true(IsPlayerAlive(game_state, 0));
+  assert_false(IsPlayerAlive(game_state, 1));
+
+  // Expected remaining_players is 1 since player 2 had no planets
+  assert_uint_equal(game_state->remaining_players, 1);
+}
+
 // -----------------------------------------------------------------------------
 // Misc Unit Tests
 // -----------------------------------------------------------------------------
@@ -1165,29 +1184,6 @@ static void test_is_player_alive_bitset(void **state) {
 // Edge Case & Bug Exploitation Tests
 // -----------------------------------------------------------------------------
 
-// BUG EXPLOIT 1: In AdvanceTurn(), when state->fleets.count == 0, the function
-// returns early (line 340) before updating state->remaining_players = bot_count (line 434).
-// When player 2 loses all planets and has 0 fleets, remaining_players should be 1,
-// but due to early return it remains unchanged (2).
-static void test_advance_turn_remaining_players_when_no_fleets(void **state) {
-  GameState *game_state = *state;
-  game_state->player_count = 2;
-  game_state->remaining_players = 2;
-
-  // Player 1 owns all planets, Player 2 owns no planets, 0 fleets in flight
-  add_test_planet(game_state, (Vector2){0.0f, 0.0f}, 1, 50, 5);
-  add_test_planet(game_state, (Vector2){1.0f, 1.0f}, 1, 30, 3);
-
-  AdvanceTurn(game_state);
-
-  // Player 1 is alive, Player 2 is eliminated
-  assert_true(IsPlayerAlive(game_state, 0));
-  assert_false(IsPlayerAlive(game_state, 1));
-
-  // Expected remaining_players is 1! (Fails because remaining_players is still 2)
-  assert_uint_equal(game_state->remaining_players, 1);
-}
-
 // BUG EXPLOIT 2: In SendPlayerShipsStr(), the condition
 // (order_sv.data[0] != 'g' && order_sv.data[1] != 'o') prematurely stops
 // parsing if any character starts with 'g' (e.g. invalid command "g 0 1
@@ -1205,6 +1201,8 @@ static void test_send_player_ships_str_garbage_starting_with_g(void **state) {
   // (Fails because SendPlayerShipsStr exits while loop and returns true)
   assert_false(
       SendPlayerShipsStr(game_state, 0, nob_sv_from_cstr("g 0 1 10\ngo\n")));
+  assert_false(
+      SendPlayerShipsStr(game_state, 0, nob_sv_from_cstr("1o 0 1 10\ngo\n")));
   assert_false(IsPlayerAlive(game_state, 0));
 }
 
