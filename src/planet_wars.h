@@ -9,7 +9,6 @@
 #include <stdint.h>
 #include <stdio.h>
 
-
 #define MAX_PLAYER_AMOUNT 32
 
 // TODO Add verification when accepting data, like parsing maps, that all values
@@ -86,6 +85,12 @@ static bool ParsePlanetLine(const char *line, unsigned line_len,
   ParseUint(owner);
   ParseUint(ships);
   ParseUint(growth);
+
+  if (s_idx != e_idx && *s_idx != '\0' && *s_idx != '\n') {
+    fprintf(stderr, "Planet line must terminate with a NULL, newline, or on "
+                    "the last parsed number.");
+    return false;
+  }
 
 #undef ParseFloat
 #undef ParseUint
