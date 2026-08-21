@@ -11,14 +11,13 @@ typedef struct {
   Vector2 max_coords;
 } GameSpace;
 
-static GameSpace game_space = {.min_coords = {INFINITY, INFINITY},
-                               .max_coords = {-INFINITY, -INFINITY}};
+static GameSpace game_space = {0};
 static Font font;
-static unsigned int frame_counter = 0;
+static unsigned int frame_counter;
 // Game run speed in viewer. 0 is realtime, higher is slower.
-static int game_speed = 5;
-static bool game_running = false;
-static bool playing_forewards = true;
+static int game_speed;
+static bool game_running;
+static bool playing_forewards;
 
 static GameLog game_log;
 static unsigned turn;
@@ -28,6 +27,8 @@ static Shader stars_shader;
 // Calculates the minimum and maximum coordinates of all planets, used to space
 // planets across the entire screen.
 void ComputeGameSpace(Planet *planets, unsigned p_count) {
+  game_space = (GameSpace){.min_coords = {INFINITY, INFINITY},
+                           .max_coords = {-INFINITY, -INFINITY}};
   for (unsigned i = 0; i < p_count; i++) {
     game_space.min_coords =
         Vector2Min(planets[i].coords, game_space.min_coords);
@@ -297,6 +298,10 @@ Shader SetupStarsShader(int screenWidth, int screenHeight) {
 
 void ViewerInit(void *params) {
   turn = 0;
+  frame_counter = 0;
+  game_speed = 5;
+  game_running = false;
+  playing_forewards = true;
   game_log = *(GameLog *)params;
 
   ComputeGameSpace(game_log.items[0].planets, game_log.items[0].planet_count);
