@@ -1,60 +1,45 @@
 #include "nob.h"
 
+#include "viewer.h"
+
 #define CLAY_IMPLEMENTATION
 #include "clay.h"
 
 #include "clay_renderer_raylib.c"
 
 #include "ui.h"
-#include "viewer.h"
 
 #define RAYLIB_VECTOR2_TO_CLAY_VECTOR2(vector)                                 \
   (Clay_Vector2) { .x = vector.x, .y = vector.y }
 
-UIState ui_state;
+static const UIScreen *screens[] = {&viewer_screen};
+static UIScreen active_screen = {0};
 
 void HandleClayErrors(Clay_ErrorData errorData) {
   nob_log(NOB_ERROR, "%s", errorData.errorText.chars);
 }
 
-void ChangeScreen(enum Screens screen) {
-  switch (ui_state.active_screen) {
-  default:
-    NOB_UNREACHABLE("Tried to switch screen while UI is in impossible state.");
-    break;
+void ChangeScreen(enum Screens screen, void *screen_params) {
+  assert(screen > 0 && screen <= NOB_ARRAY_LEN(screens));
 
-  case SCREEN_NULL:
-    break;
+  if (active_screen.destroy)
+    active_screen.destroy();
 
-  case SCREEN_VIEWER:
-    ViewerDestroy(&ui_state);
-    break;
-  }
+  active_screen = *screens[screen - 1];
 
-  switch (ui_state.active_screen) {
-  default:
-  case SCREEN_NULL:
-    NOB_UNREACHABLE("Tried to switch to non-existent screen.");
-    break;
-
-  case SCREEN_VIEWER:
-    ViewerInit(&ui_state, ui_state.game_log);
-    break;
-  }
-
-  ui_state.active_screen = screen;
+  if (active_screen.init)
+    active_screen.init(screen_params);
 }
 
-void UIInit(enum Screens start_screen) {
-  ui_state.active_screen = SCREEN_NULL;
-  ui_state.game_log = (GameLog){0};
-
+void UIInit(enum Screens start_screen, void *screen_params) {
   const int screenWidth = 800;
   const int screenHeight = 450;
 
   SetTraceLogLevel(LOG_WARNING);
   SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_MSAA_4X_HINT);
   InitWindow(screenWidth, screenHeight, "Planet Wars Viewer");
+
+  SetTargetFPS(60);
 
   uint32_t totalMemorySize = Clay_MinMemorySize();
   Clay_Arena clayMemory = Clay_CreateArenaWithCapacityAndMemory(
@@ -66,18 +51,17 @@ void UIInit(enum Screens start_screen) {
   Font fonts[1] = {GetFontDefault()};
   Clay_SetMeasureTextFunction(Raylib_MeasureText, fonts);
 
-  ChangeScreen(start_screen);
+  ChangeScreen(start_screen, screen_params);
 }
 
-void UIDraw() {
-  switch (ui_state.active_screen) {
-  default:
-  case SCREEN_NULL:
-    NOB_UNREACHABLE("Tried to draw non-existent screen.");
-    break;
+void UIDestroy() {
+  active_screen.destroy();
+  active_screen = (UIScreen){0};
+}
 
-  case SCREEN_VIEWER:
-    ViewerDraw(&ui_state);
-    break;
+void UIRun() {
+  assert(active_screen.draw);
+  while (!WindowShouldClose()) {
+    active_screen.draw();
   }
 }

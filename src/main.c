@@ -1,5 +1,5 @@
 #ifndef HEADLESS_MODE
-#include "ui/viewer.h"
+#include "ui/ui.h"
 #endif // HEADLESS_MODE
 
 #if defined(HEADLESS_MODE)
@@ -46,7 +46,9 @@ int main(int argc, char *argv[]) {
       }
 
 #ifndef HEADLESS_MODE
-      RunViewerForGame(game_log);
+      UIInit(SCREEN_VIEWER, &game_log);
+      UIRun();
+      UIDestroy();
 #endif // HEADLESS_MODE
     } else {
       exit_code = 1;
@@ -67,7 +69,9 @@ int main(int argc, char *argv[]) {
       if (!ReadGameLogFromFile(save_file, &game_log)) {
         nob_log(NOB_ERROR, "Failed reading \"%s\".", configs.save_file);
       } else {
-        RunViewerForGame(game_log);
+        UIInit(SCREEN_VIEWER, &game_log);
+        UIRun();
+        UIDestroy();
       }
       FreeInnerGameLog(game_log);
       fclose(save_file);
