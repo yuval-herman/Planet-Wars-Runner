@@ -577,7 +577,7 @@ int main(int argc, char **argv) {
   const char *source_files[] = {
       "src/main.c", "src/game.c",   "src/runner.c", "src/configs.c",
       "src/bot.c",  "src/player.c", "src/utils.c",  "src/game_log.c"};
-  const char *headed_source_files[] = {"src/ui/viewer.c", "src/ui/ui.c"};
+  const char *headed_source_files[] = {"src/ui/ui.c", "src/ui/viewer.c", "src/ui/menu.c"};
 
   for (unsigned i = 0; i < NOB_ARRAY_LEN(source_files); i++) {
     const char *file_path = source_files[i];

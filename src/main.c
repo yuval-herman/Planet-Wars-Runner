@@ -76,6 +76,10 @@ int main(int argc, char *argv[]) {
       FreeInnerGameLog(game_log);
       fclose(save_file);
     }
+  } else if (exit_code == 0 && configs.mode == MODE_MENU) {
+        UIInit(SCREEN_MENU, NULL);
+        UIRun();
+        UIDestroy();
   }
 #endif // HEADLESS_MODE
   FreeConfigs(configs);

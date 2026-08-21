@@ -14,7 +14,7 @@
 
 Configs MakeDefaultConfig() {
   Configs configs = {0};
-  configs.mode = MODE_SINGLE_MATCH;
+  configs.mode = MODE_MENU;
   configs.write_save = true;
   // This is later free'd. It easier to make sure it's heap allocated then to
   // track whether it changed or not before freeing.
@@ -37,6 +37,10 @@ static bool VerifyConfigs(Configs configs) {
       REPORT_ERROR("No file to replay was provided.");
       return false;
     }
+    return true;
+  }
+
+  if (configs.mode == MODE_MENU) {
     return true;
   }
 

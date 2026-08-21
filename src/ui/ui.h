@@ -4,6 +4,7 @@
 enum Screens {
   SCREEN_NULL = 0, // Starting empty screen
   SCREEN_VIEWER,
+  SCREEN_MENU,
 };
 
 void UIInit(enum Screens start_screen, void *screen_params);
