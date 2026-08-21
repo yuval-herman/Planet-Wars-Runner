@@ -149,7 +149,7 @@ bool ParseConfigsFromCLI(Configs *configs, int argc, char *argv[]) {
                "tournament or more complex environments. If a config file is "
                "used all other flags are ignored.");
 
-  Flag_List_Mut bot_names;
+  Flag_List_Mut bot_names = {0};
   flag_list_mut_var(
       &bot_names, "name",
       "List of bot names. Each -name has a corresponding -command, and entries "
@@ -157,7 +157,7 @@ bool ParseConfigsFromCLI(Configs *configs, int argc, char *argv[]) {
       "second with the second, regardless of where the flags appear on the "
       "command line.");
 
-  Flag_List_Mut bot_commands;
+  Flag_List_Mut bot_commands = {0};
   flag_list_mut_var(
       &bot_commands, "command",
       "List of bot commands. Each -command has a corresponding -name, and "
