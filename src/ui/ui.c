@@ -12,7 +12,9 @@
 #define RAYLIB_VECTOR2_TO_CLAY_VECTOR2(vector)                                 \
   (Clay_Vector2) { .x = vector.x, .y = vector.y }
 
-static const UIScreen *screens[] = {&viewer_screen};
+static const UIScreen *screens[] = {
+    [SCREEN_VIEWER] = &viewer_screen,
+};
 static UIScreen active_screen = {0};
 
 void HandleClayErrors(Clay_ErrorData errorData) {
@@ -20,12 +22,12 @@ void HandleClayErrors(Clay_ErrorData errorData) {
 }
 
 void ChangeScreen(enum Screens screen, void *screen_params) {
-  assert(screen > 0 && screen <= NOB_ARRAY_LEN(screens));
+  assert(screen > SCREEN_NULL && screen < NOB_ARRAY_LEN(screens));
 
   if (active_screen.destroy)
     active_screen.destroy();
 
-  active_screen = *screens[screen - 1];
+  active_screen = *screens[screen];
 
   if (active_screen.init)
     active_screen.init(screen_params);
@@ -55,7 +57,8 @@ void UIInit(enum Screens start_screen, void *screen_params) {
 }
 
 void UIDestroy() {
-  active_screen.destroy();
+  if (active_screen.destroy)
+    active_screen.destroy();
   active_screen = (UIScreen){0};
 }
 
