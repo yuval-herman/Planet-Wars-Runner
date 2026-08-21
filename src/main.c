@@ -79,5 +79,5 @@ int main(int argc, char *argv[]) {
   }
 #endif // HEADLESS_MODE
   FreeConfigs(configs);
-  return 0;
+  return exit_code;
 }
