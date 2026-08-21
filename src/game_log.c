@@ -7,7 +7,7 @@
 #include <arpa/inet.h>
 #endif
 
-#define COMPRESSESOR_BUF_SIZE (1024 * 1024)
+#define COMPRESSESOR_BUF_SIZE (64 * 1024)
 #define MINIZ_NO_ZLIB_COMPATIBLE_NAMES
 #include "miniz.h"
 
