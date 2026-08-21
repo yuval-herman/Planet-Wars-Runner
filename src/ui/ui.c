@@ -18,6 +18,7 @@ static const UIScreen *screens[] = {
     [SCREEN_MENU] = &menu_screen,
 };
 static UIScreen active_screen = {0};
+static Font fonts[1];
 
 void HandleClayErrors(Clay_ErrorData errorData) {
   nob_log(NOB_ERROR, "%s", errorData.errorText.chars);
@@ -39,6 +40,8 @@ void UIInit(enum Screens start_screen, void *screen_params) {
   const int screenWidth = 800;
   const int screenHeight = 450;
 
+  fonts[0] = GetFontDefault();
+
   SetTraceLogLevel(LOG_WARNING);
   SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_MSAA_4X_HINT);
   InitWindow(screenWidth, screenHeight, "Planet Wars Viewer");
@@ -52,7 +55,6 @@ void UIInit(enum Screens start_screen, void *screen_params) {
                   (Clay_ErrorHandler){HandleClayErrors, 0});
   InitOverlay();
 
-  Font fonts[1] = {GetFontDefault()};
   Clay_SetMeasureTextFunction(Raylib_MeasureText, fonts);
 
   ChangeScreen(start_screen, screen_params);
@@ -69,6 +71,20 @@ void UIDestroy() {
 void UIRun() {
   assert(active_screen.draw);
   while (!WindowShouldClose()) {
+    Clay_SetLayoutDimensions(
+        (Clay_Dimensions){GetScreenWidth(), GetScreenHeight()});
+    Vector2 mp = GetMousePosition();
+    Clay_SetPointerState((Clay_Vector2){mp.x, mp.y},
+                         IsMouseButtonDown(MOUSE_LEFT_BUTTON));
+    Vector2 mw = GetMouseWheelMoveV();
+    Clay_UpdateScrollContainers(true, (Clay_Vector2){mw.x, mw.y},
+                                GetFrameTime());
+
+    BeginDrawing();
+    Clay_BeginLayout();
     active_screen.draw();
+    Clay_RenderCommandArray renderCommands = Clay_EndLayout(GetFrameTime());
+    Clay_Raylib_Render(renderCommands, fonts);
+    EndDrawing();
   }
 }
