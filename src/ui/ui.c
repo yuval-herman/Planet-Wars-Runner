@@ -60,6 +60,8 @@ void UIDestroy() {
   if (active_screen.destroy)
     active_screen.destroy();
   active_screen = (UIScreen){0};
+
+  Clay_Raylib_Close();
 }
 
 void UIRun() {

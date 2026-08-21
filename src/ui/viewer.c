@@ -369,7 +369,10 @@ void ViewerDraw() {
   EndDrawing();
 }
 
-void ViewerDestroy() { UnloadShader(stars_shader); }
+void ViewerDestroy() {
+  UnloadShader(stars_shader);
+  stars_shader = (Shader){0};
+}
 
 const UIScreen viewer_screen = {
     .init = ViewerInit,
