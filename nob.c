@@ -61,6 +61,11 @@ static void add_compile_mode_flags(Nob_Cmd *cmd, bool debug, bool profile) {
                    "-fno-omit-frame-pointer", "-fno-lto");
   } else if (profile) {
     nob_cmd_append(cmd, "-g", "-O2", "-fno-omit-frame-pointer");
+#if defined(__clang__)
+    nob_cmd_append(cmd, "-flto", "-fuse-ld=lld");
+#elif !defined(_WIN32)
+    nob_cmd_append(cmd, "-flto");
+#endif
   } else {
 #if defined(__clang__)
     nob_cmd_append(cmd, "-flto", "-fuse-ld=lld");
