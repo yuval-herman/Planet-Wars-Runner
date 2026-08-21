@@ -1,7 +1,6 @@
 #ifndef VIEWER_H
 #define VIEWER_H
-
-#include "ui.h"
+#include "ui_screen.h"
 
 #define BASE_PLANET_RADIUS 10.0f
 #define PLANET_RADIUS_GROWTH_CURVE 20.0f
@@ -15,8 +14,6 @@
 // speed, i.e. how slow can the game run.
 #define MAX_GAME_SPEED_VALUE 20
 
-void ViewerInit(UIState *, GameLog game_log);
-void ViewerDraw(UIState *);
-void ViewerDestroy(UIState *);
+extern const UIScreen viewer_screen;
 
 #endif // VIEWER_H

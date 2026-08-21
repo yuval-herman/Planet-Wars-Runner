@@ -1,5 +1,7 @@
 #include "raylib.h"
 
+#include "../game_log.h"
+
 #include "nob.h"
 #include "shaders.c"
 #include "viewer.h"
@@ -9,14 +11,19 @@ typedef struct {
   Vector2 max_coords;
 } GameSpace;
 
-GameSpace game_space = {.min_coords = {INFINITY, INFINITY},
-                        .max_coords = {-INFINITY, -INFINITY}};
-Font font;
-unsigned int frame_counter = 0;
+static GameSpace game_space = {.min_coords = {INFINITY, INFINITY},
+                               .max_coords = {-INFINITY, -INFINITY}};
+static Font font;
+static unsigned int frame_counter = 0;
 // Game run speed in viewer. 0 is realtime, higher is slower.
-int game_speed = 5;
-bool game_running = false;
-bool playing_forewards = true;
+static int game_speed = 5;
+static bool game_running = false;
+static bool playing_forewards = true;
+
+static GameLog game_log;
+static unsigned turn;
+static int star_shader_time_loc;
+static Shader stars_shader;
 
 // Calculates the minimum and maximum coordinates of all planets, used to space
 // planets across the entire screen.
@@ -288,49 +295,40 @@ Shader SetupStarsShader(int screenWidth, int screenHeight) {
   return stars_shader;
 }
 
-void ViewerInit(UIState *ui_state, GameLog game_log) {
-  ViewerState *viewer_state = &ui_state->screen_data.viewer;
-  viewer_state->turn = 0;
-  viewer_state->game_log = game_log;
+void ViewerInit(void *params) {
+  turn = 0;
+  game_log = *(GameLog *)params;
 
-  ComputeGameSpace(viewer_state->game_log.items[0].planets,
-                   viewer_state->game_log.items[0].planet_count);
+  ComputeGameSpace(game_log.items[0].planets, game_log.items[0].planet_count);
 
   font = GetFontDefault();
 
-  SetTargetFPS(60);
+  stars_shader = SetupStarsShader(GetScreenWidth(), GetScreenHeight());
 
-  viewer_state->stars_shader =
-      SetupStarsShader(GetScreenWidth(), GetScreenHeight());
-
-  viewer_state->star_shader_time_loc =
-      GetShaderLocation(viewer_state->stars_shader, "uTime");
+  star_shader_time_loc = GetShaderLocation(stars_shader, "uTime");
 }
 
-void ViewerDraw(UIState *ui_state) {
-  ViewerState *viewer_state = &ui_state->screen_data.viewer;
+void ViewerDraw() {
   frame_counter++;
   if (game_running &&
       (game_speed == 0 || frame_counter % abs(game_speed) == 0)) {
-    if (playing_forewards &&
-        viewer_state->turn < viewer_state->game_log.count - 1)
-      viewer_state->turn++;
-    else if (viewer_state->turn > 0)
-      viewer_state->turn--;
-    if (viewer_state->turn >= viewer_state->game_log.count - 1 ||
-        viewer_state->turn == 0)
+    if (playing_forewards && turn < game_log.count - 1)
+      turn++;
+    else if (turn > 0)
+      turn--;
+    if (turn >= game_log.count - 1 || turn == 0)
       game_running = false;
   }
 
   if (IsKeyPressed(KEY_RIGHT)) {
     game_running = false;
-    viewer_state->turn++;
-    if (viewer_state->turn >= viewer_state->game_log.count)
-      viewer_state->turn = viewer_state->game_log.count - 1;
+    turn++;
+    if (turn >= game_log.count)
+      turn = game_log.count - 1;
   } else if (IsKeyPressed(KEY_LEFT)) {
     game_running = false;
-    if (viewer_state->turn != 0)
-      viewer_state->turn--;
+    if (turn != 0)
+      turn--;
   } else if (IsKeyPressed(KEY_SPACE)) {
     game_running = !game_running;
   }
@@ -341,34 +339,35 @@ void ViewerDraw(UIState *ui_state) {
   }
 
   float time = (float)GetTime();
-  SetShaderValue(viewer_state->stars_shader, viewer_state->star_shader_time_loc,
-                 &time, SHADER_UNIFORM_FLOAT);
+  SetShaderValue(stars_shader, star_shader_time_loc, &time,
+                 SHADER_UNIFORM_FLOAT);
 
   BeginDrawing();
 
   ClearBackground(BLACK);
   // 5. Activate the shader to affect the canvas drawings
-  BeginShaderMode(viewer_state->stars_shader);
+  BeginShaderMode(stars_shader);
   // Draw a blank canvas area covering your screen size
   // The fragment shader fills this rectangle area
   DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), WHITE);
   EndShaderMode();
 
-  for (unsigned i = 0;
-       i < viewer_state->game_log.items[viewer_state->turn].planet_count; i++) {
-    DrawPlanet(viewer_state->game_log.items[viewer_state->turn].planets[i]);
+  for (unsigned i = 0; i < game_log.items[turn].planet_count; i++) {
+    DrawPlanet(game_log.items[turn].planets[i]);
   }
 
-  for (unsigned i = 0;
-       i < viewer_state->game_log.items[viewer_state->turn].fleet_count; i++) {
-    DrawFleet(viewer_state->game_log.items[viewer_state->turn].planets,
-              viewer_state->game_log.items[viewer_state->turn].fleets[i]);
+  for (unsigned i = 0; i < game_log.items[turn].fleet_count; i++) {
+    DrawFleet(game_log.items[turn].planets, game_log.items[turn].fleets[i]);
   }
 
-  DrawControls(viewer_state->game_log, &viewer_state->turn);
+  DrawControls(game_log, &turn);
   EndDrawing();
 }
 
-void ViewerDestroy(UIState *ui_state) {
-  UnloadShader(ui_state->screen_data.viewer.stars_shader);
-}
+void ViewerDestroy() { UnloadShader(stars_shader); }
+
+const UIScreen viewer_screen = {
+    .init = ViewerInit,
+    .draw = ViewerDraw,
+    .destroy = ViewerDestroy,
+};
