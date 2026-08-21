@@ -201,11 +201,24 @@ bool ParseConfigsFromCLI(Configs *configs, int argc, char *argv[]) {
     Usage(stderr);
     return true;
   }
+
+  if (mode) {
+    if (strcmp(mode, "single") == 0) {
+      configs->mode = MODE_SINGLE_MATCH;
+    } else if (strcmp(mode, "tournament") == 0) {
+      configs->mode = MODE_TOURNAMENT;
+    }
 #ifndef HEADLESS_MODE
-  if (mode && strcmp(mode, "replay") == 0) {
-    configs->mode = MODE_REPLAY;
-  }
+    else if (strcmp(mode, "replay") == 0) {
+      configs->mode = MODE_REPLAY;
+    }
 #endif // HEADLESS_MODE
+    else {
+      nob_log(NOB_ERROR, "Unsupported mode passed. Try the -help flag to see a "
+                         "list of supported modes.");
+      return false;
+    }
+  }
 
   // We call free on this vairables later, so it's easier to just make sure they
   // are heap allocated then try and try whether they came from the CLI (stack)
