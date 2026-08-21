@@ -1,5 +1,6 @@
 #include "nob.h"
 
+#include "menu.h"
 #include "viewer.h"
 
 #define CLAY_IMPLEMENTATION
@@ -14,6 +15,7 @@
 
 static const UIScreen *screens[] = {
     [SCREEN_VIEWER] = &viewer_screen,
+    [SCREEN_MENU] = &menu_screen,
 };
 static UIScreen active_screen = {0};
 

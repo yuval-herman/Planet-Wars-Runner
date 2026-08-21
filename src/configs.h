@@ -10,6 +10,7 @@ typedef enum {
   MODE_TOURNAMENT,
   MODE_SINGLE_MATCH,
   MODE_REPLAY,
+  MODE_MENU,
 } RunMode;
 
 typedef struct {
