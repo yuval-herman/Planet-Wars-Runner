@@ -347,8 +347,9 @@ void ViewerDraw() {
   SetShaderValue(stars_shader, star_shader_time_loc, &time,
                  SHADER_UNIFORM_FLOAT);
 
-  BeginDrawing();
 
+  // ============= START DRAWING =============
+  
   ClearBackground(BLACK);
   // 5. Activate the shader to affect the canvas drawings
   BeginShaderMode(stars_shader);
@@ -366,7 +367,6 @@ void ViewerDraw() {
   }
 
   DrawControls(game_log, &turn);
-  EndDrawing();
 }
 
 void ViewerDestroy() {
