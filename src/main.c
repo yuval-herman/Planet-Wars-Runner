@@ -4,16 +4,9 @@
 #include "ui/viewer.h"
 #endif // HEADLESS_MODE
 
-#if defined(HEADLESS_MODE)
-#define RAYMATH_IMPLEMENTATION
-#include "raymath.h"
-#endif // HEADLESS_MODE
-
 #include "configs.h"
 #include "game.h"
 #include "runner.h"
-
-#include "miniz.c"
 
 #define NOB_IMPLEMENTATION
 #include "nob.h"
