@@ -1,30 +1,102 @@
 #include "clay.h"
 #include "raylib.h"
 
+#include "../configs.h"
+#include "../game.h"
+#include "../game_log.h"
+#include "../runner.h"
 #include "nob.h"
 
 #include "menu.h"
+#include "ui.h"
 
 // Convenient shorthand for Raylib -> Clay color conversion.
 #define CLAY_COLOR(color)                                                      \
   (Clay_Color) { .r = color.r, .g = color.g, .b = color.b, .a = color.a }
 
-void MenuButton(Clay_String buttonText) {
+enum ButtonFunction : size_t {
+  BUTTON_PLAY_MATCH,
+  BUTTON_REPLAY,
+};
+
+Configs *configs = NULL;
+
+void MenuButtonHoverFunction(Clay_ElementId element_id,
+                             Clay_PointerData pointer_data, void *user_data) {
+  NOB_UNUSED(element_id);
+  if (pointer_data.state != CLAY_POINTER_DATA_RELEASED_THIS_FRAME)
+    return;
+
+  assert(configs);
+
+  enum ButtonFunction button_function = (size_t)user_data;
+
+  GameLog *game_log = calloc(1, sizeof *game_log);
+
+  switch (button_function) {
+  default:
+    NOB_UNREACHABLE("impossible button function");
+
+  case BUTTON_REPLAY: {
+    FILE *save_file = fopen(configs->save_file, "rb");
+    if (!save_file) {
+      nob_log(NOB_ERROR, "Failed opening save file \"%s\": %s.",
+              configs->save_file, strerror(errno));
+      NOB_TODO("handle errors isn't implemented...");
+    } else {
+      if (!ReadGameLogFromFile(save_file, game_log)) {
+        nob_log(NOB_ERROR, "Failed reading \"%s\".", configs->save_file);
+      } else {
+        ChangeScreen(SCREEN_VIEWER, game_log);
+      }
+      fclose(save_file);
+    }
+  } break;
+  case BUTTON_PLAY_MATCH: {
+    GameState state = {0};
+    if (MakeGame(&state, configs->map_file, configs->players.count)) {
+      if (!RunMatch(game_log, &state, configs->players)) {
+        nob_log(NOB_ERROR, "Failed running match.");
+        NOB_TODO("handle errors isn't implemented...");
+      }
+      if (configs->write_save) {
+        FILE *file = fopen("game.plws", "wb");
+        WriteGameLogToFile(file, *game_log);
+        fclose(file);
+      }
+
+      ChangeScreen(SCREEN_VIEWER, game_log);
+    } else {
+      NOB_TODO("handle errors isn't implemented...");
+    }
+
+    FreeInnerGameState(state);
+
+  } break;
+  }
+  // TODO: How do I free this? Need to think about architecture here
+  // FreeInnerGameLog(*game_log);
+  // free(game_log);
+}
+
+void MenuButton(Clay_String buttonText, enum ButtonFunction button_function) {
   // clang-format off
   CLAY_AUTO_ID({
     .layout = {
       .padding = CLAY_PADDING_ALL(8),
       .sizing = {.width = CLAY_SIZING_GROW(0)}
     },
-    .backgroundColor = CLAY_COLOR(GRAY)
+    .backgroundColor = Clay_Hovered() ? CLAY_COLOR(BLUE) : CLAY_COLOR(GRAY)
   }) {
-      CLAY_TEXT(buttonText, {.fontSize = 32, .textColor = CLAY_COLOR(BLACK)});
+    Clay_OnHover(MenuButtonHoverFunction, (void*)button_function);
+    CLAY_TEXT(buttonText, {.fontSize = 32, .textColor = CLAY_COLOR(BLACK)});
   }
   // clang-format on
 }
 
 void MenuInit(void *params) {
-  NOB_UNUSED(params);
+  assert(params);
+  configs = params;
   // Clay_SetDebugModeEnabled(true);
 }
 
@@ -49,14 +121,14 @@ void MenuDraw() {
         .layoutDirection = CLAY_TOP_TO_BOTTOM,
        },
     }) {
-      MenuButton(CLAY_STRING("play match"));
-      MenuButton(CLAY_STRING("Replay match"));
+      MenuButton(CLAY_STRING("play match"), BUTTON_PLAY_MATCH);
+      MenuButton(CLAY_STRING("Replay match"), BUTTON_REPLAY);
     }
   }
   // clang-format on
 }
 
-void MenuDestroy() {}
+void MenuDestroy() { configs = NULL; }
 
 const UIScreen menu_screen = {
     .init = MenuInit,
