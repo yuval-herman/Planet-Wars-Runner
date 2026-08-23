@@ -9,6 +9,7 @@
 
 #include "menu.h"
 #include "ui.h"
+#include "viewer.h"
 
 // Convenient shorthand for Raylib -> Clay color conversion.
 #define CLAY_COLOR(color)                                                      \
@@ -19,7 +20,7 @@ enum ButtonFunction : size_t {
   BUTTON_REPLAY,
 };
 
-Configs *configs = NULL;
+static Configs *configs = NULL;
 
 void MenuButtonHoverFunction(Clay_ElementId element_id,
                              Clay_PointerData pointer_data, void *user_data) {
@@ -31,7 +32,7 @@ void MenuButtonHoverFunction(Clay_ElementId element_id,
 
   enum ButtonFunction button_function = (size_t)user_data;
 
-  GameLog *game_log = calloc(1, sizeof *game_log);
+  GameLog game_log = {0};
 
   switch (button_function) {
   default:
@@ -44,10 +45,11 @@ void MenuButtonHoverFunction(Clay_ElementId element_id,
               configs->save_file, strerror(errno));
       NOB_TODO("handle errors isn't implemented...");
     } else {
-      if (!ReadGameLogFromFile(save_file, game_log)) {
+      if (!ReadGameLogFromFile(save_file, &game_log)) {
         nob_log(NOB_ERROR, "Failed reading \"%s\".", configs->save_file);
       } else {
-        ChangeScreen(SCREEN_VIEWER, game_log);
+        SetGameLog(game_log);
+        ChangeScreen(SCREEN_VIEWER);
       }
       fclose(save_file);
     }
@@ -55,17 +57,18 @@ void MenuButtonHoverFunction(Clay_ElementId element_id,
   case BUTTON_PLAY_MATCH: {
     GameState state = {0};
     if (MakeGame(&state, configs->map_file, configs->players.count)) {
-      if (!RunMatch(game_log, &state, configs->players)) {
+      if (!RunMatch(&game_log, &state, configs->players)) {
         nob_log(NOB_ERROR, "Failed running match.");
         NOB_TODO("handle errors isn't implemented...");
       }
       if (configs->write_save) {
         FILE *file = fopen("game.plws", "wb");
-        WriteGameLogToFile(file, *game_log);
+        WriteGameLogToFile(file, game_log);
         fclose(file);
       }
 
-      ChangeScreen(SCREEN_VIEWER, game_log);
+      SetGameLog(game_log);
+      ChangeScreen(SCREEN_VIEWER);
     } else {
       NOB_TODO("handle errors isn't implemented...");
     }
@@ -94,9 +97,8 @@ void MenuButton(Clay_String buttonText, enum ButtonFunction button_function) {
   // clang-format on
 }
 
-void MenuInit(void *params) {
-  assert(params);
-  configs = params;
+void MenuInit() {
+  assert(configs);
   // Clay_SetDebugModeEnabled(true);
 }
 
@@ -129,6 +131,8 @@ void MenuDraw() {
 }
 
 void MenuDestroy() { configs = NULL; }
+
+void SetConfig(Configs *new_configs) { configs = new_configs; }
 
 const UIScreen menu_screen = {
     .init = MenuInit,

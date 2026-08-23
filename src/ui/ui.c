@@ -1,12 +1,12 @@
 #include "nob.h"
 
+#include "clay_renderer_raylib.c"
+
 #include "menu.h"
 #include "viewer.h"
 
 #define CLAY_IMPLEMENTATION
 #include "clay.h"
-
-#include "clay_renderer_raylib.c"
 
 #include "ui.h"
 
@@ -24,7 +24,7 @@ void HandleClayErrors(Clay_ErrorData errorData) {
   nob_log(NOB_ERROR, "%s", errorData.errorText.chars);
 }
 
-void ChangeScreen(enum Screens screen, void *screen_params) {
+void ChangeScreen(enum Screens screen) {
   assert(screen > SCREEN_NULL && screen < NOB_ARRAY_LEN(screens));
 
   if (active_screen.destroy)
@@ -33,10 +33,10 @@ void ChangeScreen(enum Screens screen, void *screen_params) {
   active_screen = *screens[screen];
 
   if (active_screen.init)
-    active_screen.init(screen_params);
+    active_screen.init();
 }
 
-void UIInit(enum Screens start_screen, void *screen_params) {
+void UIInit(enum Screens start_screen) {
   const int screenWidth = 800;
   const int screenHeight = 450;
 
@@ -57,7 +57,7 @@ void UIInit(enum Screens start_screen, void *screen_params) {
 
   Clay_SetMeasureTextFunction(Raylib_MeasureText, fonts);
 
-  ChangeScreen(start_screen, screen_params);
+  ChangeScreen(start_screen);
 }
 
 void UIDestroy() {
