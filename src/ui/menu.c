@@ -77,9 +77,7 @@ void MenuButtonHoverFunction(Clay_ElementId element_id,
 
   } break;
   }
-  // TODO: How do I free this? Need to think about architecture here
-  // FreeInnerGameLog(*game_log);
-  // free(game_log);
+  FreeInnerGameLog(game_log);
 }
 
 void MenuButton(Clay_String buttonText, enum ButtonFunction button_function) {
