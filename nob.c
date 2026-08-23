@@ -84,7 +84,7 @@ static void add_linker_flags(Nob_Cmd *cmd, bool headless) {
   if (!headless) {
 #ifdef _WIN32
     nob_cmd_append(cmd, "-lgdi32", "-lwinmm", "-lshcore", "-luser32",
-                   "-lshell32");
+                   "-lshell32", "-lcomdlg32", "-lole32");
 #else
     nob_cmd_append(cmd, "-lX11");
 #endif
@@ -99,6 +99,7 @@ static void add_include_paths(Nob_Cmd *cmd) {
   nob_cmd_append(cmd, "-isystemexternal/raylib");
   nob_cmd_append(cmd, "-isystemexternal/inih");
   nob_cmd_append(cmd, "-isystemexternal/miniz");
+  nob_cmd_append(cmd, "-isystemexternal/tinyfiledialogs");
   nob_cmd_append(cmd, "-isystemexternal");
   nob_cmd_append(cmd, "-isystem.");
 }
@@ -172,6 +173,50 @@ static bool compile_raylib(void) {
   }
 
   return nob_cmd_run(&cmd);
+}
+
+// ---------------------------------------------------------------------------
+// Library compilation
+// ---------------------------------------------------------------------------
+
+static bool compile_libraries(bool headless) {
+  Nob_Cmd cmd = {0};
+
+  // miniz
+  nob_cc(&cmd);
+  nob_cmd_append(&cmd, "-c");
+  nob_cmd_append(&cmd, "external/miniz/miniz.c");
+  nob_cmd_append(&cmd, "-o", BUILD_DIR "/miniz.o");
+  nob_cmd_append(&cmd, "-isystemexternal/miniz");
+  nob_cmd_append(&cmd, "-std=gnu11");
+  if (!nob_cmd_run(&cmd))
+    return false;
+
+  if (!headless) {
+    // tinyfiledialogs
+    nob_cc(&cmd);
+    nob_cmd_append(&cmd, "-c");
+    nob_cmd_append(&cmd, "external/tinyfiledialogs/tinyfiledialogs.c");
+    nob_cmd_append(&cmd, "-o", BUILD_DIR "/tinyfiledialogs.o");
+    nob_cmd_append(&cmd, "-isystemexternal/tinyfiledialogs");
+    nob_cmd_append(&cmd, "-std=gnu11");
+    if (!nob_cmd_run(&cmd))
+      return false;
+  } else {
+    // raymath
+    nob_cc(&cmd);
+    nob_cmd_append(&cmd, "-c");
+    nob_cmd_append(&cmd, "-x", "c");
+    nob_cmd_append(&cmd, "-DRAYMATH_IMPLEMENTATION");
+    nob_cmd_append(&cmd, "-isystemexternal/raylib");
+    nob_cmd_append(&cmd, "external/raylib/raymath.h");
+    nob_cmd_append(&cmd, "-o", BUILD_DIR "/raymath.o");
+    nob_cmd_append(&cmd, "-std=gnu11");
+    if (!nob_cmd_run(&cmd))
+      return false;
+  }
+
+  return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -399,7 +444,13 @@ static bool link_main_executable(Nob_Cmd *cmd, const char *source_files[],
       nob_cmd_append(cmd, c_to_o_path(headed_source_files[i]));
     }
     nob_cmd_append(cmd, RAYLIB_LIB);
+    nob_cmd_append(cmd, BUILD_DIR "/tinyfiledialogs.o");
+  } else {
+    nob_cmd_append(cmd, BUILD_DIR "/raymath.o");
   }
+
+  // miniz is always needed
+  nob_cmd_append(cmd, BUILD_DIR "/miniz.o");
 
   add_compile_mode_flags(cmd, debug, profile);
 
@@ -571,13 +622,17 @@ int main(int argc, char **argv) {
       return 1;
   }
 
+  if (!compile_libraries(*headless_flag))
+    return 1;
+
   Nob_Cmd cmd = {0};
   Nob_Procs procs = {0};
 
   const char *source_files[] = {
       "src/main.c", "src/game.c",   "src/runner.c", "src/configs.c",
       "src/bot.c",  "src/player.c", "src/utils.c",  "src/game_log.c"};
-  const char *headed_source_files[] = {"src/ui/ui.c", "src/ui/viewer.c", "src/ui/menu.c"};
+  const char *headed_source_files[] = {"src/ui/ui.c", "src/ui/viewer.c",
+                                       "src/ui/menu.c"};
 
   for (unsigned i = 0; i < NOB_ARRAY_LEN(source_files); i++) {
     const char *file_path = source_files[i];
