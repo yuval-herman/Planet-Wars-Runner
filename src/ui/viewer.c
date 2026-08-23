@@ -19,7 +19,7 @@ static int game_speed;
 static bool game_running;
 static bool playing_forewards;
 
-static GameLog game_log;
+static GameLog game_log = {0};
 static unsigned turn;
 static int star_shader_time_loc;
 static Shader stars_shader;
@@ -296,13 +296,14 @@ Shader SetupStarsShader(int screenWidth, int screenHeight) {
   return stars_shader;
 }
 
-void ViewerInit(void *params) {
+void ViewerInit() {
+  assert(game_log.count > 0);
+
   turn = 0;
   frame_counter = 0;
   game_speed = 5;
   game_running = false;
   playing_forewards = true;
-  game_log = *(GameLog *)params;
 
   ComputeGameSpace(game_log.items[0].planets, game_log.items[0].planet_count);
 
@@ -372,7 +373,10 @@ void ViewerDraw() {
 void ViewerDestroy() {
   UnloadShader(stars_shader);
   stars_shader = (Shader){0};
+  game_log = (GameLog){0};
 }
+
+void SetGameLog(GameLog new_game_log) { game_log = new_game_log; }
 
 const UIScreen viewer_screen = {
     .init = ViewerInit,

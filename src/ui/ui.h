@@ -7,8 +7,8 @@ enum Screens {
   SCREEN_MENU,
 };
 
-void UIInit(enum Screens start_screen, void *screen_params);
-void ChangeScreen(enum Screens screen, void *screen_params);
+void UIInit(enum Screens start_screen);
+void ChangeScreen(enum Screens screen);
 void UIRun();
 void UIDestroy();
 

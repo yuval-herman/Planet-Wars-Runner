@@ -2,6 +2,8 @@
 #define VIEWER_H
 #include "ui_screen.h"
 
+#include "../game_log.h"
+
 #define BASE_PLANET_RADIUS 10.0f
 #define PLANET_RADIUS_GROWTH_CURVE 20.0f
 #define PLANET_RING_MAX_RADIUS 3.0F
@@ -15,5 +17,7 @@
 #define MAX_GAME_SPEED_VALUE 20
 
 extern const UIScreen viewer_screen;
+
+void SetGameLog(GameLog game_log);
 
 #endif // VIEWER_H
