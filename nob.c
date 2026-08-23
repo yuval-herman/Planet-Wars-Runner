@@ -267,7 +267,7 @@ static void create_compile_cmd(Nob_Cmd *cmd, const char *file_path,
                                bool debug, bool profile) {
   nob_cc(cmd);
   nob_cmd_append(cmd, "-c");
-  nob_cmd_append(cmd, "-Wall", "-Wextra", "-Wno-unused-function");
+  nob_cmd_append(cmd, "-Wall", "-Wextra", "-Wno-unused-function", "-Wshadow");
   if (output_path) {
     nob_cmd_append(cmd, "-o", output_path);
   }
