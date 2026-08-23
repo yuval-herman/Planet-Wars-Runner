@@ -101,7 +101,7 @@ void DrawFleet(Planet *planets, Fleet fleet) {
                           GetOwnerColor(fleet.owner));
 }
 
-void DrawControls(GameLog game_log, unsigned *turn) {
+void DrawControls() {
   static bool is_scrubber_pressed = false;
   // Values for round rectanlges
   const int segments = 6;
@@ -128,7 +128,7 @@ void DrawControls(GameLog game_log, unsigned *turn) {
   const float bar_width = 40;
 
   Rectangle bar = {
-      .x = Remap(*turn, 0, game_log.count - 1, scrubber.x - bar_width / 2,
+      .x = Remap(turn, 0, game_log.count - 1, scrubber.x - bar_width / 2,
                  scrubber.x + scrubber.width - bar_width / 2),
       .y = scrubber.y - bar_height / 2 + scrubber.height / 2,
       .width = bar_width,
@@ -145,7 +145,7 @@ void DrawControls(GameLog game_log, unsigned *turn) {
     if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
       is_scrubber_pressed = false;
     } else {
-      *turn =
+      turn =
           Remap(fmin(scrubber.x + scrubber.width,
                      fmax(scrubber.x, GetMousePosition().x)),
                 scrubber.x, scrubber.x + scrubber.width, 0, game_log.count - 1);
@@ -154,7 +154,7 @@ void DrawControls(GameLog game_log, unsigned *turn) {
 
   const float font_size = 20;
   const float spacing = 1;
-  const char *turn_text = TextFormat("%d", *turn);
+  const char *turn_text = TextFormat("%d", turn);
 
   Vector2 text_measurements =
       MeasureTextEx(font, turn_text, font_size, spacing);
@@ -188,7 +188,7 @@ void DrawControls(GameLog game_log, unsigned *turn) {
 
   // Play backwards
   button.x = (GetScreenWidth() - button_row_width) / 2.0f;
-  HandleMousePress(if (*turn > 0) {
+  HandleMousePress(if (turn > 0) {
     playing_forewards = false;
     game_running = true;
   });
@@ -215,7 +215,7 @@ void DrawControls(GameLog game_log, unsigned *turn) {
 
   // Play forewards
   button.x += button_edge + ui_margin;
-  HandleMousePress(if (*turn < game_log.count) {
+  HandleMousePress(if (turn < game_log.count) {
     playing_forewards = true;
     game_running = true;
   });
@@ -235,8 +235,7 @@ void DrawControls(GameLog game_log, unsigned *turn) {
   const float margin_between_players = 25;
   const float text_margin = 8;
 
-  const char *player_text = "P99";
-  text_measurements = MeasureTextEx(font, player_text, font_size, spacing);
+  text_measurements = MeasureTextEx(font, "P99", font_size, spacing);
   float total_labels_width = (text_measurements.x + indicator_size +
                               text_margin + margin_between_players) *
                                  game_log.players.count -
@@ -255,8 +254,7 @@ void DrawControls(GameLog game_log, unsigned *turn) {
     DrawRectangleLinesEx(color_indicator, 1.0f, RAYWHITE);
 
     const char *player_text = TextFormat("P%u", i + 1);
-    Vector2 text_measurements =
-        MeasureTextEx(font, player_text, font_size, spacing);
+    text_measurements = MeasureTextEx(font, player_text, font_size, spacing);
 
     Vector2 text_pos = {
         .x = color_indicator.x + color_indicator.width + text_margin,
@@ -269,8 +267,8 @@ void DrawControls(GameLog game_log, unsigned *turn) {
   }
 }
 
-Shader SetupStarsShader(int screenWidth, int screenHeight) {
-  Shader stars_shader = LoadShaderFromMemory(NULL, stars_shader_source);
+void SetupStarsShader(int screenWidth, int screenHeight) {
+  stars_shader = LoadShaderFromMemory(NULL, stars_shader_source);
 
   int resLoc = GetShaderLocation(stars_shader, "uResolution");
   int starSizeLoc = GetShaderLocation(stars_shader, "uStarSize");
@@ -292,8 +290,6 @@ Shader SetupStarsShader(int screenWidth, int screenHeight) {
   SetShaderValue(stars_shader, starDensityLoc, &starDensity,
                  SHADER_UNIFORM_FLOAT);
   SetShaderValue(stars_shader, seedLoc, &starsSeed, SHADER_UNIFORM_FLOAT);
-
-  return stars_shader;
 }
 
 void ViewerInit() {
@@ -309,7 +305,7 @@ void ViewerInit() {
 
   font = GetFontDefault();
 
-  stars_shader = SetupStarsShader(GetScreenWidth(), GetScreenHeight());
+  SetupStarsShader(GetScreenWidth(), GetScreenHeight());
 
   star_shader_time_loc = GetShaderLocation(stars_shader, "uTime");
 }
@@ -348,9 +344,8 @@ void ViewerDraw() {
   SetShaderValue(stars_shader, star_shader_time_loc, &time,
                  SHADER_UNIFORM_FLOAT);
 
-
   // ============= START DRAWING =============
-  
+
   ClearBackground(BLACK);
   // 5. Activate the shader to affect the canvas drawings
   BeginShaderMode(stars_shader);
@@ -367,7 +362,7 @@ void ViewerDraw() {
     DrawFleet(game_log.items[turn].planets, game_log.items[turn].fleets[i]);
   }
 
-  DrawControls(game_log, &turn);
+  DrawControls();
 }
 
 void ViewerDestroy() {
