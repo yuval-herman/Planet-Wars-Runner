@@ -368,10 +368,13 @@ void ViewerDraw() {
 void ViewerDestroy() {
   UnloadShader(stars_shader);
   stars_shader = (Shader){0};
+  FreeInnerGameLog(game_log);
   game_log = (GameLog){0};
 }
 
-void SetGameLog(GameLog new_game_log) { game_log = new_game_log; }
+void SetGameLog(GameLog new_game_log) {
+  game_log = DeepCopyGameLog(new_game_log);
+}
 
 const UIScreen viewer_screen = {
     .init = ViewerInit,
