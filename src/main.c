@@ -77,7 +77,7 @@ int main(int argc, char *argv[]) {
       fclose(save_file);
     }
   } else if (exit_code == 0 && configs.mode == MODE_MENU) {
-        UIInit(SCREEN_MENU, NULL);
+        UIInit(SCREEN_MENU, &configs);
         UIRun();
         UIDestroy();
   }
