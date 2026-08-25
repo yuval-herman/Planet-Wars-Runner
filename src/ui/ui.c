@@ -1,6 +1,7 @@
 #include "nob.h"
 
 #include "clay_renderer_raylib.c"
+#include "fonts.c"
 
 #include "menu.h"
 #include "viewer.h"
@@ -18,7 +19,7 @@ static const UIScreen *screens[] = {
     [SCREEN_MENU] = &menu_screen,
 };
 static UIScreen active_screen = {0};
-static Font fonts[1];
+static Font fonts[2];
 
 void HandleClayErrors(Clay_ErrorData errorData) {
   nob_log(NOB_ERROR, "%s", errorData.errorText.chars);
@@ -40,13 +41,16 @@ void UIInit(enum Screens start_screen) {
   const int screenWidth = 800;
   const int screenHeight = 450;
 
-  fonts[0] = GetFontDefault();
-
   SetTraceLogLevel(LOG_WARNING);
   SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_MSAA_4X_HINT);
   InitWindow(screenWidth, screenHeight, "Planet Wars Viewer");
 
   SetTargetFPS(60);
+
+  fonts[0] = GetFontDefault();
+  fonts[1] =
+      LoadFontFromMemory(".ttf", Cousine_Regular_source,
+                         NOB_ARRAY_LEN(Cousine_Regular_source), 32, NULL, 0);
 
   uint32_t totalMemorySize = Clay_MinMemorySize();
   Clay_Arena clayMemory = Clay_CreateArenaWithCapacityAndMemory(

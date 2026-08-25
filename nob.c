@@ -223,8 +223,14 @@ static bool compile_libraries(bool headless) {
 // Shader embedding
 // ---------------------------------------------------------------------------
 
+struct EmbedFilesData {
+  FILE *file;
+  bool append_null; // If we embedd a string, like a shader
+};
+
 static bool embed_files_walker(Nob_Walk_Entry entry) {
-  FILE *shaders_file = entry.data;
+  struct EmbedFilesData *data = entry.data;
+  FILE *file = data->file;
   Nob_String_Builder sb = {0};
 
   if (entry.type == NOB_FILE_REGULAR) {
@@ -242,16 +248,22 @@ static bool embed_files_walker(Nob_Walk_Entry entry) {
     // Strip file extension
     sv = nob_sv_chop_by_delim(&sv, '.');
 
-    fprintf(shaders_file, "const char %.*s_shader_source[] = ", (int)sv.count,
+    fprintf(file, "const unsigned char %.*s_source[] = {\n", (int)sv.count,
             sv.data);
 
-    sv.data = sb.items;
-    sv.count = sb.count;
-    while (sv.count > 0) {
-      Nob_String_View line = nob_sv_chop_by_delim(&sv, '\n');
-      fprintf(shaders_file, "\"%.*s\\n\"\n", (int)line.count, line.data);
+    unsigned char bytes_in_line = 0;
+    nob_da_foreach(char, byte, &sb) {
+      if (bytes_in_line > 10) {
+        fputc('\n', file);
+        bytes_in_line = 0;
+      }
+      fprintf(file, "0x%02x,", (unsigned char)*byte);
+      bytes_in_line++;
     }
-    fputc(';', shaders_file);
+    if (data->append_null) {
+      fputs("0x0", file);
+    }
+    fputs("};", file);
 
     nob_log(NOB_INFO, "Embedded %s.", entry.path);
   }
@@ -269,8 +281,18 @@ static bool embed_files_walker(Nob_Walk_Entry entry) {
 
 static void embed_shaders(void) {
   FILE *shaders_file = fopen("src/ui/shaders.c", "w");
-  nob_walk_dir("shaders", embed_files_walker, .data = shaders_file);
+  struct EmbedFilesData data = {.file = shaders_file, .append_null = true};
+
+  nob_walk_dir("assets/shaders", embed_files_walker, .data = &data);
   fclose(shaders_file);
+}
+
+static void embed_fonts(void) {
+  FILE *fonts_file = fopen("src/ui/fonts.c", "w");
+  struct EmbedFilesData data = {.file = fonts_file, .append_null = false};
+
+  nob_walk_dir("assets/fonts", embed_files_walker, .data = &data);
+  fclose(fonts_file);
 }
 
 // ---------------------------------------------------------------------------
@@ -615,6 +637,7 @@ int main(int argc, char **argv) {
   }
 
   embed_shaders();
+  embed_fonts();
   nob_mkdir_if_not_exists(BUILD_DIR);
 
   if (!*headless_flag && !nob_file_exists(RAYLIB_LIB)) {
