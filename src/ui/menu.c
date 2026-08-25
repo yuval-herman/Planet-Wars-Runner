@@ -160,7 +160,7 @@ void MenuButton(Clay_String buttonText, enum ButtonFunction button_function) {
     .backgroundColor = Clay_Hovered() ? CLAY_COLOR(BLUE) : CLAY_COLOR(GRAY)
   }) {
     Clay_OnHover(MenuButtonHoverFunction, (void*)button_function);
-    CLAY_TEXT(buttonText, {.fontSize = 32, .textColor = CLAY_COLOR(BLACK)});
+    CLAY_TEXT(buttonText, {.fontId = 1, .fontSize = 32, .textColor = CLAY_COLOR(BLACK)});
   }
   // clang-format on
 }

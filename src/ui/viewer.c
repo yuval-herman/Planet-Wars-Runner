@@ -268,7 +268,7 @@ void DrawControls() {
 }
 
 void SetupStarsShader(int screenWidth, int screenHeight) {
-  stars_shader = LoadShaderFromMemory(NULL, stars_shader_source);
+  stars_shader = LoadShaderFromMemory(NULL, (char*)stars_source);
 
   int resLoc = GetShaderLocation(stars_shader, "uResolution");
   int starSizeLoc = GetShaderLocation(stars_shader, "uStarSize");
