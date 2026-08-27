@@ -10,11 +10,8 @@
 
 #include "menu.h"
 #include "ui.h"
+#include "ui_utils.h"
 #include "viewer.h"
-
-// Convenient shorthand for Raylib -> Clay color conversion.
-#define CLAY_COLOR(color)                                                      \
-  (Clay_Color) { .r = color.r, .g = color.g, .b = color.b, .a = color.a }
 
 enum ButtonFunction : size_t {
   // Main menu options
