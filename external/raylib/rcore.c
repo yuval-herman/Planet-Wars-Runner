@@ -4029,6 +4029,12 @@ float GetGamepadAxisMovement(int gamepad, int axis)
 //void SetMousePosition(int x, int y)
 //void SetMouseCursor(int cursor)
 
+// Returns mouse cursor
+int GetMouseCursor(void)
+{
+    return CORE.Input.Mouse.cursor;
+}
+
 // Check if a mouse button has been pressed once
 bool IsMouseButtonPressed(int button)
 {
