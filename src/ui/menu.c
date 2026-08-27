@@ -8,6 +8,7 @@
 #include "../runner.h"
 #include "nob.h"
 
+#include "components.h"
 #include "menu.h"
 #include "ui.h"
 #include "ui_utils.h"
@@ -163,11 +164,15 @@ void MenuButton(Clay_String buttonText, enum ButtonFunction button_function) {
 }
 
 void PlayMatchOptions() {
-  Clay_String map = {
-      .isStaticallyAllocated = false,
-      .chars = configs->map_file,
-      .length = strlen(configs->map_file),
-  };
+  static bool first = true;
+  static Nob_String_Builder map_sb = {0};
+  // map_sb.count = 0;
+  if (first)
+    nob_sb_append_cstr(&map_sb, configs->map_file);
+  first = false;
+  static unsigned map_cursor = 0;
+  static bool map_focused = false;
+
   Clay_String p1_cmd = {
       .isStaticallyAllocated = false,
       .chars = configs->players.items[0].as.bot.start_command,
@@ -198,7 +203,7 @@ void PlayMatchOptions() {
       .layoutDirection = CLAY_TOP_TO_BOTTOM,
      },
   }) {
-    MenuButton(map, BUTTON_MAP);
+    Component_TextEdit(&map_sb, &map_cursor, &map_focused);
     MenuButton(p1_cmd, BUTTON_P1_CMD);
     MenuButton(p2_cmd, BUTTON_P2_CMD);
     MenuButton(p1_name, BUTTON_P1_NAME);
@@ -258,7 +263,8 @@ void MenuDraw() {
 
 void MenuInit() {
   assert(configs);
-  sub_menu = MENU_MAIN;
+  // sub_menu = MENU_MAIN;
+  sub_menu = MENU_PLAY_MATCH_OPTIONS;
   // Clay_SetDebugModeEnabled(true);
 }
 
