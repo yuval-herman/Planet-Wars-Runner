@@ -37,6 +37,16 @@ void ChangeScreen(enum Screens screen) {
     active_screen.init();
 }
 
+void UpdateClayState() {
+  Clay_SetLayoutDimensions(
+      (Clay_Dimensions){GetScreenWidth(), GetScreenHeight()});
+  Vector2 mp = GetMousePosition();
+  Clay_SetPointerState((Clay_Vector2){mp.x, mp.y},
+                       IsMouseButtonDown(MOUSE_LEFT_BUTTON));
+  Vector2 mw = GetMouseWheelMoveV();
+  Clay_UpdateScrollContainers(true, (Clay_Vector2){mw.x, mw.y}, GetFrameTime());
+}
+
 void UIInit(enum Screens start_screen) {
   const int screenWidth = 800;
   const int screenHeight = 450;
@@ -61,6 +71,7 @@ void UIInit(enum Screens start_screen) {
 
   Clay_SetMeasureTextFunction(Raylib_MeasureText, fonts);
 
+  UpdateClayState();
   ChangeScreen(start_screen);
 }
 
@@ -75,14 +86,7 @@ void UIDestroy() {
 void UIRun() {
   assert(active_screen.draw);
   while (!WindowShouldClose()) {
-    Clay_SetLayoutDimensions(
-        (Clay_Dimensions){GetScreenWidth(), GetScreenHeight()});
-    Vector2 mp = GetMousePosition();
-    Clay_SetPointerState((Clay_Vector2){mp.x, mp.y},
-                         IsMouseButtonDown(MOUSE_LEFT_BUTTON));
-    Vector2 mw = GetMouseWheelMoveV();
-    Clay_UpdateScrollContainers(true, (Clay_Vector2){mw.x, mw.y},
-                                GetFrameTime());
+    UpdateClayState();
 
     BeginDrawing();
     Clay_BeginLayout();
