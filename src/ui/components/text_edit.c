@@ -16,13 +16,26 @@ Clay_String Component_TextEdit(Nob_String_Builder *sb, unsigned *caret_pos,
 
 #define CARET_COLOR ((Clay_Color){255, 255, 255, 127})
 
+struct HoverData {
+  // Width of a single character in the text edit component
+  unsigned character_width;
+  bool *is_focused;
+  unsigned *caret_pos;
+};
+
 static void onHover(Clay_ElementId element_id, Clay_PointerData pointer_data,
                     void *user_data) {
-  NOB_UNUSED(element_id);
-  bool *is_focused = user_data;
+  struct HoverData *hover_data = user_data;
 
   if (pointer_data.state == CLAY_POINTER_DATA_RELEASED_THIS_FRAME) {
-    *is_focused = true;
+    *hover_data->is_focused = true;
+
+    Clay_ElementData element_data = Clay_GetElementData(element_id);
+    assert(element_data.found);
+
+    Vector2 ep = {element_data.boundingBox.x, element_data.boundingBox.y};
+    Vector2 mp = GetMousePosition();
+    *hover_data->caret_pos = (mp.x - ep.x) / hover_data->character_width;
   }
 }
 
@@ -40,6 +53,11 @@ Clay_String DrawTextEdit(Nob_String_Builder sb, unsigned *caret_pos,
                          bool *is_focused) {
   const Clay_String str = SB_TO_CLAY(sb);
   const int inner_padding = 8;
+  const int character_width = 16;
+  static struct HoverData hover_data;
+  hover_data.caret_pos = caret_pos;
+  hover_data.is_focused = is_focused;
+  hover_data.character_width = character_width;
   // clang-format off
   CLAY_AUTO_ID({
     .layout = {
@@ -49,7 +67,7 @@ Clay_String DrawTextEdit(Nob_String_Builder sb, unsigned *caret_pos,
     .backgroundColor = *is_focused ? CLAY_COLOR(BLUE) : CLAY_COLOR(GRAY)
   }) {
     SetCursorShapeByHover();
-    Clay_OnHover(onHover, is_focused);
+    Clay_OnHover(onHover, &hover_data);
     Clay_TextElementConfig text_conf = {.fontId = 1, .fontSize = 32, .textColor = CLAY_COLOR(BLACK)};
     CLAY_TEXT(str, text_conf);
     if (*is_focused) {
@@ -58,7 +76,7 @@ Clay_String DrawTextEdit(Nob_String_Builder sb, unsigned *caret_pos,
           .pointerCaptureMode = CLAY_POINTER_CAPTURE_MODE_PASSTHROUGH,
           .attachTo = CLAY_ATTACH_TO_PARENT,
           .attachPoints = {CLAY_ATTACH_POINT_LEFT_CENTER, CLAY_ATTACH_POINT_LEFT_CENTER},
-          .offset = {.y = 0, .x = inner_padding + *caret_pos * 16}
+          .offset = {.y = 0, .x = inner_padding + *caret_pos * character_width}
         },
         .layout = {
           .sizing = {.height = CLAY_SIZING_PERCENT(0.9), .width = CLAY_SIZING_FIXED(4)},
