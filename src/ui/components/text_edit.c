@@ -52,12 +52,24 @@ static inline void SetCursorShapeByHover() {
 Clay_String DrawTextEdit(Nob_String_Builder sb, unsigned *caret_pos,
                          bool *is_focused) {
   const Clay_String str = SB_TO_CLAY(sb);
+  Clay_String str_to_caret = (Clay_String){
+      .isStaticallyAllocated = false,
+      .length = *caret_pos,
+      .chars = sb.items,
+  };
   const int inner_padding = 8;
-  const int character_width = 16;
+  Clay_TextElementConfig text_conf = {
+      .fontId = 1,
+      .fontSize = 32,
+      .textColor = CLAY_COLOR(BLACK),
+  };
   static struct HoverData hover_data;
   hover_data.caret_pos = caret_pos;
   hover_data.is_focused = is_focused;
-  hover_data.character_width = character_width;
+  // This will always work for monotone fonts, but at best will be a good
+  // estimate otherwise
+  hover_data.character_width =
+      Clay_MeasureText(&(Clay_String){false, 1, sb.items}, &text_conf).width;
   // clang-format off
   CLAY_AUTO_ID({
     .layout = {
@@ -68,7 +80,6 @@ Clay_String DrawTextEdit(Nob_String_Builder sb, unsigned *caret_pos,
   }) {
     SetCursorShapeByHover();
     Clay_OnHover(onHover, &hover_data);
-    Clay_TextElementConfig text_conf = {.fontId = 1, .fontSize = 32, .textColor = CLAY_COLOR(BLACK)};
     CLAY_TEXT(str, text_conf);
     if (*is_focused) {
       CLAY(CLAY_ID_LOCAL("Caret"), {
@@ -76,7 +87,10 @@ Clay_String DrawTextEdit(Nob_String_Builder sb, unsigned *caret_pos,
           .pointerCaptureMode = CLAY_POINTER_CAPTURE_MODE_PASSTHROUGH,
           .attachTo = CLAY_ATTACH_TO_PARENT,
           .attachPoints = {CLAY_ATTACH_POINT_LEFT_CENTER, CLAY_ATTACH_POINT_LEFT_CENTER},
-          .offset = {.y = 0, .x = inner_padding + *caret_pos * character_width}
+          .offset = {
+            .y = 0,
+            .x = inner_padding + Clay_MeasureText(&str_to_caret, &text_conf).width
+          }
         },
         .layout = {
           .sizing = {.height = CLAY_SIZING_PERCENT(0.9), .width = CLAY_SIZING_FIXED(4)},
