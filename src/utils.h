@@ -77,6 +77,8 @@ void SplitStringByDelimEx(Nob_Cmd *split_str, const char *str, char delim);
 
 Nob_Cmd SplitStringByDelim(const char *str, char delim);
 
+Nob_String_Builder DupeStringBuilder(Nob_String_Builder sb);
+
 char *DupeString(const char *str);
 
 char **DupeMultiDString(char const *const *md_str, unsigned dim);

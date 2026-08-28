@@ -3,7 +3,7 @@
 Player DeepCopyPlayer(Player player) {
   Player new_player = {
       .type = player.type,
-      .name = DupeString(player.name),
+      .name = DupeStringBuilder(player.name),
   };
 
   switch (player.type) {
@@ -23,7 +23,7 @@ Player DeepCopyPlayer(Player player) {
 }
 
 void FreeInnerPlayer(Player player) {
-  free(player.name);
+  nob_sb_free(player.name);
 
   switch (player.type) {
   default:

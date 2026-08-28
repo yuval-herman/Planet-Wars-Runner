@@ -16,15 +16,13 @@ Configs MakeDefaultConfig() {
   Configs configs = {0};
   configs.mode = MODE_MENU;
   configs.write_save = true;
-  // This is later free'd. It easier to make sure it's heap allocated then to
-  // track whether it changed or not before freeing.
-  configs.save_file = DupeString("game.plws");
+  nob_sb_append_cstr(&configs.save_file, "game.plws");
   return configs;
 }
 
 void FreeConfigs(Configs configs) {
-  free(configs.map_file);
-  free(configs.save_file);
+  nob_sb_free(configs.map_file);
+  nob_sb_free(configs.save_file);
   FreeInnerPlayerDA(configs.players);
 }
 
@@ -33,7 +31,7 @@ static bool VerifyConfigs(Configs configs) {
   nob_log(NOB_ERROR, "Configs error, pass -help to see usage.\n" msg)
 
   if (configs.mode == MODE_REPLAY) {
-    if (configs.save_file == NULL) {
+    if (configs.save_file.count == 0) {
       REPORT_ERROR("No file to replay was provided.");
       return false;
     }
@@ -56,7 +54,7 @@ static bool VerifyConfigs(Configs configs) {
     return false;
   }
 
-  if (!configs.map_file) {
+  if (!configs.map_file.count) {
     REPORT_ERROR("No map file provided.");
     return false;
   }
@@ -104,7 +102,7 @@ static int ini_parse_handler(void *user_data, const char *section,
   } else if (MATCH(section, "simulation")) {
 
     if (MATCH(name, "map")) {
-      configs->map_file = DupeString(value);
+      nob_sb_append_cstr(&configs->map_file, value);
     } else {
       nob_log(NOB_ERROR, "Unknown simulation config. line %d.", lineno);
       return 0;
@@ -113,9 +111,10 @@ static int ini_parse_handler(void *user_data, const char *section,
   } else if (MATCH(section, "bot")) {
 
     if (MATCH(name, "name")) {
-      nob_da_last(&configs->players).name = DupeString(value);
+      nob_sb_append_cstr(&nob_da_last(&configs->players).name, value);
     } else if (MATCH(name, "command")) {
-      nob_da_last(&configs->players).as.bot.start_command = DupeString(value);
+      nob_sb_append_cstr(&nob_da_last(&configs->players).as.bot.start_command,
+                         value);
     } else {
       nob_log(NOB_ERROR, "Unknown bot config. line %d.", lineno);
       return 0;
@@ -224,12 +223,12 @@ bool ParseConfigsFromCLI(Configs *configs, int argc, char *argv[]) {
   // are heap allocated then try and try whether they came from the CLI (stack)
   // or the config file (heap)
   if (map_file) {
-    configs->map_file = DupeString(map_file);
+    nob_sb_append_cstr(&configs->map_file, map_file);
   }
 #ifndef HEADLESS_MODE
   if (save_file) {
-    free(configs->save_file);
-    configs->save_file = DupeString(save_file);
+    configs->save_file.count = 0;
+    nob_sb_append_cstr(&configs->save_file, save_file);
   }
 #endif // HEADLESS_MODE
 
@@ -246,12 +245,13 @@ bool ParseConfigsFromCLI(Configs *configs, int argc, char *argv[]) {
   }
 
   for (unsigned i = 0; i < bot_names.count; i++) {
-    Player player = {.type = PLAYER_BOT,
-                     .name = DupeString(bot_names.items[i]),
-                     .as.bot = {
-                         .start_command = DupeString(bot_commands.items[i]),
-                         .process = NULL,
-                     }};
+    Player player = {
+        .type = PLAYER_BOT,
+        .name = nob_sb_from_cstr(bot_names.items[i]),
+        .as.bot = {
+            .start_command = nob_sb_from_cstr(bot_commands.items[i]),
+            .process = NULL,
+        }};
 
     nob_da_append(&configs->players, player);
   }

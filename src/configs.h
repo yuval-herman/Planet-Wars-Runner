@@ -19,7 +19,7 @@ typedef struct {
   PlayerDA players;
 
   // Path for a map file, required for tournament or single match mode
-  char *map_file;
+  Nob_String_Builder map_file;
 
   // Whether to write a plws file for the running game. Ignored for tournament
   // and replay mode.
@@ -27,7 +27,7 @@ typedef struct {
 
   // A path for a plws file to load in replay mode, or to save into when using
   // `write_save`.
-  char *save_file;
+  Nob_String_Builder save_file;
 } Configs;
 
 // Make a default config struct filled with sane values.

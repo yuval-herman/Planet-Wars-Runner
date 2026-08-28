@@ -233,12 +233,9 @@ bool WriteGameLogToFile(FILE *file, GameLog game_log) {
   WRITE_32(game_log.players.count);
 
   nob_da_foreach(Player, player, &game_log.players) {
-    uint16_t string_length;
-
-    string_length = (uint16_t)strlen(player->name);
-    WRITE_16(string_length);
-    for (uint16_t i = 0; i < string_length; i++) {
-      WRITE_8(player->name[i]);
+    WRITE_16(player->name.count);
+    for (uint16_t i = 0; i < player->name.count; i++) {
+      WRITE_8(player->name.items[i]);
     }
   }
 
@@ -353,13 +350,14 @@ bool ReadGameLogFromFile(FILE *file, GameLog *game_log) {
   READ_32(game_log->players.count);
 
   game_log->players.items =
-      malloc(sizeof *game_log->players.items * game_log->players.count);
+      calloc(game_log->players.count, sizeof *game_log->players.items);
   nob_da_foreach(Player, player, &game_log->players) {
     uint16_t string_length;
     READ_16(string_length);
-    player->name = malloc(sizeof *player->name * (string_length + 1));
-    READ_ERROR_CHK(ReadCompressed(&cr, player->name, string_length));
-    player->name[string_length] = '\0';
+    player->name.items =
+        malloc(sizeof *player->name.items * (string_length + 1));
+    READ_ERROR_CHK(ReadCompressed(&cr, player->name.items, string_length));
+    player->name.count = string_length;
     player->type = PLAYER_REPLAY;
   }
 

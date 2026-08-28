@@ -434,6 +434,7 @@ typedef struct {
 
 NOBDEF bool nob_read_entire_file(const char *path, Nob_String_Builder *sb);
 NOBDEF int nob_sb_appendf(Nob_String_Builder *sb, const char *fmt, ...) NOB_PRINTF_FORMAT(2, 3);
+NOBDEF Nob_String_Builder nob_sb_from_cstr(const char *cstr);
 // Pads the String_Builder (sb) to the desired word size boundary with 0s.
 // Imagine we have sb that contains 5 `a`-s:
 //
@@ -2530,6 +2531,12 @@ NOBDEF int nob_sb_appendf(Nob_String_Builder *sb, const char *fmt, ...)
     sb->count += n;
 
     return n;
+}
+
+NOBDEF Nob_String_Builder nob_sb_from_cstr(const char *cstr) {
+    Nob_String_Builder sb = {0};
+    nob_sb_append_cstr(&sb, cstr);
+    return sb;
 }
 
 NOBDEF void nob_sb_pad_align(Nob_String_Builder *sb, size_t size)

@@ -12,7 +12,7 @@
 #define MESSAGE_DELIMETER "go" NOB_LINE_END
 
 DefineComplexStruct(Bot, {
-  char *start_command;
+  Nob_String_Builder start_command;
   struct subprocess_s *process;
 });
 

@@ -13,7 +13,7 @@ typedef enum {
 
 DefineComplexStruct(Player, {
   PlayerType type;
-  char *name;
+  Nob_String_Builder name;
   union {
     Bot bot;
     void *human; // currently nothing to store here.

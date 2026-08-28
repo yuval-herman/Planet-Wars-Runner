@@ -61,14 +61,17 @@ static void MenuButtonHoverFunction(Clay_ElementId element_id,
     //                                      0);
     sub_menu = MENU_REPLAY_OPTIONS;
     break;
-    FILE *save_file = fopen(configs->save_file, "rb");
+    if (nob_da_last(&configs->save_file) != '\0') {
+      nob_sb_append_null(&configs->save_file);
+    }
+    FILE *save_file = fopen(configs->save_file.items, "rb");
     if (!save_file) {
       nob_log(NOB_ERROR, "Failed opening save file \"%s\": %s.",
-              configs->save_file, strerror(errno));
+              configs->save_file.items, strerror(errno));
       NOB_TODO("handle errors isn't implemented...");
     } else {
       if (!ReadGameLogFromFile(save_file, &game_log)) {
-        nob_log(NOB_ERROR, "Failed reading \"%s\".", configs->save_file);
+        nob_log(NOB_ERROR, "Failed reading \"%s\".", configs->save_file.items);
       } else {
         SetGameLog(game_log);
         ChangeScreen(SCREEN_VIEWER);
@@ -80,52 +83,60 @@ static void MenuButtonHoverFunction(Clay_ElementId element_id,
     sub_menu = MENU_PLAY_MATCH_OPTIONS;
   } break;
   case BUTTON_MAP: {
-    char *result =
-        tinyfd_inputBox("Map file", "Select the map file:", configs->map_file);
+    if (nob_da_last(&configs->map_file) != '\0') {
+      nob_sb_append_null(&configs->map_file);
+    }
+    char *result = tinyfd_inputBox(
+        "Map file", "Select the map file:", configs->map_file.items);
     if (result) {
-      free(configs->map_file);
-      configs->map_file = DupeString(result);
+      configs->map_file.count = 0;
+      nob_sb_append_cstr(&configs->map_file, result);
     }
   } break;
   case BUTTON_P1_CMD: {
     char *result =
         tinyfd_inputBox("Player 1 command", "Select the command for player 1:",
-                        configs->players.items[0].as.bot.start_command);
+                        configs->players.items[0].as.bot.start_command.items);
     if (result) {
-      free(configs->players.items[0].as.bot.start_command);
-      configs->players.items[0].as.bot.start_command = DupeString(result);
+      configs->players.items[0].as.bot.start_command.count = 0;
+      nob_sb_append_cstr(&configs->players.items[0].as.bot.start_command,
+                         result);
     }
   } break;
   case BUTTON_P2_CMD: {
     char *result =
         tinyfd_inputBox("Player 2 command", "Select the command for player 2:",
-                        configs->players.items[1].as.bot.start_command);
+                        configs->players.items[1].as.bot.start_command.items);
     if (result) {
-      free(configs->players.items[1].as.bot.start_command);
-      configs->players.items[1].as.bot.start_command = DupeString(result);
+      configs->players.items[1].as.bot.start_command.count = 0;
+      nob_sb_append_cstr(&configs->players.items[1].as.bot.start_command,
+                         result);
     }
   } break;
   case BUTTON_P1_NAME: {
     char *result = tinyfd_inputBox(
         "Player 1 name",
-        "Select the name for player 1:", configs->players.items[0].name);
+        "Select the name for player 1:", configs->players.items[0].name.items);
     if (result) {
-      free(configs->players.items[0].name);
-      configs->players.items[0].name = DupeString(result);
+      configs->players.items[0].name.count = 0;
+      nob_sb_append_cstr(&configs->players.items[0].name, result);
     }
   } break;
   case BUTTON_P2_NAME: {
     char *result = tinyfd_inputBox(
         "Player 2 name",
-        "Select the name for player 2:", configs->players.items[1].name);
+        "Select the name for player 2:", configs->players.items[1].name.items);
     if (result) {
-      free(configs->players.items[1].name);
-      configs->players.items[1].name = DupeString(result);
+      configs->players.items[1].name.count = 0;
+      nob_sb_append_cstr(&configs->players.items[1].name, result);
     }
   } break;
   case BUTTON_START_MATCH: {
     GameState state = {0};
-    if (MakeGame(&state, configs->map_file, configs->players.count)) {
+    if (nob_da_last(&configs->map_file) != '\0') {
+      nob_sb_append_null(&configs->map_file);
+    }
+    if (MakeGame(&state, configs->map_file.items, configs->players.count)) {
       if (!RunMatch(&game_log, &state, configs->players)) {
         nob_log(NOB_ERROR, "Failed running match.");
         NOB_TODO("handle errors isn't implemented...");
@@ -164,47 +175,15 @@ void MenuButton(Clay_String buttonText, enum ButtonFunction button_function) {
 }
 
 void PlayMatchOptions() {
-  static bool first = true;
-  static Nob_String_Builder map_sb = {0};
-  // This is obviously horrendous code, but it works for an example or proof of
-  // concept
-  if (first) {
-    nob_sb_append_cstr(&map_sb, configs->map_file);
-    free(configs->map_file);
-    first = false;
-  } else {
-    // We reserve enough place and make sure this string is null terminated but
-    // do not add it the the sb count. This is because the UI does not use null
-    // terminated strings but across the code they are indeed used, so this
-    // ensures this string works in both cases.
-    nob_da_reserve(&map_sb, map_sb.count + 1);
-    map_sb.items[map_sb.count] = '\0';
-
-    configs->map_file = map_sb.items;
-  }
   static unsigned map_cursor = 0;
   static bool map_focused = false;
 
-  Clay_String p1_cmd = {
-      .isStaticallyAllocated = false,
-      .chars = configs->players.items[0].as.bot.start_command,
-      .length = strlen(configs->players.items[0].as.bot.start_command),
-  };
-  Clay_String p2_cmd = {
-      .isStaticallyAllocated = false,
-      .chars = configs->players.items[1].as.bot.start_command,
-      .length = strlen(configs->players.items[1].as.bot.start_command),
-  };
-  Clay_String p1_name = {
-      .isStaticallyAllocated = false,
-      .chars = configs->players.items[0].name,
-      .length = strlen(configs->players.items[0].name),
-  };
-  Clay_String p2_name = {
-      .isStaticallyAllocated = false,
-      .chars = configs->players.items[1].name,
-      .length = strlen(configs->players.items[1].name),
-  };
+  Clay_String p1_cmd =
+      SB_TO_CLAY(configs->players.items[0].as.bot.start_command);
+  Clay_String p2_cmd =
+      SB_TO_CLAY(configs->players.items[1].as.bot.start_command);
+  Clay_String p1_name = SB_TO_CLAY(configs->players.items[0].name);
+  Clay_String p2_name = SB_TO_CLAY(configs->players.items[1].name);
   // clang-format off
   CLAY(CLAY_ID("PlayMatchContainer"), {
     .layout = {
@@ -215,7 +194,7 @@ void PlayMatchOptions() {
       .layoutDirection = CLAY_TOP_TO_BOTTOM,
      },
   }) {
-    Component_TextEdit(&map_sb, &map_cursor, &map_focused);
+    Component_TextEdit(&configs->map_file, &map_cursor, &map_focused);
     MenuButton(p1_cmd, BUTTON_P1_CMD);
     MenuButton(p2_cmd, BUTTON_P2_CMD);
     MenuButton(p1_name, BUTTON_P1_NAME);

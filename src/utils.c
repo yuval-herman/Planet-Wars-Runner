@@ -78,6 +78,16 @@ char *DupeString(const char *str) {
   return new_str;
 }
 
+Nob_String_Builder DupeStringBuilder(Nob_String_Builder sb) {
+  Nob_String_Builder new_sb = {
+      .capacity = sb.count,
+      .count = sb.count,
+      .items = malloc(sizeof *sb.items * sb.count),
+  };
+  memcpy(new_sb.items, sb.items, sb.count);
+  return new_sb;
+}
+
 char **DupeMultiDString(char const *const *md_str, unsigned dim) {
   char **new_md_str = malloc(sizeof *new_md_str * dim);
   for (unsigned i = 0; i < dim; i++) {
