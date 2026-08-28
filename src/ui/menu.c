@@ -166,10 +166,22 @@ void MenuButton(Clay_String buttonText, enum ButtonFunction button_function) {
 void PlayMatchOptions() {
   static bool first = true;
   static Nob_String_Builder map_sb = {0};
-  // map_sb.count = 0;
-  if (first)
+  // This is obviously horrendous code, but it works for an example or proof of
+  // concept
+  if (first) {
     nob_sb_append_cstr(&map_sb, configs->map_file);
-  first = false;
+    free(configs->map_file);
+    first = false;
+  } else {
+    // We reserve enough place and make sure this string is null terminated but
+    // do not add it the the sb count. This is because the UI does not use null
+    // terminated strings but across the code they are indeed used, so this
+    // ensures this string works in both cases.
+    nob_da_reserve(&map_sb, map_sb.count + 1);
+    map_sb.items[map_sb.count] = '\0';
+
+    configs->map_file = map_sb.items;
+  }
   static unsigned map_cursor = 0;
   static bool map_focused = false;
 
@@ -263,8 +275,7 @@ void MenuDraw() {
 
 void MenuInit() {
   assert(configs);
-  // sub_menu = MENU_MAIN;
-  sub_menu = MENU_PLAY_MATCH_OPTIONS;
+  sub_menu = MENU_MAIN;
   // Clay_SetDebugModeEnabled(true);
 }
 
