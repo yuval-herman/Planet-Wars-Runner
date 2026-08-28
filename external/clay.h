@@ -1029,6 +1029,8 @@ CLAY_DLL_EXPORT void Clay_ResetMeasureTextCache(void);
 // A built in transition function that uses the "Ease Out" curve
 CLAY_DLL_EXPORT bool Clay_EaseOut(Clay_TransitionCallbackArguments arguments);
 
+Clay_Dimensions Clay_MeasureText(Clay_String *text, Clay_TextElementConfig *config);
+
 // Internal API functions required by macros ----------------------
 
 CLAY_DLL_EXPORT void Clay__OpenElement(void);
@@ -5027,6 +5029,10 @@ CLAY_DLL_EXPORT bool Clay_EaseOut(Clay_TransitionCallbackArguments arguments) {
         };
     }
     return ratio >= 1;
+}
+
+Clay_Dimensions Clay_MeasureText(Clay_String *text, Clay_TextElementConfig *config) {
+  return Clay__MeasureTextCached(text, config)->unwrappedDimensions;
 }
 
 #endif // CLAY_IMPLEMENTATION
