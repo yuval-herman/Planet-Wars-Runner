@@ -11,6 +11,7 @@
 */
 
 #include <stdint.h>
+#include <float.h>
 #include <stdbool.h>
 #include <stddef.h>
 
@@ -64,6 +65,8 @@
 #define CLAY_BORDER_ALL(widthValue) {widthValue, widthValue, widthValue, widthValue, widthValue}
 
 #define CLAY_CORNER_RADIUS(radius) (CLAY__INIT(Clay_CornerRadius) { radius, radius, radius, radius })
+
+#define CLAY_CORNER_RADIUS_MAX() CLAY_CORNER_RADIUS(FLT_MAX)
 
 #define CLAY_PADDING_ALL(padding) CLAY__CONFIG_WRAPPER(Clay_Padding, { padding, padding, padding, padding })
 
