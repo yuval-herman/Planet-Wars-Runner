@@ -71,6 +71,13 @@ void sleep_ms(unsigned ms);
 // Returns true on success, false on failure.
 bool ReadEntireFile(FILE *file, size_t max_size, char **data, size_t *length);
 
+// Makes sure a string builder is terminated with null. This is important when
+// calling standard c functions like fopen.
+// This function does not increase the `count` field of `sb`. Instead, it makes
+// sure a null value is either the last item in sb, or one after the last by
+// increasing capacity.
+void EnsureNullTerminated(Nob_String_Builder *sb);
+
 // A version of `SplitStringByDelim` that accepts a Nob_Cmd pointer. If you
 // already used one and it has memory this can save allocations and time.
 void SplitStringByDelimEx(Nob_Cmd *split_str, const char *str, char delim);

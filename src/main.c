@@ -22,9 +22,6 @@ int main(int argc, char *argv[]) {
     exit_code = 1;
   }
 
-  if (nob_da_last(&configs.map_file) != '\0') {
-    nob_sb_append_null(&configs.map_file);
-  }
   if (exit_code == 0 && configs.mode == MODE_TOURNAMENT) {
     TournametData tournament = {0};
     RunTournament(&tournament, configs.map_file.items, configs.players);
@@ -58,9 +55,6 @@ int main(int argc, char *argv[]) {
   }
 #ifndef HEADLESS_MODE
   else if (exit_code == 0 && configs.mode == MODE_REPLAY) {
-    if (nob_da_last(&configs.save_file) != '\0') {
-      nob_sb_append_null(&configs.save_file);
-    }
     GameLog game_log = {0};
     FILE *save_file = fopen(configs.save_file.items, "rb");
     if (!save_file) {

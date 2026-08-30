@@ -56,8 +56,7 @@ bool IsBotAlive(Bot bot) {
 }
 
 bool StartBot(Bot *bot) {
-  if (nob_da_last(&bot->start_command) != '\0')
-    nob_sb_append_null(&bot->start_command);
+  EnsureNullTerminated(&bot->start_command);
   Nob_Cmd split_command = SplitStringByDelim(bot->start_command.items, ' ');
   // Required by subprocess.h
   nob_cmd_append(&split_command, NULL);

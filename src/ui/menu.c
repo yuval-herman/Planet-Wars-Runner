@@ -61,9 +61,7 @@ static void MenuButtonHoverFunction(Clay_ElementId element_id,
     //                                      0);
     sub_menu = MENU_REPLAY_OPTIONS;
     break;
-    if (nob_da_last(&configs->save_file) != '\0') {
-      nob_sb_append_null(&configs->save_file);
-    }
+    EnsureNullTerminated(&configs->save_file);
     FILE *save_file = fopen(configs->save_file.items, "rb");
     if (!save_file) {
       nob_log(NOB_ERROR, "Failed opening save file \"%s\": %s.",
@@ -83,9 +81,7 @@ static void MenuButtonHoverFunction(Clay_ElementId element_id,
     sub_menu = MENU_PLAY_MATCH_OPTIONS;
   } break;
   case BUTTON_MAP: {
-    if (nob_da_last(&configs->map_file) != '\0') {
-      nob_sb_append_null(&configs->map_file);
-    }
+    EnsureNullTerminated(&configs->map_file);
     char *result = tinyfd_inputBox(
         "Map file", "Select the map file:", configs->map_file.items);
     if (result) {
@@ -133,9 +129,7 @@ static void MenuButtonHoverFunction(Clay_ElementId element_id,
   } break;
   case BUTTON_START_MATCH: {
     GameState state = {0};
-    if (nob_da_last(&configs->map_file) != '\0') {
-      nob_sb_append_null(&configs->map_file);
-    }
+    EnsureNullTerminated(&configs->map_file);
     if (MakeGame(&state, configs->map_file.items, configs->players.count)) {
       if (!RunMatch(&game_log, &state, configs->players)) {
         nob_log(NOB_ERROR, "Failed running match.");

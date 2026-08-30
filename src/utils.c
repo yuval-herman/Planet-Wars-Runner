@@ -122,6 +122,14 @@ int ParseBool(const char *str) {
   return -1;
 }
 
+void EnsureNullTerminated(Nob_String_Builder *sb) {
+  if (sb->count > 0 && (sb->items[sb->count - 1] != '\0' ||
+                        (sb->count > 1 && sb->items[sb->count] != '\0'))) {
+    nob_da_reserve(sb, sb->count+1);
+    sb->items[sb->count] = '\0';
+  }
+}
+
 bool ReadEntireFile(FILE *file, size_t max_size, char **data, size_t *length) {
   char *buffer = NULL;
   size_t file_size;
