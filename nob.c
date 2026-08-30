@@ -226,6 +226,8 @@ static bool compile_libraries(bool headless) {
 struct EmbedFilesData {
   FILE *file;
   bool append_null; // If we embedd a string, like a shader
+  unsigned amount;  // Amount of files that were embedded. Zero out before
+                    // calling the walker!
 };
 
 static bool embed_files_walker(Nob_Walk_Entry entry) {
@@ -263,9 +265,10 @@ static bool embed_files_walker(Nob_Walk_Entry entry) {
     if (data->append_null) {
       fputs("0x0", file);
     }
-    fputs("};", file);
+    fputs("};\n\n", file);
 
     nob_log(NOB_INFO, "Embedded %s.", entry.path);
+    data->amount++;
   }
   // The first directory we walk is the target directory itself; only warn for
   // unexpected non-regular files at deeper levels.
@@ -281,7 +284,8 @@ static bool embed_files_walker(Nob_Walk_Entry entry) {
 
 static void embed_shaders(void) {
   FILE *shaders_file = fopen("src/ui/shaders.c", "w");
-  struct EmbedFilesData data = {.file = shaders_file, .append_null = true};
+  struct EmbedFilesData data = {
+      .file = shaders_file, .append_null = true, .amount = 0};
 
   nob_walk_dir("assets/shaders", embed_files_walker, .data = &data);
   fclose(shaders_file);
@@ -289,7 +293,8 @@ static void embed_shaders(void) {
 
 static void embed_fonts(void) {
   FILE *fonts_file = fopen("src/ui/fonts.c", "w");
-  struct EmbedFilesData data = {.file = fonts_file, .append_null = false};
+  struct EmbedFilesData data = {
+      .file = fonts_file, .append_null = false, .amount = 0};
 
   nob_walk_dir("assets/fonts", embed_files_walker, .data = &data);
   fclose(fonts_file);
@@ -655,7 +660,8 @@ int main(int argc, char **argv) {
       "src/main.c", "src/game.c",   "src/runner.c", "src/configs.c",
       "src/bot.c",  "src/player.c", "src/utils.c",  "src/game_log.c"};
   const char *headed_source_files[] = {"src/ui/ui.c", "src/ui/viewer.c",
-                                       "src/ui/menu.c", "src/ui/components/text_edit.c"};
+                                       "src/ui/menu.c",
+                                       "src/ui/components/text_edit.c"};
 
   for (unsigned i = 0; i < NOB_ARRAY_LEN(source_files); i++) {
     const char *file_path = source_files[i];
