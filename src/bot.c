@@ -43,7 +43,7 @@ bool StopBot(Bot bot) {
   if (subprocess_alive(bot.process)) {
     if (subprocess_terminate(bot.process) != 0 ||
         subprocess_join(bot.process, NULL) != 0) {
-      nob_log(NOB_WARNING, "Failed terminating bot process: %*s.",
+      nob_log(NOB_WARNING, "Failed terminating bot process: %.*s.",
               (int)bot.start_command.count, bot.start_command.items);
       return false;
     }
@@ -72,7 +72,7 @@ bool StartBot(Bot *bot) {
                                  bot->process);
 
   if (0 != result) {
-    nob_log(NOB_ERROR, "ERROR: Failed to launch bot number %d: %*s\n%s", 2,
+    nob_log(NOB_ERROR, "ERROR: Failed to launch bot number %d: %.*s\n%s", 2,
             (int)bot->start_command.count, bot->start_command.items,
 #ifdef _WIN32
             nob_win32_error_message(GetLastError())
@@ -90,7 +90,7 @@ bool StartBot(Bot *bot) {
 bool GetBotMessage(Bot bot, Nob_String_Builder *sb) {
   if (!subprocess_alive(bot.process)) {
     nob_log(NOB_INFO,
-            "Bot %*s should be disqualified since it's process crashed.",
+            "Bot %.*s should be disqualified since it's process crashed.",
             (int)bot.start_command.count, bot.start_command.items);
     sb->count = 0;
     return false;
@@ -112,7 +112,7 @@ bool GetBotMessage(Bot bot, Nob_String_Builder *sb) {
     if (received == 0) {
       if (nob_nanos_since_unspecified_epoch() - start > MAX_BOT_RESPONSE_TIME) {
         nob_log(NOB_INFO,
-                "Bot %*s should be disqualified for taking too long to reply.",
+                "Bot %.*s should be disqualified for taking too long to reply.",
                 (int)bot.start_command.count, bot.start_command.items);
         sb->count = 0;
         return false;
@@ -122,7 +122,7 @@ bool GetBotMessage(Bot bot, Nob_String_Builder *sb) {
     }
     sb->count += received;
 
-    nob_log(NOB_DEBUG, "bot %*s sent: |%.*s|", (int)bot.start_command.count,
+    nob_log(NOB_DEBUG, "bot %.*s sent: |%.*s|", (int)bot.start_command.count,
             bot.start_command.items, (unsigned)sb->count, sb->items);
 
     // Excluding null terminator
@@ -133,7 +133,7 @@ bool GetBotMessage(Bot bot, Nob_String_Builder *sb) {
         memcmp(sb->items + sb->count - delimeter_length, MESSAGE_DELIMETER,
                delimeter_length) == 0) {
       message_ended = true;
-      nob_log(NOB_DEBUG, "bot %*s message ended", (int)bot.start_command.count,
+      nob_log(NOB_DEBUG, "bot %.*s message ended", (int)bot.start_command.count,
               bot.start_command.items);
     }
   }
@@ -164,7 +164,7 @@ void GetBotDebugMessage(Bot bot, Nob_String_Builder *sb) {
 
 bool SendMessageToBot(Bot bot, char *message, unsigned length) {
   if (!subprocess_alive(bot.process)) {
-    nob_log(NOB_INFO, "Bot %*s has crashed.", (int)bot.start_command.count,
+    nob_log(NOB_INFO, "Bot %.*s has crashed.", (int)bot.start_command.count,
             bot.start_command.items);
     return false;
   }

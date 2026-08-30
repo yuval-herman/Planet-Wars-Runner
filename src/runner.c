@@ -294,7 +294,7 @@ static void RunBotCycle(GameState *state, PlayerDA players,
         sb->count = 0;
         GetPlayerDebugMessage(*player, sb);
         if (sb->count)
-          nob_log(NOB_INFO, "bot %*s says: |%.*s|", (int)player->name.count,
+          nob_log(NOB_INFO, "bot %.*s says: |%.*s|", (int)player->name.count,
                   player->name.items, (unsigned)sb->count, sb->items);
       } else {
         // We don't remove the player from the dynamic array because we use the
