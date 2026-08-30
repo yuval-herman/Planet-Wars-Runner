@@ -30,8 +30,8 @@ enum ButtonFunction : size_t {
 
 enum SubMenu {
   MENU_MAIN,
-  MENU_REPLAY_OPTIONS,
-  MENU_PLAY_MATCH_OPTIONS,
+  MENU_REPLAY,
+  MENU_PLAY_MATCH,
 };
 
 static Configs *configs = NULL;
@@ -59,7 +59,7 @@ static void MenuButtonHoverFunction(Clay_ElementId element_id,
     //                                      (const char *[]){"*.plws"},
     //                                      "Planet Wars Serialization files.",
     //                                      0);
-    sub_menu = MENU_REPLAY_OPTIONS;
+    sub_menu = MENU_REPLAY;
     EnsureNullTerminated(&configs->save_file);
     FILE *save_file = fopen(configs->save_file.items, "rb");
     if (!save_file) {
@@ -75,9 +75,6 @@ static void MenuButtonHoverFunction(Clay_ElementId element_id,
       }
       fclose(save_file);
     }
-  } break;
-  case BUTTON_PLAY_MATCH: {
-    sub_menu = MENU_PLAY_MATCH_OPTIONS;
   } break;
   case BUTTON_MAP: {
     EnsureNullTerminated(&configs->map_file);
@@ -175,16 +172,18 @@ void MenuButton(Clay_String buttonText, enum ButtonFunction button_function) {
   // clang-format on
 }
 
-void PlayMatchOptions() {
-  static unsigned map_cursor = 0;
-  static bool map_focused = false;
+void PlayMatchView() {
 
-  Clay_String p1_cmd =
-      SB_TO_CLAY(configs->players.items[0].as.bot.start_command);
-  Clay_String p2_cmd =
-      SB_TO_CLAY(configs->players.items[1].as.bot.start_command);
-  Clay_String p1_name = SB_TO_CLAY(configs->players.items[0].name);
-  Clay_String p2_name = SB_TO_CLAY(configs->players.items[1].name);
+  // static unsigned map_cursor = 0;
+  // static bool map_focused = false;
+  //
+  // Clay_String p1_cmd =
+  //     SB_TO_CLAY(configs->players.items[0].as.bot.start_command);
+  // Clay_String p2_cmd =
+  //     SB_TO_CLAY(configs->players.items[1].as.bot.start_command);
+  // Clay_String p1_name = SB_TO_CLAY(configs->players.items[0].name);
+  // Clay_String p2_name = SB_TO_CLAY(configs->players.items[1].name);
+
   // clang-format off
   CLAY(CLAY_ID("PlayMatchContainer"), {
     .layout = {
@@ -195,12 +194,14 @@ void PlayMatchOptions() {
       .layoutDirection = CLAY_TOP_TO_BOTTOM,
      },
   }) {
-    Component_TextEdit(&configs->map_file, &map_cursor, &map_focused);
-    MenuButton(p1_cmd, BUTTON_P1_CMD);
-    MenuButton(p2_cmd, BUTTON_P2_CMD);
-    MenuButton(p1_name, BUTTON_P1_NAME);
-    MenuButton(p2_name, BUTTON_P2_NAME);
-    MenuButton(CLAY_STRING("Start match"), BUTTON_START_MATCH);
+
+    // Component_TextEdit(&configs->map_file, &map_cursor, &map_focused);
+    // MenuButton(p1_cmd, BUTTON_P1_CMD);
+    // MenuButton(p2_cmd, BUTTON_P2_CMD);
+    // MenuButton(p1_name, BUTTON_P1_NAME);
+    // MenuButton(p2_name, BUTTON_P2_NAME);
+    // MenuButton(CLAY_STRING("Start match"), BUTTON_START_MATCH);
+
   }
 // clang-format on  
 }
@@ -226,7 +227,9 @@ void MainMenuView() {
       .layoutDirection = CLAY_TOP_TO_BOTTOM,
      },
   }) {
-    MenuButton(CLAY_STRING("PLAY MATCH"), BUTTON_PLAY_MATCH);
+    if(Component_Button(CLAY_STRING("PLAY MATCH"))) {
+      sub_menu = MENU_PLAY_MATCH;
+    }
     MenuButton(CLAY_STRING("REPLAY MATCH"), BUTTON_REPLAY);
   }
 // clang-format on  
@@ -251,10 +254,10 @@ void MenuDraw() {
     case MENU_MAIN:
       MainMenuView();
       break;
-    case MENU_REPLAY_OPTIONS:
+    case MENU_REPLAY:
       break;
-    case MENU_PLAY_MATCH_OPTIONS:
-      PlayMatchOptions();
+    case MENU_PLAY_MATCH:
+      PlayMatchView();
       break;
     }
     // clang-format off
@@ -264,7 +267,7 @@ void MenuDraw() {
 
 void MenuInit() {
   assert(configs);
-  sub_menu = MENU_MAIN;
+  sub_menu = MENU_PLAY_MATCH;
   // Clay_SetDebugModeEnabled(true);
 }
 
