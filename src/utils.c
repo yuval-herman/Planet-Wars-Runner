@@ -126,8 +126,12 @@ int ParseBool(const char *str) {
 }
 
 void EnsureNullTerminated(Nob_String_Builder *sb) {
-  if (sb->count > 0 && (sb->items[sb->count - 1] != '\0' ||
-                        (sb->count > 1 && sb->items[sb->count] != '\0'))) {
+  assert(sb);
+
+  if (sb->count == 0)
+    return;
+
+  if (sb->items[sb->count - 1] != '\0') {
     nob_da_reserve(sb, sb->count + 1);
     sb->items[sb->count] = '\0';
   }
