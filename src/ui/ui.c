@@ -48,8 +48,8 @@ void UpdateClayState() {
 }
 
 void UIInit(enum Screens start_screen) {
-  const int screenWidth = 800;
-  const int screenHeight = 450;
+  const int screenWidth = 1200;
+  const int screenHeight = 600;
 
   SetTraceLogLevel(LOG_WARNING);
   SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_MSAA_4X_HINT);
