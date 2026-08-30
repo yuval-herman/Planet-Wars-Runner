@@ -207,7 +207,16 @@ void PlayMatchOptions() {
 
 void MainMenuView() {
   // clang-format off
-  CLAY_TEXT(CLAY_STRING("PLANET WARS"), {.fontSize = 64, .fontId = 3, .textColor = CLAY_COLOR(WHITE)});
+  CLAY(CLAY_ID("TitleContainer"), {
+      .layout = {
+        .layoutDirection = CLAY_TOP_TO_BOTTOM,
+        .childAlignment = { CLAY_ALIGN_X_LEFT, CLAY_ALIGN_Y_CENTER },
+        .childGap = 0,
+      } 
+     }) {
+    CLAY_TEXT(CLAY_STRING("PLANET WARS"), {.fontSize = 64, .fontId = 3, .textColor = CLAY_COLOR(WHITE)});
+    CLAY_TEXT(CLAY_STRING("Conquering galaxies since 1972!"), {.fontSize = 24, .fontId = 2, .textColor = CLAY_COLOR(GRAY)});
+  }
   CLAY(CLAY_ID("OptionsContainer"), {
     .layout = {
       .sizing = { .width = CLAY_SIZING_FIT(0), .height = CLAY_SIZING_GROW(0)},
