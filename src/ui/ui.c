@@ -19,7 +19,7 @@ static const UIScreen *screens[] = {
     [SCREEN_MENU] = &menu_screen,
 };
 static UIScreen active_screen = {0};
-static Font fonts[2];
+static Font fonts[4];
 
 void HandleClayErrors(Clay_ErrorData errorData) {
   nob_log(NOB_ERROR, "%s", errorData.errorText.chars);
@@ -60,7 +60,13 @@ void UIInit(enum Screens start_screen) {
   fonts[0] = GetFontDefault();
   fonts[1] =
       LoadFontFromMemory(".ttf", Cousine_Regular_source,
-                         NOB_ARRAY_LEN(Cousine_Regular_source), 32, NULL, 0);
+                         NOB_ARRAY_LEN(Cousine_Regular_source), 64, NULL, 0);
+  fonts[2] =
+      LoadFontFromMemory(".ttf", FiraCode_Regular_source,
+                         NOB_ARRAY_LEN(FiraCode_Regular_source), 64, NULL, 0);
+  fonts[3] =
+      LoadFontFromMemory(".ttf", FiraCode_Bold_source,
+                         NOB_ARRAY_LEN(FiraCode_Bold_source), 64, NULL, 0);
 
   uint32_t totalMemorySize = Clay_MinMemorySize();
   Clay_Arena clayMemory = Clay_CreateArenaWithCapacityAndMemory(
