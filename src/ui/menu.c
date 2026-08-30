@@ -156,13 +156,21 @@ void MenuButton(Clay_String buttonText, enum ButtonFunction button_function) {
   // clang-format off
   CLAY_AUTO_ID({
     .layout = {
-      .padding = CLAY_PADDING_ALL(8),
-      .sizing = {.width = CLAY_SIZING_GROW(0)}
+      .padding = {32, 32, 16, 16},
+      .sizing = {.width = CLAY_SIZING_GROW(0)},
+      .childAlignment = { .x = CLAY_ALIGN_X_CENTER, .y = CLAY_ALIGN_Y_CENTER},
     },
-    .backgroundColor = Clay_Hovered() ? CLAY_COLOR(BLUE) : CLAY_COLOR(GRAY)
+    .cornerRadius = CLAY_CORNER_RADIUS_MAX(),
+    .border = {.color = CLAY_COLOR(WHITE), .width = CLAY_BORDER_OUTSIDE(2) },
+    .backgroundColor = Clay_Hovered() ? CLAY_COLOR(WHITE) : (Clay_Color){0}
   }) {
+    
     Clay_OnHover(MenuButtonHoverFunction, (void*)button_function);
-    CLAY_TEXT(buttonText, {.fontId = 1, .fontSize = 32, .textColor = CLAY_COLOR(BLACK)});
+    CLAY_TEXT(buttonText, {
+      .fontId = 2,
+      .fontSize = 24,
+      .textColor = Clay_Hovered() ? CLAY_COLOR(BLACK) : CLAY_COLOR(WHITE),
+    });
   }
   // clang-format on
 }
@@ -197,19 +205,20 @@ void PlayMatchOptions() {
 // clang-format on  
 }
 
-void MenuOptions() {
+void MainMenuView() {
   // clang-format off
+  CLAY_TEXT(CLAY_STRING("PLANET WARS"), {.fontSize = 64, .fontId = 3, .textColor = CLAY_COLOR(WHITE)});
   CLAY(CLAY_ID("OptionsContainer"), {
     .layout = {
       .sizing = { .width = CLAY_SIZING_FIT(0), .height = CLAY_SIZING_GROW(0)},
       .padding = CLAY_PADDING_ALL(32),
       .childGap = 16,
-      .childAlignment = { .x = CLAY_ALIGN_X_CENTER, .y = CLAY_ALIGN_Y_BOTTOM},
+      .childAlignment = { .x = CLAY_ALIGN_X_CENTER, .y = CLAY_ALIGN_Y_CENTER},
       .layoutDirection = CLAY_TOP_TO_BOTTOM,
      },
   }) {
-    MenuButton(CLAY_STRING("play match"), BUTTON_PLAY_MATCH);
-    MenuButton(CLAY_STRING("Replay match"), BUTTON_REPLAY);
+    MenuButton(CLAY_STRING("PLAY MATCH"), BUTTON_PLAY_MATCH);
+    MenuButton(CLAY_STRING("REPLAY MATCH"), BUTTON_REPLAY);
   }
 // clang-format on  
 }
@@ -221,18 +230,17 @@ void MenuDraw() {
          .sizing = {CLAY_SIZING_GROW(0), CLAY_SIZING_GROW(0)},
          .padding = CLAY_PADDING_ALL(32),
          .childGap = 16,
-         .childAlignment = { .x = CLAY_ALIGN_X_CENTER },
+         .childAlignment = { .x = CLAY_ALIGN_X_CENTER, .y = CLAY_ALIGN_Y_CENTER },
        },
-       .backgroundColor = CLAY_COLOR(RAYWHITE)
+       .backgroundColor = CLAY_COLOR(BLACK)
    }) {
-    CLAY_TEXT(CLAY_STRING("Planet Wars"), {.fontSize = 64, .textColor = CLAY_COLOR(BLACK)});
     // clang-format on
     switch (sub_menu) {
     default:
       NOB_UNREACHABLE("Impossible menu sub menu");
 
     case MENU_MAIN:
-      MenuOptions();
+      MainMenuView();
       break;
     case MENU_REPLAY_OPTIONS:
       break;
