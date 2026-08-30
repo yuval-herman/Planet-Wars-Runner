@@ -79,6 +79,9 @@ char *DupeString(const char *str) {
 }
 
 Nob_String_Builder DupeStringBuilder(Nob_String_Builder sb) {
+  if (sb.count == 0)
+    return (Nob_String_Builder){0};
+
   Nob_String_Builder new_sb = {
       .capacity = sb.count,
       .count = sb.count,
@@ -125,7 +128,7 @@ int ParseBool(const char *str) {
 void EnsureNullTerminated(Nob_String_Builder *sb) {
   if (sb->count > 0 && (sb->items[sb->count - 1] != '\0' ||
                         (sb->count > 1 && sb->items[sb->count] != '\0'))) {
-    nob_da_reserve(sb, sb->count+1);
+    nob_da_reserve(sb, sb->count + 1);
     sb->items[sb->count] = '\0';
   }
 }
