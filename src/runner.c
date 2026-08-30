@@ -69,8 +69,9 @@ void FreeInnerGameLog(GameLog game_log) {
 }
 
 #define sbAppendPlayerName(sb, idx)                                            \
-  if (match_args->players.items[idx].name.items)                               \
-    nob_sb_append_cstr(sb, match_args->players.items[idx].name.items);         \
+  if (match_args->players.items[idx].name.count)                               \
+    nob_sb_append_buf(sb, match_args->players.items[idx].name.items,           \
+                      match_args->players.items[idx].name.count);              \
   else                                                                         \
     nob_sb_appendf(sb, "Player %u", idx + 1);
 
