@@ -355,9 +355,10 @@ bool ReadGameLogFromFile(FILE *file, GameLog *game_log) {
     uint16_t string_length;
     READ_16(string_length);
     player->name.items =
-        malloc(sizeof *player->name.items * (string_length + 1));
+        malloc(sizeof *player->name.items * string_length);
     READ_ERROR_CHK(ReadCompressed(&cr, player->name.items, string_length));
     player->name.count = string_length;
+    player->name.capacity = string_length;
     player->type = PLAYER_REPLAY;
   }
 
