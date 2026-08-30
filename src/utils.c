@@ -126,7 +126,7 @@ int ParseBool(const char *str) {
 }
 
 void EnsureNullTerminated(Nob_String_Builder *sb) {
-  assert(sb);
+  assert(sb && sb->items);
 
   if (sb->count == 0)
     return;
