@@ -60,7 +60,6 @@ static void MenuButtonHoverFunction(Clay_ElementId element_id,
     //                                      "Planet Wars Serialization files.",
     //                                      0);
     sub_menu = MENU_REPLAY_OPTIONS;
-    break;
     EnsureNullTerminated(&configs->save_file);
     FILE *save_file = fopen(configs->save_file.items, "rb");
     if (!save_file) {
