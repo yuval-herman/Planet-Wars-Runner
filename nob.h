@@ -2535,7 +2535,7 @@ NOBDEF int nob_sb_appendf(Nob_String_Builder *sb, const char *fmt, ...)
 
 NOBDEF Nob_String_Builder nob_sb_from_cstr(const char *cstr) {
     Nob_String_Builder sb = {0};
-    nob_sb_append_cstr(&sb, cstr);
+    if (cstr) nob_sb_append_cstr(&sb, cstr);
     return sb;
 }
 
