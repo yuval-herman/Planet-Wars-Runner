@@ -9,6 +9,11 @@
        {.layout = {.sizing = {.width = CLAY_SIZING_GROW(0),                    \
                               .height = CLAY_SIZING_GROW(0)}}}) {}
 
+#define SpacerFixedComponent(id, size)                                         \
+  CLAY(CLAY_ID_LOCAL(id),                                                      \
+       {.layout = {.sizing = {.width = CLAY_SIZING_FIXED(size),                \
+                              .height = CLAY_SIZING_FIXED(size)}}}) {}
+
 #define HorizontalSeperatorComponent(id)                                       \
   CLAY(CLAY_ID_LOCAL(id),                                                      \
        {.layout = {.sizing = {.width = CLAY_SIZING_GROW(0),                    \

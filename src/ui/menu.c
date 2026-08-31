@@ -15,12 +15,6 @@
 #include "ui_utils.h"
 #include "viewer.h"
 
-enum ButtonFunction : size_t {
-  // Main menu options
-  BUTTON_PLAY_MATCH,
-  BUTTON_REPLAY,
-};
-
 enum SubMenu {
   MENU_MAIN,
   MENU_REPLAY,
@@ -37,73 +31,7 @@ struct {
   } input_states[5];
   // Used to track input states
   unsigned current_input;
-} play_match_data = {0};
-
-static void MenuButtonHoverFunction(Clay_ElementId element_id,
-                                    Clay_PointerData pointer_data,
-                                    void *user_data) {
-  NOB_UNUSED(element_id);
-  if (pointer_data.state != CLAY_POINTER_DATA_RELEASED_THIS_FRAME)
-    return;
-
-  assert(configs);
-
-  enum ButtonFunction button_function = (size_t)user_data;
-
-  GameLog game_log = {0};
-
-  switch (button_function) {
-  default:
-    NOB_UNREACHABLE("impossible button function");
-
-  case BUTTON_REPLAY: {
-    // char *result = tinyfd_openFileDialog("Select file to play", NULL, 1,
-    //                                      (const char *[]){"*.plws"},
-    //                                      "Planet Wars Serialization files.",
-    //                                      0);
-    sub_menu = MENU_REPLAY;
-    EnsureNullTerminated(&configs->save_file);
-    FILE *save_file = fopen(configs->save_file.items, "rb");
-    if (!save_file) {
-      nob_log(NOB_ERROR, "Failed opening save file \"%s\": %s.",
-              configs->save_file.items, strerror(errno));
-      NOB_TODO("handle errors isn't implemented...");
-    } else {
-      if (!ReadGameLogFromFile(save_file, &game_log)) {
-        nob_log(NOB_ERROR, "Failed reading \"%s\".", configs->save_file.items);
-      } else {
-        SetGameLog(game_log);
-        ChangeScreen(SCREEN_VIEWER);
-      }
-      fclose(save_file);
-    }
-  } break;
-  }
-  FreeInnerGameLog(game_log);
-}
-
-void MenuButton(Clay_String buttonText, enum ButtonFunction button_function) {
-  // clang-format off
-  CLAY_AUTO_ID({
-    .layout = {
-      .padding = {32, 32, 16, 16},
-      .sizing = {.width = CLAY_SIZING_GROW(0)},
-      .childAlignment = { .x = CLAY_ALIGN_X_CENTER, .y = CLAY_ALIGN_Y_CENTER},
-    },
-    .cornerRadius = CLAY_CORNER_RADIUS_MAX(),
-    .border = {.color = CLAY_COLOR(WHITE), .width = CLAY_BORDER_OUTSIDE(2) },
-    .backgroundColor = Clay_Hovered() ? CLAY_COLOR(WHITE) : (Clay_Color){0}
-  }) {
-    
-    Clay_OnHover(MenuButtonHoverFunction, (void*)button_function);
-    CLAY_TEXT(buttonText, {
-      .fontId = 2,
-      .fontSize = 24,
-      .textColor = Clay_Hovered() ? CLAY_COLOR(BLACK) : CLAY_COLOR(WHITE),
-    });
-  }
-  // clang-format on
-}
+} inputs_data = {0};
 
 #define InputComponent(id, label, sb)                                          \
   CLAY(CLAY_ID(id "InputContainer"),                                           \
@@ -112,11 +40,132 @@ void MenuButton(Clay_String buttonText, enum ButtonFunction button_function) {
     CLAY_TEXT(CLAY_STRING(label),                                              \
               {.fontSize = 16, .fontId = 1, .textColor = CLAY_COLOR(GRAY)});   \
     Component_TextEdit(                                                        \
-        sb,                                                                    \
-        &play_match_data.input_states[play_match_data.current_input].cursor,   \
-        &play_match_data.input_states[play_match_data.current_input].focused); \
-    play_match_data.current_input++;                                           \
+        sb, &inputs_data.input_states[inputs_data.current_input].cursor,       \
+        &inputs_data.input_states[inputs_data.current_input].focused);         \
+    inputs_data.current_input++;                                               \
   }
+
+#define SubMenuContainer(id)                                                   \
+  CLAY(CLAY_ID(id), {                                                          \
+                        .layout =                                              \
+                            {                                                  \
+                                .sizing = {.width = CLAY_SIZING_GROW(0),       \
+                                           .height = CLAY_SIZING_GROW(0)},     \
+                                .padding = CLAY_PADDING_ALL(32),               \
+                                .childGap = 16,                                \
+                                .layoutDirection = CLAY_TOP_TO_BOTTOM,         \
+                            },                                                 \
+                        .border = {.color = CLAY_COLOR(GRAY),                  \
+                                   .width = CLAY_BORDER_OUTSIDE(2)},           \
+                        .cornerRadius = CLAY_CORNER_RADIUS(10),                \
+                    })
+
+void StartReplay() {
+  GameLog game_log = {0};
+  sub_menu = MENU_REPLAY;
+  EnsureNullTerminated(&configs->save_file);
+  FILE *save_file = fopen(configs->save_file.items, "rb");
+  if (!save_file) {
+    nob_log(NOB_ERROR, "Failed opening save file \"%s\": %s.",
+            configs->save_file.items, strerror(errno));
+    NOB_TODO("handle errors isn't implemented...");
+  } else {
+    if (!ReadGameLogFromFile(save_file, &game_log)) {
+      nob_log(NOB_ERROR, "Failed reading \"%s\".", configs->save_file.items);
+    } else {
+      SetGameLog(game_log);
+      ChangeScreen(SCREEN_VIEWER);
+    }
+    fclose(save_file);
+  }
+  FreeInnerGameLog(game_log);
+}
+
+void ReplayView() {
+  inputs_data.current_input = 0;
+  // clang-format off
+  SubMenuContainer("ReplayContainer") {
+    CLAY_TEXT(CLAY_STRING("REPLAY SETUP"), {.fontSize = 32, .fontId = 1, .textColor = CLAY_COLOR(WHITE)});
+    HorizontalSeperatorComponent("HorizontalSeperator");
+
+    CLAY(CLAY_ID("FormContainer"), {
+         .layout = {
+           .sizing = {CLAY_SIZING_GROW(0),CLAY_SIZING_GROW(0)},
+           .childAlignment = {CLAY_ALIGN_X_LEFT, CLAY_ALIGN_Y_CENTER},
+           .layoutDirection = CLAY_TOP_TO_BOTTOM,
+           .childGap = 24
+         }
+       }) {
+
+      CLAY(CLAY_ID("ReplayFileInputContainer"), {
+           .layout = {
+             .sizing = {.width = CLAY_SIZING_GROW(0)},
+             .layoutDirection = CLAY_LEFT_TO_RIGHT,
+             .childGap = 16
+           }
+         }) {
+        CLAY_AUTO_ID({.layout = {.sizing = {.width = CLAY_SIZING_GROW(0)}}}) {
+          InputComponent("ReplayFilePath", "REPLAY FILE (.PLWS)",
+                         &configs->save_file);
+        }
+        if (Component_Button(CLAY_STRING("Browse..."), false)) {
+          char *result = tinyfd_openFileDialog("Select file to replay", NULL, 1,
+                                               (const char *[]){"*.plws"},
+                                               "Planet Wars Serialization files.",
+                                               0);
+          if (result) {
+            configs->save_file.count = 0;
+            nob_sb_append_cstr(&configs->save_file, result);
+          }
+        }
+      }
+
+      CLAY(CLAY_ID("ReplayInfoContainer"), {
+             .layout = {
+               .padding = CLAY_PADDING_ALL(16),
+               .sizing = {CLAY_SIZING_GROW(0),CLAY_SIZING_FIT(0)},
+               .layoutDirection = CLAY_TOP_TO_BOTTOM,
+             },
+             .backgroundColor = (Clay_Color){90,90,90, 40},
+             .cornerRadius = CLAY_CORNER_RADIUS(5),
+           }) {
+         CLAY_TEXT(CLAY_STRING("REPLAY INFO"), {
+                   .fontId = 2,
+                   .fontSize = 24,
+                   .textColor = (Clay_Color){160,160,160, 255}
+                 });
+
+         SpacerFixedComponent("Spacer", 16);
+
+         CLAY_TEXT(CLAY_STRING("Players: TBD"), {
+                   .fontId = 2,
+                   .fontSize = 24,
+                   .textColor = CLAY_COLOR(WHITE)
+                 });
+         CLAY_TEXT(CLAY_STRING("Winner: TBD"), {
+                   .fontId = 2,
+                   .fontSize = 24,
+                   .textColor = CLAY_COLOR(WHITE)
+                 });
+         CLAY_TEXT(CLAY_STRING("Turn Count: TBD"), {
+                   .fontId = 2,
+                   .fontSize = 24,
+                   .textColor = CLAY_COLOR(WHITE)
+                 });
+       }
+    }
+    CLAY(CLAY_ID("StateButtonsContainer"), {
+           .layout = { .sizing = { .width = CLAY_SIZING_GROW(0) }}
+         }) {
+      if (Component_Button(CLAY_STRING("Back"), false)) sub_menu = MENU_MAIN;
+      SpacerComponent("Spacer");
+      if (Component_Button(CLAY_STRING("Launch Replay"), false)) {
+        StartReplay();
+      }
+    }
+  }
+  // clang-format on
+}
 
 void StartMatch() {
   GameLog game_log = {0};
@@ -144,19 +193,10 @@ void StartMatch() {
 }
 
 void PlayMatchView() {
-  play_match_data.current_input = 0;
+  inputs_data.current_input = 0;
 
   // clang-format off
-  CLAY(CLAY_ID("PlayMatchContainer"), {
-    .layout = {
-      .sizing = { .width = CLAY_SIZING_GROW(0), .height = CLAY_SIZING_GROW(0)},
-      .padding = CLAY_PADDING_ALL(32),
-      .childGap = 16,
-      .layoutDirection = CLAY_TOP_TO_BOTTOM,
-     },
-     .border = { .color = CLAY_COLOR(GRAY), .width = CLAY_BORDER_OUTSIDE(2)},
-     .cornerRadius = CLAY_CORNER_RADIUS(10),
-  }) {
+  SubMenuContainer("PlayMatchContainer") {
     CLAY_TEXT(CLAY_STRING("MATCH SETUP"), {.fontSize = 32, .fontId = 1, .textColor = CLAY_COLOR(WHITE)});
     HorizontalSeperatorComponent("HorizontalSeperator");
 
@@ -239,7 +279,9 @@ void MainMenuView() {
     if(Component_Button(CLAY_STRING("PLAY MATCH"), true)) {
       sub_menu = MENU_PLAY_MATCH;
     }
-    MenuButton(CLAY_STRING("REPLAY MATCH"), BUTTON_REPLAY);
+    if(Component_Button(CLAY_STRING("REPLAY MATCH"), true)) {
+      sub_menu = MENU_REPLAY;
+    }
   }
 // clang-format on  
 }
@@ -264,6 +306,7 @@ void MenuDraw() {
       MainMenuView();
       break;
     case MENU_REPLAY:
+      ReplayView();
       break;
     case MENU_PLAY_MATCH:
       PlayMatchView();
@@ -277,7 +320,7 @@ void MenuDraw() {
 void MenuInit() {
   assert(configs);
   sub_menu = MENU_MAIN;
-  memset(&play_match_data, 0, sizeof play_match_data);
+  memset(&inputs_data, 0, sizeof inputs_data);
   StarsShaderInit((StarsShaderConfig){
       .size = 0.4,
       .brightness = 0.3,
