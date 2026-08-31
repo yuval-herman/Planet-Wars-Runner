@@ -63,8 +63,10 @@ Clay_String DrawTextEdit(Nob_String_Builder sb, unsigned *caret_pos,
   CLAY_AUTO_ID({
     .layout = {
       .padding = CLAY_PADDING_ALL(inner_padding),
-      .sizing = {.width = CLAY_SIZING_GROW(0)}
-    },
+      .sizing = {
+        .width = CLAY_SIZING_GROW(0),
+        .height = CLAY_SIZING_FIXED(FONT_SIZE + inner_padding*2)}
+      },
     .backgroundColor = BACKGROUND_COLOR,
     .border = {.color = BORDER_COLOR, .width = CLAY_BORDER_OUTSIDE(1)},
     .cornerRadius = CLAY_CORNER_RADIUS(5),
