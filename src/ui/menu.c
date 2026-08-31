@@ -208,8 +208,28 @@ void PlayMatchView() {
            .childGap = 24
          }
        }) {
-      InputComponent("MapPath", "MAP PATH",
-                     &configs->map_file);
+      CLAY(CLAY_ID("ReplayFileInputContainer"), {
+           .layout = {
+             .sizing = {.width = CLAY_SIZING_GROW(0)},
+             .layoutDirection = CLAY_LEFT_TO_RIGHT,
+             .childGap = 16
+           }
+         }) {
+        CLAY_AUTO_ID({.layout = {.sizing = {.width = CLAY_SIZING_GROW(0)}}}) {
+          InputComponent("MapPath", "MAP PATH",
+                         &configs->map_file);
+        }
+        if (Component_Button(CLAY_STRING("Browse..."), false)) {
+          char *result = tinyfd_openFileDialog("Select map file", NULL, 1,
+                                               (const char *[]){"*.txt"},
+                                               "Map text files.",
+                                               0);
+          if (result) {
+            configs->map_file.count = 0;
+            nob_sb_append_cstr(&configs->map_file, result);
+          }
+        }
+      }
 
       CLAY(CLAY_ID("Player1InputContainer"), {
            .layout = {
