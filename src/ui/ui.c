@@ -1,7 +1,7 @@
 #include "nob.h"
 
 #include "clay_renderer_raylib.c"
-#include "fonts.c"
+#include "fonts.h"
 
 #include "menu.h"
 #include "viewer.h"
@@ -58,15 +58,12 @@ void UIInit(enum Screens start_screen) {
   SetTargetFPS(60);
 
   fonts[0] = GetFontDefault();
-  fonts[1] =
-      LoadFontFromMemory(".ttf", Cousine_Regular_source,
-                         NOB_ARRAY_LEN(Cousine_Regular_source), 64, NULL, 0);
-  fonts[2] =
-      LoadFontFromMemory(".ttf", FiraCode_Regular_source,
-                         NOB_ARRAY_LEN(FiraCode_Regular_source), 64, NULL, 0);
-  fonts[3] =
-      LoadFontFromMemory(".ttf", FiraCode_Bold_source,
-                         NOB_ARRAY_LEN(FiraCode_Bold_source), 64, NULL, 0);
+  fonts[1] = LoadFontFromMemory(".ttf", Cousine_Regular_source,
+                                Cousine_Regular_size, 64, NULL, 0);
+  fonts[2] = LoadFontFromMemory(".ttf", FiraCode_Regular_source,
+                                FiraCode_Regular_size, 64, NULL, 0);
+  fonts[3] = LoadFontFromMemory(".ttf", FiraCode_Bold_source,
+                                FiraCode_Bold_size, 64, NULL, 0);
 
   uint32_t totalMemorySize = Clay_MinMemorySize();
   Clay_Arena clayMemory = Clay_CreateArenaWithCapacityAndMemory(

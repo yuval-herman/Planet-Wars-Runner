@@ -3,7 +3,7 @@
 #include "../game_log.h"
 
 #include "nob.h"
-#include "shaders.c"
+#include "shaders.h"
 #include "viewer.h"
 
 typedef struct {

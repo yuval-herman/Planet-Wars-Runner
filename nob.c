@@ -224,7 +224,8 @@ static bool compile_libraries(bool headless) {
 // ---------------------------------------------------------------------------
 
 struct EmbedFilesData {
-  FILE *file;
+  FILE *source_file;
+  FILE *header_file;
   bool append_null; // If we embedd a string, like a shader
   unsigned amount;  // Amount of files that were embedded. Zero out before
                     // calling the walker!
@@ -232,7 +233,8 @@ struct EmbedFilesData {
 
 static bool embed_files_walker(Nob_Walk_Entry entry) {
   struct EmbedFilesData *data = entry.data;
-  FILE *file = data->file;
+  FILE *source_file = data->source_file;
+  FILE *header_file = data->header_file;
   Nob_String_Builder sb = {0};
 
   if (entry.type == NOB_FILE_REGULAR) {
@@ -250,22 +252,31 @@ static bool embed_files_walker(Nob_Walk_Entry entry) {
     // Strip file extension
     sv = nob_sv_chop_by_delim(&sv, '.');
 
-    fprintf(file, "const unsigned char %.*s_source[] = {\n", (int)sv.count,
+    fprintf(header_file, "extern const unsigned char %.*s_source[];\n",
+            (int)sv.count, sv.data);
+
+    fprintf(header_file, "extern const unsigned %.*s_size;\n", (int)sv.count,
             sv.data);
+
+    fprintf(source_file, "const unsigned %.*s_size = %zu;\n", (int)sv.count,
+            sv.data, sb.count + (data->append_null));
+
+    fprintf(source_file, "const unsigned char %.*s_source[] = {\n",
+            (int)sv.count, sv.data);
 
     unsigned char bytes_in_line = 0;
     nob_da_foreach(char, byte, &sb) {
       if (bytes_in_line > 10) {
-        fputc('\n', file);
+        fputc('\n', source_file);
         bytes_in_line = 0;
       }
-      fprintf(file, "0x%02x,", (unsigned char)*byte);
+      fprintf(source_file, "0x%02x,", (unsigned char)*byte);
       bytes_in_line++;
     }
     if (data->append_null) {
-      fputs("0x0", file);
+      fputs("0x0", source_file);
     }
-    fputs("};\n\n", file);
+    fputs("};\n\n", source_file);
 
     nob_log(NOB_INFO, "Embedded %s.", entry.path);
     data->amount++;
@@ -283,21 +294,33 @@ static bool embed_files_walker(Nob_Walk_Entry entry) {
 }
 
 static void embed_shaders(void) {
-  FILE *shaders_file = fopen("src/ui/shaders.c", "w");
+  FILE *shaders_source = fopen("src/ui/shaders.c", "w");
+  FILE *shaders_header = fopen("src/ui/shaders.h", "w");
   struct EmbedFilesData data = {
-      .file = shaders_file, .append_null = true, .amount = 0};
+      .source_file = shaders_source,
+      .header_file = shaders_header,
+      .append_null = true,
+      .amount = 0,
+  };
 
   nob_walk_dir("assets/shaders", embed_files_walker, .data = &data);
-  fclose(shaders_file);
+  fclose(shaders_source);
+  fclose(shaders_header);
 }
 
 static void embed_fonts(void) {
-  FILE *fonts_file = fopen("src/ui/fonts.c", "w");
+  FILE *fonts_source = fopen("src/ui/fonts.c", "w");
+  FILE *fonts_header = fopen("src/ui/fonts.h", "w");
   struct EmbedFilesData data = {
-      .file = fonts_file, .append_null = false, .amount = 0};
+      .source_file = fonts_source,
+      .header_file = fonts_header,
+      .append_null = false,
+      .amount = 0,
+  };
 
   nob_walk_dir("assets/fonts", embed_files_walker, .data = &data);
-  fclose(fonts_file);
+  fclose(fonts_source);
+  fclose(fonts_header);
 }
 
 // ---------------------------------------------------------------------------
@@ -658,10 +681,17 @@ int main(int argc, char **argv) {
 
   const char *source_files[] = {
       "src/main.c", "src/game.c",   "src/runner.c", "src/configs.c",
-      "src/bot.c",  "src/player.c", "src/utils.c",  "src/game_log.c"};
+      "src/bot.c",  "src/player.c", "src/utils.c",  "src/game_log.c",
+  };
   const char *headed_source_files[] = {
-      "src/ui/ui.c", "src/ui/viewer.c", "src/ui/menu.c",
-      "src/ui/components/text_edit.c", "src/ui/components/button.c"};
+      "src/ui/ui.c",
+      "src/ui/viewer.c",
+      "src/ui/menu.c",
+      "src/ui/shaders.c",
+      "src/ui/fonts.c",
+      "src/ui/components/text_edit.c",
+      "src/ui/components/button.c",
+  };
 
   for (unsigned i = 0; i < NOB_ARRAY_LEN(source_files); i++) {
     const char *file_path = source_files[i];

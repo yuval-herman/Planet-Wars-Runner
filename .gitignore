@@ -13,4 +13,6 @@
 /prev-comp.txt
 /tests.log
 shaders.c
+shaders.h
 fonts.c
+fonts.h
