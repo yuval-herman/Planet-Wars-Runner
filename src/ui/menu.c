@@ -309,6 +309,11 @@ void MenuDraw() {
       ReplayView();
       break;
     case MENU_PLAY_MATCH:
+      // initialize if empty
+      while (configs->players.count < 2) {
+        const Player empty_player = {.type = PLAYER_BOT};
+        nob_da_append(&configs->players, empty_player);
+      }
       PlayMatchView();
       break;
     }
