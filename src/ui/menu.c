@@ -10,6 +10,7 @@
 
 #include "components.h"
 #include "menu.h"
+#include "stars_shader.h"
 #include "ui.h"
 #include "ui_utils.h"
 #include "viewer.h"
@@ -244,6 +245,7 @@ void MainMenuView() {
 }
 
 void MenuDraw() {
+  StarsShaderDraw((Rectangle){0, 0, GetScreenWidth(), GetScreenHeight()});
   // clang-format off
   CLAY(CLAY_ID("OuterContainer"), {
        .layout = {
@@ -252,7 +254,6 @@ void MenuDraw() {
          .childGap = 16,
          .childAlignment = { .x = CLAY_ALIGN_X_CENTER, .y = CLAY_ALIGN_Y_CENTER },
        },
-       .backgroundColor = CLAY_COLOR(BLACK)
    }) {
     // clang-format on
     switch (sub_menu) {
@@ -277,10 +278,20 @@ void MenuInit() {
   assert(configs);
   sub_menu = MENU_MAIN;
   memset(&play_match_data, 0, sizeof play_match_data);
+  StarsShaderInit((StarsShaderConfig){
+      .size = 0.4,
+      .brightness = 0.3,
+      .density = 0.5,
+      .time_scale = 0.3,
+      .seed = 28,
+  });
   // Clay_SetDebugModeEnabled(true);
 }
 
-void MenuDestroy() { configs = NULL; }
+void MenuDestroy() {
+  configs = NULL;
+  StarsShaderDestroy();
+}
 
 void SetConfig(Configs *new_configs) { configs = new_configs; }
 
