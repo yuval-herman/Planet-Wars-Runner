@@ -37,7 +37,7 @@ static void print_usage(FILE *stream) {
 static char *c_to_o_path(const char *source_file_path) {
   size_t str_len = strlen(source_file_path) - 1;
   size_t i = str_len;
-  while (i > 0 && source_file_path[i] != PATH_SEP[0]) {
+  while (i > 0 && source_file_path[i] != '/') {
     i--;
   }
 
@@ -74,6 +74,10 @@ static void add_compile_mode_flags(Nob_Cmd *cmd, bool debug, bool profile) {
 #endif
     nob_cmd_append(cmd, "-O2");
   }
+#ifdef _WIN32
+  nob_cmd_append(cmd, "-D_CRT_SECURE_NO_WARNINGS",
+                 "-D_CRT_NONSTDC_NO_DEPRECATE");
+#endif
 }
 
 static void add_linker_flags(Nob_Cmd *cmd, bool headless) {
@@ -537,9 +541,9 @@ static bool compile_and_run_tests(Nob_Cmd *cmd, const char *source_files[],
 #endif
 
 #ifdef _WIN32
-  nob_cc_output(cmd, BUILD_DIR PATH_SEP "test.exe");
+  nob_cc_output(cmd, BUILD_DIR "/test.exe");
 #else
-  nob_cc_output(cmd, BUILD_DIR PATH_SEP "test");
+  nob_cc_output(cmd, BUILD_DIR "/test");
 #endif
 
   if (!nob_cmd_run(cmd)) {

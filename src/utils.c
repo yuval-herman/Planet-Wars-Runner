@@ -1,6 +1,7 @@
 #include "utils.h"
 
 #ifdef _WIN32
+#include <sys/stat.h>
 #include <windows.h>
 #else
 #include <strings.h>
