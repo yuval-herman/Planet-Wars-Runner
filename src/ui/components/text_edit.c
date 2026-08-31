@@ -21,7 +21,8 @@ Clay_String Component_TextEdit(Nob_String_Builder *sb, unsigned *caret_pos,
 #define FONT_SIZE 16
 
 static void handleClick(Clay_ElementId element_id, unsigned character_width,
-                        bool *is_focused, unsigned *caret_pos) {
+                        unsigned character_count, bool *is_focused,
+                        unsigned *caret_pos) {
   *is_focused = true;
 
   Clay_ElementData element_data = Clay_GetElementData(element_id);
@@ -29,7 +30,7 @@ static void handleClick(Clay_ElementId element_id, unsigned character_width,
 
   Vector2 ep = {element_data.boundingBox.x, element_data.boundingBox.y};
   Vector2 mp = GetMousePosition();
-  *caret_pos = (mp.x - ep.x) / character_width;
+  *caret_pos = CLAY__MIN(character_count, (mp.x - ep.x) / character_width);
 }
 
 static inline void SetCursorShapeByHover() {}
@@ -70,7 +71,7 @@ Clay_String DrawTextEdit(Nob_String_Builder sb, unsigned *caret_pos,
         SetMouseCursor(MOUSE_CURSOR_IBEAM);
       if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
         handleClick((Clay_ElementId){.id = element_hover_id}, character_width,
-                    is_focused, caret_pos);
+                    str.length, is_focused, caret_pos);
     } else {
       if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
         *is_focused = false;
