@@ -18,14 +18,6 @@ enum ButtonFunction : size_t {
   // Main menu options
   BUTTON_PLAY_MATCH,
   BUTTON_REPLAY,
-
-  // Play match buttons
-  BUTTON_MAP,
-  BUTTON_P1_CMD,
-  BUTTON_P1_NAME,
-  BUTTON_P2_CMD,
-  BUTTON_P2_NAME,
-  BUTTON_START_MATCH,
 };
 
 enum SubMenu {
@@ -84,55 +76,6 @@ static void MenuButtonHoverFunction(Clay_ElementId element_id,
       }
       fclose(save_file);
     }
-  } break;
-  case BUTTON_MAP: {
-    EnsureNullTerminated(&configs->map_file);
-    char *result = tinyfd_inputBox(
-        "Map file", "Select the map file:", configs->map_file.items);
-    if (result) {
-      configs->map_file.count = 0;
-      nob_sb_append_cstr(&configs->map_file, result);
-    }
-  } break;
-  case BUTTON_P1_CMD: {
-    char *result =
-        tinyfd_inputBox("Player 1 command", "Select the command for player 1:",
-                        configs->players.items[0].as.bot.start_command.items);
-    if (result) {
-      configs->players.items[0].as.bot.start_command.count = 0;
-      nob_sb_append_cstr(&configs->players.items[0].as.bot.start_command,
-                         result);
-    }
-  } break;
-  case BUTTON_P2_CMD: {
-    char *result =
-        tinyfd_inputBox("Player 2 command", "Select the command for player 2:",
-                        configs->players.items[1].as.bot.start_command.items);
-    if (result) {
-      configs->players.items[1].as.bot.start_command.count = 0;
-      nob_sb_append_cstr(&configs->players.items[1].as.bot.start_command,
-                         result);
-    }
-  } break;
-  case BUTTON_P1_NAME: {
-    char *result = tinyfd_inputBox(
-        "Player 1 name",
-        "Select the name for player 1:", configs->players.items[0].name.items);
-    if (result) {
-      configs->players.items[0].name.count = 0;
-      nob_sb_append_cstr(&configs->players.items[0].name, result);
-    }
-  } break;
-  case BUTTON_P2_NAME: {
-    char *result = tinyfd_inputBox(
-        "Player 2 name",
-        "Select the name for player 2:", configs->players.items[1].name.items);
-    if (result) {
-      configs->players.items[1].name.count = 0;
-      nob_sb_append_cstr(&configs->players.items[1].name, result);
-    }
-  } break;
-  case BUTTON_START_MATCH: {
   } break;
   }
   FreeInnerGameLog(game_log);
@@ -201,13 +144,6 @@ void StartMatch() {
 
 void PlayMatchView() {
   play_match_data.current_input = 0;
-  //
-  // Clay_String p1_cmd =
-  //     SB_TO_CLAY(configs->players.items[0].as.bot.start_command);
-  // Clay_String p2_cmd =
-  //     SB_TO_CLAY(configs->players.items[1].as.bot.start_command);
-  // Clay_String p1_name = SB_TO_CLAY(configs->players.items[0].name);
-  // Clay_String p2_name = SB_TO_CLAY(configs->players.items[1].name);
 
   // clang-format off
   CLAY(CLAY_ID("PlayMatchContainer"), {
