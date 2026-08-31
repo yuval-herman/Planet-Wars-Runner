@@ -15,42 +15,28 @@ Clay_String Component_TextEdit(Nob_String_Builder *sb, unsigned *caret_pos,
 #ifndef COMPONENTS_H
 
 #define CARET_COLOR ((Clay_Color){255, 255, 255, 127})
+#define BACKGROUND_COLOR ((Clay_Color){255, 255, 255, 20})
+#define BORDER_COLOR ((Clay_Color){255, 255, 255, 30})
+#define TEXT_COLOR ((Clay_Color){255, 255, 255, 255})
+#define FONT_SIZE 16
 
-struct HoverData {
-  // Width of a single character in the text edit component
-  unsigned character_width;
-  bool *is_focused;
-  unsigned *caret_pos;
-};
+static void handleClick(Clay_ElementId element_id, unsigned character_width,
+                        bool *is_focused, unsigned *caret_pos) {
+  *is_focused = true;
 
-static void onHover(Clay_ElementId element_id, Clay_PointerData pointer_data,
-                    void *user_data) {
-  struct HoverData *hover_data = user_data;
+  Clay_ElementData element_data = Clay_GetElementData(element_id);
+  assert(element_data.found);
 
-  if (pointer_data.state == CLAY_POINTER_DATA_RELEASED_THIS_FRAME) {
-    *hover_data->is_focused = true;
-
-    Clay_ElementData element_data = Clay_GetElementData(element_id);
-    assert(element_data.found);
-
-    Vector2 ep = {element_data.boundingBox.x, element_data.boundingBox.y};
-    Vector2 mp = GetMousePosition();
-    *hover_data->caret_pos = (mp.x - ep.x) / hover_data->character_width;
-  }
+  Vector2 ep = {element_data.boundingBox.x, element_data.boundingBox.y};
+  Vector2 mp = GetMousePosition();
+  *caret_pos = (mp.x - ep.x) / character_width;
 }
 
-static inline void SetCursorShapeByHover() {
-  if (Clay_Hovered()) {
-    if (GetMouseCursor() != MOUSE_CURSOR_IBEAM)
-      SetMouseCursor(MOUSE_CURSOR_IBEAM);
-  } else {
-    if (GetMouseCursor() != MOUSE_CURSOR_DEFAULT)
-      SetMouseCursor(MOUSE_CURSOR_DEFAULT);
-  }
-}
+static inline void SetCursorShapeByHover() {}
 
 Clay_String DrawTextEdit(Nob_String_Builder sb, unsigned *caret_pos,
                          bool *is_focused) {
+  static uint32_t element_hover_id = 0;
   const Clay_String str = SB_TO_CLAY(sb);
   Clay_String str_to_caret = (Clay_String){
       .isStaticallyAllocated = false,
@@ -60,15 +46,12 @@ Clay_String DrawTextEdit(Nob_String_Builder sb, unsigned *caret_pos,
   const int inner_padding = 8;
   Clay_TextElementConfig text_conf = {
       .fontId = 1,
-      .fontSize = 32,
-      .textColor = CLAY_COLOR(BLACK),
+      .fontSize = FONT_SIZE,
+      .textColor = TEXT_COLOR,
   };
-  static struct HoverData hover_data;
-  hover_data.caret_pos = caret_pos;
-  hover_data.is_focused = is_focused;
   // This will always work for monotone fonts, but at best will be a good
   // estimate otherwise
-  hover_data.character_width =
+  const unsigned character_width =
       Clay_MeasureText(&(Clay_String){false, 1, sb.items}, &text_conf).width;
   // clang-format off
   CLAY_AUTO_ID({
@@ -76,10 +59,31 @@ Clay_String DrawTextEdit(Nob_String_Builder sb, unsigned *caret_pos,
       .padding = CLAY_PADDING_ALL(inner_padding),
       .sizing = {.width = CLAY_SIZING_GROW(0)}
     },
-    .backgroundColor = *is_focused ? CLAY_COLOR(BLUE) : CLAY_COLOR(GRAY)
+    .backgroundColor = BACKGROUND_COLOR,
+    .border = {.color = BORDER_COLOR, .width = CLAY_BORDER_OUTSIDE(1)},
+    .cornerRadius = CLAY_CORNER_RADIUS(5),
   }) {
-    SetCursorShapeByHover();
-    Clay_OnHover(onHover, &hover_data);
+    // clang-format on
+    if (Clay_Hovered()) {
+      element_hover_id = Clay_GetOpenElementId();
+      if (GetMouseCursor() != MOUSE_CURSOR_IBEAM)
+        SetMouseCursor(MOUSE_CURSOR_IBEAM);
+      if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+        handleClick((Clay_ElementId){.id = element_hover_id}, character_width,
+                    is_focused, caret_pos);
+    } else {
+      if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+        *is_focused = false;
+      // If this element was the one that set the cursor originally, return it
+      // to normal, if not, ignore it.
+      if (element_hover_id == Clay_GetOpenElementId()) {
+        element_hover_id = 0;
+        if (GetMouseCursor() != MOUSE_CURSOR_DEFAULT)
+          SetMouseCursor(MOUSE_CURSOR_DEFAULT);
+      }
+    }
+    // clang-format off
+
     CLAY_TEXT(str, text_conf);
     if (*is_focused) {
       CLAY(CLAY_ID_LOCAL("Caret"), {
@@ -93,7 +97,10 @@ Clay_String DrawTextEdit(Nob_String_Builder sb, unsigned *caret_pos,
           }
         },
         .layout = {
-          .sizing = {.height = CLAY_SIZING_PERCENT(0.9), .width = CLAY_SIZING_FIXED(4)},
+          .sizing = {
+            .height = CLAY_SIZING_FIXED(FONT_SIZE - inner_padding/2.0f + 2),
+            .width = CLAY_SIZING_FIXED(2)
+          },
         },
         .backgroundColor = CARET_COLOR
       }) {}
