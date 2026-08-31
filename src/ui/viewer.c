@@ -282,6 +282,7 @@ void ViewerInit() {
       .size = 0.5,
       .brightness = 0.4,
       .density = 0.5,
+      .time_scale = 1,
       .seed = 1,
   });
 }

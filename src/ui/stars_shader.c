@@ -7,6 +7,8 @@
 
 static Shader stars_shader;
 
+static float timeScale;
+
 static int timeLoc;
 static int resLoc;
 static int sizeLoc;
@@ -20,6 +22,8 @@ void StarsShaderInit(StarsShaderConfig config) {
          "forget to call destroy on a previous call?");
 
   stars_shader = LoadShaderFromMemory(NULL, (char *)stars_source);
+
+  timeScale = config.time_scale;
 
   resLoc = GetShaderLocation(stars_shader, "uResolution");
   sizeLoc = GetShaderLocation(stars_shader, "uStarSize");
@@ -41,7 +45,7 @@ void StarsShaderDraw(Rectangle rect) {
   float resolution[2] = {rect.width, rect.height};
   SetShaderValue(stars_shader, resLoc, resolution, SHADER_UNIFORM_VEC2);
 
-  float time = (float)GetTime();
+  float time = (float)GetTime() * timeScale;
   SetShaderValue(stars_shader, timeLoc, &time, SHADER_UNIFORM_FLOAT);
 
   BeginShaderMode(stars_shader);
