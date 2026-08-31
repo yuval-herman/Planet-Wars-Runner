@@ -689,6 +689,7 @@ int main(int argc, char **argv) {
       "src/ui/menu.c",
       "src/ui/shaders.c",
       "src/ui/fonts.c",
+      "src/ui/stars_shader.c",
       "src/ui/components/text_edit.c",
       "src/ui/components/button.c",
   };

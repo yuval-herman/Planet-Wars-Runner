@@ -3,7 +3,7 @@
 #include "../game_log.h"
 
 #include "nob.h"
-#include "shaders.h"
+#include "stars_shader.h"
 #include "viewer.h"
 
 typedef struct {
@@ -21,8 +21,6 @@ static bool playing_forewards;
 
 static GameLog game_log = {0};
 static unsigned turn;
-static int star_shader_time_loc;
-static Shader stars_shader;
 
 // Calculates the minimum and maximum coordinates of all planets, used to space
 // planets across the entire screen.
@@ -267,31 +265,6 @@ void DrawControls() {
   }
 }
 
-void SetupStarsShader(int screenWidth, int screenHeight) {
-  stars_shader = LoadShaderFromMemory(NULL, (char*)stars_source);
-
-  int resLoc = GetShaderLocation(stars_shader, "uResolution");
-  int starSizeLoc = GetShaderLocation(stars_shader, "uStarSize");
-  int starBrightnessLoc = GetShaderLocation(stars_shader, "uStarBrightness");
-  int starDensityLoc = GetShaderLocation(stars_shader, "uStarDensity");
-  int seedLoc = GetShaderLocation(stars_shader, "uSeed");
-
-  float resolution[2] = {(float)screenWidth, (float)screenHeight};
-  SetShaderValue(stars_shader, resLoc, resolution, SHADER_UNIFORM_VEC2);
-
-  float starSize = 0.5f;       // 1.0 is default, >1.0 makes stars bigger
-  float starBrightness = 0.4f; // 1.0 is default, >1.0 boosts brightness
-  float starDensity = 0.5f; // 1.0 is default, >1.0 creates more star clusters
-  float starsSeed = 1;
-
-  SetShaderValue(stars_shader, starSizeLoc, &starSize, SHADER_UNIFORM_FLOAT);
-  SetShaderValue(stars_shader, starBrightnessLoc, &starBrightness,
-                 SHADER_UNIFORM_FLOAT);
-  SetShaderValue(stars_shader, starDensityLoc, &starDensity,
-                 SHADER_UNIFORM_FLOAT);
-  SetShaderValue(stars_shader, seedLoc, &starsSeed, SHADER_UNIFORM_FLOAT);
-}
-
 void ViewerInit() {
   assert(game_log.count > 0);
 
@@ -305,9 +278,12 @@ void ViewerInit() {
 
   font = GetFontDefault();
 
-  SetupStarsShader(GetScreenWidth(), GetScreenHeight());
-
-  star_shader_time_loc = GetShaderLocation(stars_shader, "uTime");
+  StarsShaderInit((StarsShaderConfig){
+      .size = 0.5,
+      .brightness = 0.4,
+      .density = 0.5,
+      .seed = 1,
+  });
 }
 
 void ViewerDraw() {
@@ -340,19 +316,9 @@ void ViewerDraw() {
     game_speed++;
   }
 
-  float time = (float)GetTime();
-  SetShaderValue(stars_shader, star_shader_time_loc, &time,
-                 SHADER_UNIFORM_FLOAT);
-
   // ============= START DRAWING =============
-
   ClearBackground(BLACK);
-  // 5. Activate the shader to affect the canvas drawings
-  BeginShaderMode(stars_shader);
-  // Draw a blank canvas area covering your screen size
-  // The fragment shader fills this rectangle area
-  DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), WHITE);
-  EndShaderMode();
+  StarsShaderDraw((Rectangle){0, 0, GetScreenWidth(), GetScreenHeight()});
 
   for (unsigned i = 0; i < game_log.items[turn].planet_count; i++) {
     DrawPlanet(game_log.items[turn].planets[i]);
@@ -366,8 +332,7 @@ void ViewerDraw() {
 }
 
 void ViewerDestroy() {
-  UnloadShader(stars_shader);
-  stars_shader = (Shader){0};
+  StarsShaderDestroy();
   FreeInnerGameLog(game_log);
   game_log = (GameLog){0};
 }
