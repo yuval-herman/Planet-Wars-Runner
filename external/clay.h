@@ -5035,6 +5035,7 @@ CLAY_DLL_EXPORT bool Clay_EaseOut(Clay_TransitionCallbackArguments arguments) {
 }
 
 Clay_Dimensions Clay_MeasureText(Clay_String *text, Clay_TextElementConfig *config) {
+  if(text->length == 0) return CLAY__INIT(Clay_Dimensions) CLAY__DEFAULT_STRUCT;
   return Clay__MeasureTextCached(text, config)->unwrappedDimensions;
 }
 
