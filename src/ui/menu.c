@@ -37,6 +37,15 @@ enum SubMenu {
 static Configs *configs = NULL;
 static enum SubMenu sub_menu = MENU_MAIN;
 
+struct {
+  struct {
+    unsigned cursor;
+    bool focused;
+  } input_states[5];
+  // Used to track input states
+  unsigned current_input;
+} play_match_data = {0};
+
 static void MenuButtonHoverFunction(Clay_ElementId element_id,
                                     Clay_PointerData pointer_data,
                                     void *user_data) {
@@ -124,26 +133,6 @@ static void MenuButtonHoverFunction(Clay_ElementId element_id,
     }
   } break;
   case BUTTON_START_MATCH: {
-    GameState state = {0};
-    EnsureNullTerminated(&configs->map_file);
-    if (MakeGame(&state, configs->map_file.items, configs->players.count)) {
-      if (!RunMatch(&game_log, &state, configs->players)) {
-        nob_log(NOB_ERROR, "Failed running match.");
-        NOB_TODO("handle errors isn't implemented...");
-      }
-      if (configs->write_save) {
-        FILE *file = fopen("game.plws", "wb");
-        WriteGameLogToFile(file, game_log);
-        fclose(file);
-      }
-
-      SetGameLog(game_log);
-      ChangeScreen(SCREEN_VIEWER);
-    } else {
-      NOB_TODO("handle errors isn't implemented...");
-    }
-
-    FreeInnerGameState(state);
   } break;
   }
   FreeInnerGameLog(game_log);
@@ -172,10 +161,46 @@ void MenuButton(Clay_String buttonText, enum ButtonFunction button_function) {
   // clang-format on
 }
 
-void PlayMatchView() {
+#define InputComponent(id, label, sb)                                          \
+  CLAY(CLAY_ID(id "InputContainer"),                                           \
+       {.layout = {.sizing = {.width = CLAY_SIZING_GROW(0)},                   \
+                   .layoutDirection = CLAY_TOP_TO_BOTTOM}}) {                  \
+    CLAY_TEXT(CLAY_STRING(label),                                              \
+              {.fontSize = 16, .fontId = 1, .textColor = CLAY_COLOR(GRAY)});   \
+    Component_TextEdit(                                                        \
+        sb,                                                                    \
+        &play_match_data.input_states[play_match_data.current_input].cursor,   \
+        &play_match_data.input_states[play_match_data.current_input].focused); \
+    play_match_data.current_input++;                                           \
+  }
 
-  // static unsigned map_cursor = 0;
-  // static bool map_focused = false;
+void StartMatch() {
+  GameLog game_log = {0};
+  GameState state = {0};
+  EnsureNullTerminated(&configs->map_file);
+  if (MakeGame(&state, configs->map_file.items, configs->players.count)) {
+    if (!RunMatch(&game_log, &state, configs->players)) {
+      nob_log(NOB_ERROR, "Failed running match.");
+      NOB_TODO("handle errors isn't implemented...");
+    }
+    if (configs->write_save) {
+      FILE *file = fopen("game.plws", "wb");
+      WriteGameLogToFile(file, game_log);
+      fclose(file);
+    }
+
+    SetGameLog(game_log);
+    ChangeScreen(SCREEN_VIEWER);
+  } else {
+    NOB_TODO("handle errors isn't implemented...");
+  }
+
+  FreeInnerGameState(state);
+  FreeInnerGameLog(game_log);
+}
+
+void PlayMatchView() {
+  play_match_data.current_input = 0;
   //
   // Clay_String p1_cmd =
   //     SB_TO_CLAY(configs->players.items[0].as.bot.start_command);
@@ -187,23 +212,70 @@ void PlayMatchView() {
   // clang-format off
   CLAY(CLAY_ID("PlayMatchContainer"), {
     .layout = {
-      .sizing = { .width = CLAY_SIZING_FIT(0), .height = CLAY_SIZING_GROW(0)},
+      .sizing = { .width = CLAY_SIZING_GROW(0), .height = CLAY_SIZING_GROW(0)},
       .padding = CLAY_PADDING_ALL(32),
       .childGap = 16,
-      .childAlignment = { .x = CLAY_ALIGN_X_CENTER, .y = CLAY_ALIGN_Y_BOTTOM},
       .layoutDirection = CLAY_TOP_TO_BOTTOM,
      },
+     .border = { .color = CLAY_COLOR(GRAY), .width = CLAY_BORDER_OUTSIDE(2)},
+     .cornerRadius = CLAY_CORNER_RADIUS(10),
   }) {
+    CLAY_TEXT(CLAY_STRING("MATCH SETUP"), {.fontSize = 32, .fontId = 1, .textColor = CLAY_COLOR(WHITE)});
+    HorizontalSeperatorComponent("HorizontalSeperator");
 
-    // Component_TextEdit(&configs->map_file, &map_cursor, &map_focused);
-    // MenuButton(p1_cmd, BUTTON_P1_CMD);
-    // MenuButton(p2_cmd, BUTTON_P2_CMD);
-    // MenuButton(p1_name, BUTTON_P1_NAME);
-    // MenuButton(p2_name, BUTTON_P2_NAME);
-    // MenuButton(CLAY_STRING("Start match"), BUTTON_START_MATCH);
+    CLAY(CLAY_ID("FormContainer"), {
+         .layout = {
+           .sizing = {CLAY_SIZING_GROW(0),CLAY_SIZING_GROW(0)},
+           .childAlignment = {CLAY_ALIGN_X_LEFT, CLAY_ALIGN_Y_CENTER},
+           .layoutDirection = CLAY_TOP_TO_BOTTOM,
+           .childGap = 24
+         }
+       }) {
+      InputComponent("MapPath", "MAP PATH",
+                     &configs->map_file);
 
+      CLAY(CLAY_ID("Player1InputContainer"), {
+           .layout = {
+             .sizing = {.width = CLAY_SIZING_GROW(0)},
+             .layoutDirection = CLAY_LEFT_TO_RIGHT,
+             .childGap = 16
+           }
+         }) {
+        CLAY_AUTO_ID({.layout = {.sizing = {.width = CLAY_SIZING_GROW(0, 200)}}}) {
+          InputComponent("Player1Name", "Player 1 name",
+                         &configs->players.items[0].name);
+        }
+        InputComponent("Player1Command", "Player 1 command",
+                       &configs->players.items[0].as.bot.start_command);
+      }
+
+      CLAY(CLAY_ID("Player2InputContainer"), {
+           .layout = {
+             .sizing = {.width = CLAY_SIZING_GROW(0)},
+             .layoutDirection = CLAY_LEFT_TO_RIGHT,
+             .childGap = 16
+           }
+         }) {
+        CLAY_AUTO_ID({.layout = {.sizing = {.width = CLAY_SIZING_GROW(0, 200)}}}) {
+          InputComponent("Player2Name", "Player 2 name",
+                         &configs->players.items[1].name);
+        }
+        InputComponent("Player2Command", "Player 2 command",
+                       &configs->players.items[1].as.bot.start_command);
+      }
+    }
+
+    CLAY(CLAY_ID("StateButtonsContainer"), {
+           .layout = { .sizing = { .width = CLAY_SIZING_GROW(0) }}
+         }) {
+      if (Component_Button(CLAY_STRING("Back"), false)) sub_menu = MENU_MAIN;
+      SpacerComponent("Spacer");
+      if (Component_Button(CLAY_STRING("Start match"), false)) {
+        StartMatch();
+      }
+    }
   }
-// clang-format on  
+  // clang-format on
 }
 
 void MainMenuView() {
@@ -227,7 +299,7 @@ void MainMenuView() {
       .layoutDirection = CLAY_TOP_TO_BOTTOM,
      },
   }) {
-    if(Component_Button(CLAY_STRING("PLAY MATCH"))) {
+    if(Component_Button(CLAY_STRING("PLAY MATCH"), true)) {
       sub_menu = MENU_PLAY_MATCH;
     }
     MenuButton(CLAY_STRING("REPLAY MATCH"), BUTTON_REPLAY);
@@ -267,7 +339,8 @@ void MenuDraw() {
 
 void MenuInit() {
   assert(configs);
-  sub_menu = MENU_PLAY_MATCH;
+  sub_menu = MENU_MAIN;
+  memset(&play_match_data, 0, sizeof play_match_data);
   // Clay_SetDebugModeEnabled(true);
 }
 

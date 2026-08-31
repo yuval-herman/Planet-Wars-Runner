@@ -2,6 +2,7 @@
 #define UTILS_H
 
 #include "nob.h"
+#include "debug-trap.h"
 
 // ----- MACROS -----
 
@@ -10,7 +11,7 @@
 #define BREAKPOINT() __debugbreak()
 #elif defined(__GNUC__) || defined(__clang__)
 // For GCC/Clang
-#define BREAKPOINT() __builtin_trap()
+#define BREAKPOINT() psnip_trap()
 #endif
 
 #define SetBit(bitset, index)                                                  \
