@@ -269,7 +269,5 @@ bool ParseConfigsFromCLI(Configs *configs, int argc, char *argv[]) {
     fclose(ini_file);
   }
 
-  EnsureNullTerminated(&configs->map_file);
-  EnsureNullTerminated(&configs->save_file);
   return VerifyConfigs(*configs);
 }
