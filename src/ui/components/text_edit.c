@@ -25,12 +25,14 @@ static void handleClick(Clay_ElementId element_id, unsigned character_width,
                         unsigned *caret_pos) {
   *is_focused = true;
 
-  Clay_ElementData element_data = Clay_GetElementData(element_id);
-  assert(element_data.found);
+  if (character_count && character_width) {
+    Clay_ElementData element_data = Clay_GetElementData(element_id);
+    assert(element_data.found);
 
-  Vector2 ep = {element_data.boundingBox.x, element_data.boundingBox.y};
-  Vector2 mp = GetMousePosition();
-  *caret_pos = CLAY__MIN(character_count, (mp.x - ep.x) / character_width);
+    Vector2 ep = {element_data.boundingBox.x, element_data.boundingBox.y};
+    Vector2 mp = GetMousePosition();
+    *caret_pos = CLAY__MIN(character_count, (mp.x - ep.x) / character_width);
+  }
 }
 
 static inline void SetCursorShapeByHover() {}
@@ -53,7 +55,10 @@ Clay_String DrawTextEdit(Nob_String_Builder sb, unsigned *caret_pos,
   // This will always work for monotone fonts, but at best will be a good
   // estimate otherwise
   const unsigned character_width =
-      Clay_MeasureText(&(Clay_String){false, 1, sb.items}, &text_conf).width;
+      sb.count > 0
+          ? Clay_MeasureText(&(Clay_String){false, 1, sb.items}, &text_conf)
+                .width
+          : 0;
   // clang-format off
   CLAY_AUTO_ID({
     .layout = {
