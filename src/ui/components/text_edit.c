@@ -140,21 +140,40 @@ Clay_String Component_TextEdit(Nob_String_Builder *sb, unsigned *caret_pos,
       sb->count--;
     }
 
-    int key = GetCharPressed();
+    if ((IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL)) &&
+        IsKeyPressed(KEY_V)) {
+      const char *clip_text = GetClipboardText();
+      char key = *clip_text++;
+      while (key != '\0') {
+        if (key >= 32 && key <= 126) {
+          nob_da_reserve(sb, sb->count + 1);
 
-    // Check if more characters have been pressed on the same frame
-    while (key > 0) {
-      if (key >= 32 && key <= 126) {
-        nob_da_reserve(sb, sb->count + 1);
-
-        for (unsigned i = sb->count; i > *caret_pos; i--) {
-          sb->items[i] = sb->items[i - 1];
+          for (unsigned i = sb->count; i > *caret_pos; i--) {
+            sb->items[i] = sb->items[i - 1];
+          }
+          sb->count++;
+          sb->items[(*caret_pos)++] = (char)key;
         }
-        sb->count++;
-        sb->items[(*caret_pos)++] = (char)key;
-      }
 
-      key = GetCharPressed(); // Check next character in the queue
+        key = *clip_text++;
+      }
+    } else {
+      int key = GetCharPressed();
+
+      // Check if more characters have been pressed on the same frame
+      while (key > 0) {
+        if (key >= 32 && key <= 126) {
+          nob_da_reserve(sb, sb->count + 1);
+
+          for (unsigned i = sb->count; i > *caret_pos; i--) {
+            sb->items[i] = sb->items[i - 1];
+          }
+          sb->count++;
+          sb->items[(*caret_pos)++] = (char)key;
+        }
+
+        key = GetCharPressed(); // Check next character in the queue
+      }
     }
   }
   return DrawTextEdit(*sb, caret_pos, is_focused);
