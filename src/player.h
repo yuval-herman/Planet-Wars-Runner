@@ -4,11 +4,11 @@
 #include "bot.h"
 
 typedef enum {
-  PLAYER_BOT,
-  PLAYER_HUMAN,
   // This type is used when loading players from a save file. This players
   // cannot be interacted with.
   PLAYER_REPLAY,
+  PLAYER_BOT,
+  PLAYER_HUMAN,
 } PlayerType;
 
 DefineComplexStruct(Player, {
