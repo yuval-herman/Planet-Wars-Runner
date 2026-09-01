@@ -1,6 +1,19 @@
 #ifndef UI_UTILS_H
 #define UI_UTILS_H
 
+#include "clay.h"
+
+typedef enum { CUSTOM_ELEMENT_TYPE_FUNCTION } CustomElementType;
+
+typedef void (*CustomElementFunction)(Clay_BoundingBox bounding_box);
+
+typedef struct {
+  CustomElementType type;
+  union {
+      CustomElementFunction function;
+  } as;
+} CustomElementData;
+
 #define SB_TO_CLAY(sb)                                                         \
   (Clay_String) {                                                              \
     .isStaticallyAllocated = false, .length = sb.count, .chars = sb.items      \

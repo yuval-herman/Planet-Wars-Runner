@@ -2,14 +2,21 @@
 
 #include "../game_log.h"
 
+#include "clay.h"
 #include "nob.h"
 #include "stars_shader.h"
+#include "ui_utils.h"
 #include "viewer.h"
 
 typedef struct {
   Vector2 min_coords;
   Vector2 max_coords;
 } GameSpace;
+
+static void DrawGameFrame(Clay_BoundingBox bounding_box);
+
+static CustomElementData game_frame_data = {
+    .type = CUSTOM_ELEMENT_TYPE_FUNCTION, .as.function = &DrawGameFrame};
 
 static GameSpace game_space = {0};
 static Font font;
@@ -22,27 +29,34 @@ static bool playing_forewards;
 static GameLog game_log = {0};
 static unsigned turn;
 
+static inline float GetPlanetRadius(Planet planet) {
+  return BASE_PLANET_RADIUS + PLANET_RADIUS_GROWTH_CURVE -
+         PLANET_RADIUS_GROWTH_CURVE / fmaxf(planet.growth, 1);
+}
+
 // Calculates the minimum and maximum coordinates of all planets, used to space
 // planets across the entire screen.
 void ComputeGameSpace(Planet *planets, unsigned p_count) {
   game_space = (GameSpace){.min_coords = {INFINITY, INFINITY},
                            .max_coords = {-INFINITY, -INFINITY}};
   for (unsigned i = 0; i < p_count; i++) {
-    game_space.min_coords =
-        Vector2Min(planets[i].coords, game_space.min_coords);
-    game_space.max_coords =
-        Vector2Max(planets[i].coords, game_space.max_coords);
+    game_space.min_coords.x =
+        CLAY__MIN(game_space.min_coords.x, planets[i].coords.x);
+    game_space.min_coords.y =
+        CLAY__MIN(game_space.min_coords.y, planets[i].coords.y);
+    game_space.max_coords.x =
+        CLAY__MAX(game_space.max_coords.x, planets[i].coords.x);
+    game_space.max_coords.y =
+        CLAY__MAX(game_space.max_coords.y, planets[i].coords.y);
   }
 }
 
-Vector2 Game2ScreenCoords(Vector2 coords) {
+Vector2 Game2ScreenCoords(Vector2 coords, Clay_BoundingBox bounding_box) {
   return (Vector2){
       .x = Remap(coords.x, game_space.min_coords.x, game_space.max_coords.x,
-                 MAP_MARGIN, GetScreenWidth() - MAP_MARGIN),
-      .y = GetScreenHeight() -
-           Remap(coords.y, game_space.min_coords.y, game_space.max_coords.y,
-                 MAP_MARGIN + CONTROLS_HEIGHT,
-                 GetScreenHeight() - MAP_MARGIN - PLAYER_LABELS_HEIGHT)};
+                 bounding_box.x, bounding_box.x + bounding_box.width),
+      .y = Remap(coords.y, game_space.min_coords.y, game_space.max_coords.y,
+                 bounding_box.y, bounding_box.y + bounding_box.height)};
 }
 
 static inline Color GetOwnerColor(int owner) {
@@ -64,12 +78,10 @@ void DrawTextCenteredOnPoint(Vector2 center, const char *text, float font_size,
 }
 
 // Draws a Planet on the screen.
-void DrawPlanet(Planet planet) {
-  Vector2 draw_coords = Game2ScreenCoords(planet.coords);
+void DrawPlanet(Planet planet, Clay_BoundingBox bounding_box) {
+  Vector2 draw_coords = Game2ScreenCoords(planet.coords, bounding_box);
 
-  const float draw_radius =
-      BASE_PLANET_RADIUS + PLANET_RADIUS_GROWTH_CURVE -
-      PLANET_RADIUS_GROWTH_CURVE / fmaxf(planet.growth, 1);
+  const float draw_radius = GetPlanetRadius(planet);
 
   // Wrapped time for use in repeating functions
   float r_time = fmodf(GetTime(), PLANET_RING_MAX_RADIUS);
@@ -87,10 +99,11 @@ void DrawPlanet(Planet planet) {
   DrawTextCenteredOnPoint(draw_coords, ships_text, font_size, 1, BLACK);
 }
 
-void DrawFleet(Planet *planets, Fleet fleet) {
+void DrawFleet(Planet *planets, Fleet fleet, Clay_BoundingBox bounding_box) {
   Vector2 draw_coords = Game2ScreenCoords(
       Vector2Lerp(planets[fleet.src_id].coords, planets[fleet.dst_id].coords,
-                  1 - (float)fleet.remaining / fleet.total));
+                  1 - (float)fleet.remaining / fleet.total),
+      bounding_box);
 
   const char *ships_text = TextFormat("%d", fleet.ships);
   const float font_size = SHIP_FONT_SIZE;
@@ -267,6 +280,7 @@ void DrawControls() {
 
 void ViewerInit() {
   assert(game_log.count > 0);
+  // Clay_SetDebugModeEnabled(true);
 
   turn = 0;
   frame_counter = 0;
@@ -285,6 +299,20 @@ void ViewerInit() {
       .time_scale = 1,
       .seed = 1,
   });
+}
+
+static void DrawGameFrame(Clay_BoundingBox bounding_box) {
+  NOB_UNUSED(bounding_box);
+  StarsShaderDraw((Rectangle){0, 0, GetScreenWidth(), GetScreenHeight()});
+
+  for (unsigned i = 0; i < game_log.items[turn].planet_count; i++) {
+    DrawPlanet(game_log.items[turn].planets[i], bounding_box);
+  }
+
+  for (unsigned i = 0; i < game_log.items[turn].fleet_count; i++) {
+    DrawFleet(game_log.items[turn].planets, game_log.items[turn].fleets[i],
+              bounding_box);
+  }
 }
 
 void ViewerDraw() {
@@ -319,17 +347,23 @@ void ViewerDraw() {
 
   // ============= START DRAWING =============
   ClearBackground(BLACK);
-  StarsShaderDraw((Rectangle){0, 0, GetScreenWidth(), GetScreenHeight()});
-
-  for (unsigned i = 0; i < game_log.items[turn].planet_count; i++) {
-    DrawPlanet(game_log.items[turn].planets[i]);
+  // clang-format off
+  CLAY(CLAY_ID("OuterContainer"), {
+       .layout = {
+         .sizing = {CLAY_SIZING_GROW(0), CLAY_SIZING_GROW(0)},
+         .padding = CLAY_PADDING_ALL(MAP_MARGIN),
+         .childAlignment = { .x = CLAY_ALIGN_X_CENTER, .y = CLAY_ALIGN_Y_CENTER },
+       },
+   }) {
+    CLAY(CLAY_ID("GameFrame"), {
+       .layout = {
+         .sizing = {CLAY_SIZING_GROW(0), CLAY_SIZING_GROW(0)},
+       },
+       .custom = {.customData = &game_frame_data},
+       });
+  // DrawControls();
   }
-
-  for (unsigned i = 0; i < game_log.items[turn].fleet_count; i++) {
-    DrawFleet(game_log.items[turn].planets, game_log.items[turn].fleets[i]);
-  }
-
-  DrawControls();
+  // clang-format on
 }
 
 void ViewerDestroy() {

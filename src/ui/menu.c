@@ -355,7 +355,6 @@ void MenuInit() {
       .time_scale = 0.3,
       .seed = 28,
   });
-  // Clay_SetDebugModeEnabled(true);
 }
 
 void MenuDestroy() {
