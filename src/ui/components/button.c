@@ -8,6 +8,7 @@ enum ButtonStyle {
   BUTTON_STYLE_MENU = 0,
   BUTTON_STYLE_SUB_MENU,
   BUTTON_STYLE_SETTINGS,
+  BUTTON_STYLE_CONTROLLER,
   BUTTON_STYLE__COUNT,
 };
 
@@ -82,6 +83,23 @@ struct ButtonStyleConfig {
             .sizing = {.width = CLAY_SIZING_FIT(0)},
             .cornerRadius = CLAY_CORNER_RADIUS_MAX(),
             .border = {.color = C_GRAY, .width = CLAY_BORDER_OUTSIDE(1)},
+            .fontId = 1,
+            .fontSize = 16,
+
+            .backgroundColor = C_BLANK,
+            .textColor = C_WHITE,
+            .hovered =
+                {
+                    .backgroundColor = C_WHITE,
+                    .textColor = C_BLACK,
+                },
+        },
+    [BUTTON_STYLE_CONTROLLER] =
+        {
+            .padding = {16, 16, 8, 8},
+            .sizing = {.width = CLAY_SIZING_FIT(0)},
+            .cornerRadius = CLAY_CORNER_RADIUS(8),
+            .border = {.color = C_WHITE, .width = CLAY_BORDER_OUTSIDE(1)},
             .fontId = 1,
             .fontSize = 16,
 
