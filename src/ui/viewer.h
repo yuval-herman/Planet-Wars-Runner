@@ -7,7 +7,7 @@
 #define BASE_PLANET_RADIUS 10.0f
 #define PLANET_RADIUS_GROWTH_CURVE 20.0f
 #define PLANET_RING_MAX_RADIUS 3.0F
-#define MAP_MARGIN 50
+#define MAP_MARGIN 32
 #define PLAYER_LABELS_HEIGHT 30
 #define SHIP_FONT_SIZE 20
 // The name is confusing, but this value denotes the maximum value that the

@@ -3,6 +3,7 @@
 #include "../game_log.h"
 
 #include "clay.h"
+#include "components.h"
 #include "nob.h"
 #include "stars_shader.h"
 #include "ui_utils.h"
@@ -120,6 +121,63 @@ void DrawFleet(Planet *planets, Fleet fleet, Clay_BoundingBox bounding_box) {
 
   DrawTextCenteredOnPoint(draw_coords, ships_text, font_size, 1,
                           GetOwnerColor(fleet.owner));
+}
+
+void ControlsComponent() {
+  static Nob_String_Builder scrubber_text = {0};
+  // clang-format off
+  CLAY(CLAY_ID("ControlsContainer"), {
+    .layout = {
+      .sizing = {.width = CLAY_SIZING_GROW(0), .height=CLAY_SIZING_FIT(0)},
+      .padding = {32,32,16,16}
+    },
+    .backgroundColor = (Clay_Color){255,255,255,15},
+    .border = {.width = CLAY_BORDER_OUTSIDE(1), .color = C_WHITE},
+    .cornerRadius = CLAY_CORNER_RADIUS(8)
+  }) {
+    CLAY(CLAY_ID("ScrubberTrack"), {
+    .layout = {
+      .sizing = {.width = CLAY_SIZING_GROW(0), .height = CLAY_SIZING_FIXED(8)},
+      .childAlignment = {CLAY_ALIGN_X_LEFT,CLAY_ALIGN_Y_CENTER}
+    },
+    .backgroundColor = C_GRAY,
+    .cornerRadius = CLAY_CORNER_RADIUS_MAX(),
+    }) {
+      CLAY(CLAY_ID("PlayedTrack"), {
+      .layout = {
+        .sizing = {.width = CLAY_SIZING_PERCENT((float)turn/(game_log.count-1)), .height = CLAY_SIZING_GROW(0)},
+      },
+      .backgroundColor = C_LIGHTGRAY,
+      .cornerRadius = {.topLeft = FLT_MAX, .bottomLeft = FLT_MAX},
+      }) {
+        CLAY(CLAY_ID("ScrubberThumb"), {
+        .floating = {
+          .attachTo = CLAY_ATTACH_TO_PARENT,
+          .attachPoints = {
+            .parent = CLAY_ATTACH_POINT_RIGHT_CENTER,
+            .element = CLAY_ATTACH_POINT_CENTER_CENTER,
+          }
+        },
+        .layout = {
+          .sizing = {.width = CLAY_SIZING_FIT(48), .height = CLAY_SIZING_FIXED(24)},
+          .childAlignment = {CLAY_ALIGN_X_CENTER,CLAY_ALIGN_Y_CENTER},
+        },
+        .backgroundColor = C_WHITE,
+        .cornerRadius = CLAY_CORNER_RADIUS(4),
+        }) {
+          scrubber_text.count = 0;
+          nob_sb_appendf(&scrubber_text, "%u", turn);
+          CLAY_TEXT(SB_TO_CLAY(scrubber_text), {.fontId = 2, .fontSize = 24, .textColor = C_BLACK});
+        }
+      }
+    }
+
+    CLAY(CLAY_ID("PlaybackControlsContainer")) {
+      CLAY(CLAY_ID("PlaybackControls"));
+      CLAY(CLAY_ID("SpeedControls"));
+    }
+  }
+  // clang-format on
 }
 
 void DrawControls() {
@@ -290,7 +348,7 @@ void DrawControls() {
 
 void ViewerInit() {
   assert(game_log.count > 0);
-  // Clay_SetDebugModeEnabled(true);
+  Clay_SetDebugModeEnabled(true);
 
   turn = 0;
   frame_counter = 0;
@@ -363,6 +421,8 @@ void ViewerDraw() {
          .sizing = {CLAY_SIZING_GROW(0), CLAY_SIZING_GROW(0)},
          .padding = CLAY_PADDING_ALL(MAP_MARGIN),
          .childAlignment = { .x = CLAY_ALIGN_X_CENTER, .y = CLAY_ALIGN_Y_CENTER },
+         .layoutDirection = CLAY_TOP_TO_BOTTOM,
+         .childGap = 32,
        },
    }) {
     CLAY(CLAY_ID("GameFrame"), {
@@ -371,7 +431,7 @@ void ViewerDraw() {
        },
        .custom = {.customData = &game_frame_data},
        });
-  // DrawControls();
+    ControlsComponent();
   }
   // clang-format on
 }
