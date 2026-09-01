@@ -194,12 +194,32 @@ static void ScrubberTrackComponent() {
   // clang-format on
 }
 
+static void PlaybackControlsComponent() {
+  CLAY(CLAY_ID("PlaybackControls"), {.layout = {.childGap = 8}}) {
+    if (Component_Button(CLAY_STRING("|<"), BUTTON_STYLE_CONTROLLER) &&
+        turn > 0) {
+      playing_forewards = false;
+      game_running = true;
+    }
+    if (Component_Button(CLAY_STRING("||"), BUTTON_STYLE_CONTROLLER)) {
+      game_running = !game_running;
+    }
+    if (Component_Button(CLAY_STRING(">|"), BUTTON_STYLE_CONTROLLER) &&
+        turn < game_log.count) {
+      playing_forewards = true;
+      game_running = true;
+    }
+  }
+}
+
 static void ControlsComponent() {
   // clang-format off
   CLAY(CLAY_ID("ControlsContainer"), {
     .layout = {
       .sizing = {.width = CLAY_SIZING_GROW(0), .height=CLAY_SIZING_FIT(0)},
-      .padding = {32,32,16,16}
+      .padding = {32,32,24,24},
+      .layoutDirection = CLAY_TOP_TO_BOTTOM,
+      .childGap = 24,
     },
     .backgroundColor = (Clay_Color){255,255,255,15},
     .border = {.width = CLAY_BORDER_OUTSIDE(1), .color = C_WHITE},
@@ -209,7 +229,7 @@ static void ControlsComponent() {
     ScrubberTrackComponent();
 
     CLAY(CLAY_ID("PlaybackControlsContainer")) {
-      CLAY(CLAY_ID("PlaybackControls"));
+      PlaybackControlsComponent();
       CLAY(CLAY_ID("SpeedControls"));
     }
   }
