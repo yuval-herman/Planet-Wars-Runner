@@ -149,9 +149,52 @@ static void HandleScrubberHover() {
   }
 }
 
-static void ControlsComponent() {
+static void ScrubberTrackComponent() {
   static Nob_String_Builder scrubber_text = {0};
+  // clang-format off
+  CLAY(CLAY_ID("ScrubberTrack"), {
+  .layout = {
+    .sizing = {.width = CLAY_SIZING_GROW(0), .height = CLAY_SIZING_FIXED(12)},
+    .childAlignment = {CLAY_ALIGN_X_LEFT,CLAY_ALIGN_Y_CENTER}
+  },
+  .backgroundColor = C_GRAY,
+  .cornerRadius = CLAY_CORNER_RADIUS_MAX(),
+  }) {
+    HandleScrubberHover();
 
+    CLAY(CLAY_ID("PlayedTrack"), {
+    .layout = {
+      .sizing = {.width = CLAY_SIZING_PERCENT((float)turn/(game_log.count-1)), .height = CLAY_SIZING_GROW(0)},
+    },
+    .backgroundColor = C_LIGHTGRAY,
+    .cornerRadius = {.topLeft = FLT_MAX, .bottomLeft = FLT_MAX},
+    }) {
+      CLAY(CLAY_ID("ScrubberThumb"), {
+      .floating = {
+        .pointerCaptureMode = CLAY_POINTER_CAPTURE_MODE_PASSTHROUGH,
+        .attachTo = CLAY_ATTACH_TO_PARENT,
+        .attachPoints = {
+          .parent = CLAY_ATTACH_POINT_RIGHT_CENTER,
+          .element = CLAY_ATTACH_POINT_CENTER_CENTER,
+        }
+      },
+      .layout = {
+        .sizing = {.width = CLAY_SIZING_FIT(48), .height = CLAY_SIZING_FIXED(24)},
+        .childAlignment = {CLAY_ALIGN_X_CENTER,CLAY_ALIGN_Y_CENTER},
+      },
+      .backgroundColor = C_WHITE,
+      .cornerRadius = CLAY_CORNER_RADIUS(4),
+      }) {
+        scrubber_text.count = 0;
+        nob_sb_appendf(&scrubber_text, "%u", turn);
+        CLAY_TEXT(SB_TO_CLAY(scrubber_text), {.fontId = 2, .fontSize = 24, .textColor = C_BLACK});
+      }
+    }
+  }
+  // clang-format on
+}
+
+static void ControlsComponent() {
   // clang-format off
   CLAY(CLAY_ID("ControlsContainer"), {
     .layout = {
@@ -162,45 +205,8 @@ static void ControlsComponent() {
     .border = {.width = CLAY_BORDER_OUTSIDE(1), .color = C_WHITE},
     .cornerRadius = CLAY_CORNER_RADIUS(8)
   }) {
-    CLAY(CLAY_ID("ScrubberTrack"), {
-    .layout = {
-      .sizing = {.width = CLAY_SIZING_GROW(0), .height = CLAY_SIZING_FIXED(12)},
-      .childAlignment = {CLAY_ALIGN_X_LEFT,CLAY_ALIGN_Y_CENTER}
-    },
-    .backgroundColor = C_GRAY,
-    .cornerRadius = CLAY_CORNER_RADIUS_MAX(),
-    }) {
-      HandleScrubberHover();
 
-      CLAY(CLAY_ID("PlayedTrack"), {
-      .layout = {
-        .sizing = {.width = CLAY_SIZING_PERCENT((float)turn/(game_log.count-1)), .height = CLAY_SIZING_GROW(0)},
-      },
-      .backgroundColor = C_LIGHTGRAY,
-      .cornerRadius = {.topLeft = FLT_MAX, .bottomLeft = FLT_MAX},
-      }) {
-        CLAY(CLAY_ID("ScrubberThumb"), {
-        .floating = {
-          .pointerCaptureMode = CLAY_POINTER_CAPTURE_MODE_PASSTHROUGH,
-          .attachTo = CLAY_ATTACH_TO_PARENT,
-          .attachPoints = {
-            .parent = CLAY_ATTACH_POINT_RIGHT_CENTER,
-            .element = CLAY_ATTACH_POINT_CENTER_CENTER,
-          }
-        },
-        .layout = {
-          .sizing = {.width = CLAY_SIZING_FIT(48), .height = CLAY_SIZING_FIXED(24)},
-          .childAlignment = {CLAY_ALIGN_X_CENTER,CLAY_ALIGN_Y_CENTER},
-        },
-        .backgroundColor = C_WHITE,
-        .cornerRadius = CLAY_CORNER_RADIUS(4),
-        }) {
-          scrubber_text.count = 0;
-          nob_sb_appendf(&scrubber_text, "%u", turn);
-          CLAY_TEXT(SB_TO_CLAY(scrubber_text), {.fontId = 2, .fontSize = 24, .textColor = C_BLACK});
-        }
-      }
-    }
+    ScrubberTrackComponent();
 
     CLAY(CLAY_ID("PlaybackControlsContainer")) {
       CLAY(CLAY_ID("PlaybackControls"));
