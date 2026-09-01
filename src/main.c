@@ -56,6 +56,7 @@ int main(int argc, char *argv[]) {
 #ifndef HEADLESS_MODE
   else if (exit_code == 0 && configs.mode == MODE_REPLAY) {
     GameLog game_log = {0};
+    EnsureNullTerminated(&configs.save_file);
     FILE *save_file = fopen(configs.save_file.items, "rb");
     if (!save_file) {
       nob_log(NOB_ERROR, "Failed opening save file \"%s\": %s.",
