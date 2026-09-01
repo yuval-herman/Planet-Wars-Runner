@@ -2526,9 +2526,7 @@ Clay_String Clay__IntToString(int32_t integer) {
     int32_t length = 0;
     int32_t sign = integer;
 
-    if (integer < 0) {
-        integer = -integer;
-    }
+    integer = labs(integer);
     while (integer > 0) {
         chars[length++] = (char)(integer % 10 + '0');
         integer /= 10;
