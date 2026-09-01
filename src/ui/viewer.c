@@ -212,6 +212,37 @@ static void PlaybackControlsComponent() {
   }
 }
 
+static void SpeedControlsComponent() {
+  CLAY(CLAY_ID("SpeedControls"),
+       {.layout = {
+            .childGap = 8,
+            .childAlignment = {CLAY_ALIGN_X_CENTER, CLAY_ALIGN_Y_CENTER},
+        }}) {
+    CLAY_TEXT(CLAY_STRING("SPEED"),
+              {.fontId = 2, .fontSize = 24, .textColor = C_LIGHTGRAY});
+
+    CLAY(CLAY_ID("SpeedControlsButtons"),
+         {
+             .cornerRadius = CLAY_CORNER_RADIUS_MAX(),
+             .border = {.color = C_LIGHTGRAY, .width = CLAY_BORDER_OUTSIDE(1)},
+         }) {
+      if (Component_Button(CLAY_STRING("0.5x"),
+                           BUTTON_STYLE_CONTROLLER_NAKED)) {
+        game_speed = 10;
+      }
+      if (Component_Button(CLAY_STRING("1x"), BUTTON_STYLE_CONTROLLER_NAKED)) {
+        game_speed = 5;
+      }
+      if (Component_Button(CLAY_STRING("2x"), BUTTON_STYLE_CONTROLLER_NAKED)) {
+        game_speed = 2;
+      }
+      if (Component_Button(CLAY_STRING("5x"), BUTTON_STYLE_CONTROLLER_NAKED)) {
+        game_speed = 0;
+      }
+    }
+  }
+}
+
 static void ControlsComponent() {
   // clang-format off
   CLAY(CLAY_ID("ControlsContainer"), {
@@ -228,9 +259,13 @@ static void ControlsComponent() {
 
     ScrubberTrackComponent();
 
-    CLAY(CLAY_ID("PlaybackControlsContainer")) {
+    CLAY(CLAY_ID("PlaybackControlsContainer"), {
+         .layout={
+           .sizing={.width=CLAY_SIZING_GROW(0)},
+         }}) {
       PlaybackControlsComponent();
-      CLAY(CLAY_ID("SpeedControls"));
+      SpacerComponent("ControlSpacer");
+      SpeedControlsComponent();
     }
   }
   // clang-format on
