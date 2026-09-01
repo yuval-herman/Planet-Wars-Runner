@@ -439,7 +439,7 @@ void DrawControls() {
 
 void ViewerInit() {
   assert(game_log.count > 0);
-  Clay_SetDebugModeEnabled(true);
+  // Clay_SetDebugModeEnabled(true);
 
   turn = 0;
   frame_counter = 0;
