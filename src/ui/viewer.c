@@ -43,7 +43,7 @@ void ComputeGameSpace(Planet *planets, unsigned p_count) {
   game_space = (GameSpace){
       .min_coords = {INFINITY, INFINITY},
       .max_coords = {-INFINITY, -INFINITY},
-      .max_radius = -INFINITY,
+      .max_radius = 0,
   };
   for (unsigned i = 0; i < p_count; i++) {
     game_space.min_coords.x =
