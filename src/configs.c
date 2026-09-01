@@ -82,7 +82,7 @@ static int ini_parse_handler(void *user_data, const char *section,
   if (name == NULL && value == NULL) {
     // If we start parsing a new bot, reserve it's place
     if (MATCH(section, "bot")) {
-      nob_da_append(&configs->players, (Player){0});
+      nob_da_append(&configs->players, (Player){.type = PLAYER_BOT});
     }
     return 1;
   }
