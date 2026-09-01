@@ -11,6 +11,8 @@
 typedef struct {
   Vector2 min_coords;
   Vector2 max_coords;
+  // Planets max radius
+  uint8_t max_radius;
 } GameSpace;
 
 static void DrawGameFrame(Clay_BoundingBox bounding_box);
@@ -37,8 +39,11 @@ static inline float GetPlanetRadius(Planet planet) {
 // Calculates the minimum and maximum coordinates of all planets, used to space
 // planets across the entire screen.
 void ComputeGameSpace(Planet *planets, unsigned p_count) {
-  game_space = (GameSpace){.min_coords = {INFINITY, INFINITY},
-                           .max_coords = {-INFINITY, -INFINITY}};
+  game_space = (GameSpace){
+      .min_coords = {INFINITY, INFINITY},
+      .max_coords = {-INFINITY, -INFINITY},
+      .max_radius = -INFINITY,
+  };
   for (unsigned i = 0; i < p_count; i++) {
     game_space.min_coords.x =
         CLAY__MIN(game_space.min_coords.x, planets[i].coords.x);
@@ -48,15 +53,20 @@ void ComputeGameSpace(Planet *planets, unsigned p_count) {
         CLAY__MAX(game_space.max_coords.x, planets[i].coords.x);
     game_space.max_coords.y =
         CLAY__MAX(game_space.max_coords.y, planets[i].coords.y);
+
+    game_space.max_radius =
+        CLAY__MAX(game_space.max_radius, GetPlanetRadius(planets[i]));
   }
 }
 
 Vector2 Game2ScreenCoords(Vector2 coords, Clay_BoundingBox bounding_box) {
   return (Vector2){
       .x = Remap(coords.x, game_space.min_coords.x, game_space.max_coords.x,
-                 bounding_box.x, bounding_box.x + bounding_box.width),
+                 bounding_box.x + game_space.max_radius,
+                 bounding_box.x + bounding_box.width - game_space.max_radius),
       .y = Remap(coords.y, game_space.min_coords.y, game_space.max_coords.y,
-                 bounding_box.y, bounding_box.y + bounding_box.height)};
+                 bounding_box.y + game_space.max_radius,
+                 bounding_box.y + bounding_box.height - game_space.max_radius)};
 }
 
 static inline Color GetOwnerColor(int owner) {
