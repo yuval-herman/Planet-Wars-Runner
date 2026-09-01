@@ -123,8 +123,35 @@ void DrawFleet(Planet *planets, Fleet fleet, Clay_BoundingBox bounding_box) {
                           GetOwnerColor(fleet.owner));
 }
 
-void ControlsComponent() {
+static void HandleScrubberHover() {
+  static bool is_scrubber_held = false;
+
+  if (Clay_Hovered() && IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
+    is_scrubber_held = true;
+    game_running = false;
+  }
+
+  if (!is_scrubber_held)
+    return;
+
+  if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
+    is_scrubber_held = false;
+  } else {
+    Clay_ElementData e_data =
+        Clay_GetElementData((Clay_ElementId){.id = Clay_GetOpenElementId()});
+    if (!e_data.found)
+      return;
+
+    Clay_BoundingBox box = e_data.boundingBox;
+
+    unsigned clmp_mouse = Clamp(GetMousePosition().x, box.x, box.x + box.width);
+    turn = Remap(clmp_mouse, box.x, box.x + box.width, 0, game_log.count - 1);
+  }
+}
+
+static void ControlsComponent() {
   static Nob_String_Builder scrubber_text = {0};
+
   // clang-format off
   CLAY(CLAY_ID("ControlsContainer"), {
     .layout = {
@@ -137,12 +164,14 @@ void ControlsComponent() {
   }) {
     CLAY(CLAY_ID("ScrubberTrack"), {
     .layout = {
-      .sizing = {.width = CLAY_SIZING_GROW(0), .height = CLAY_SIZING_FIXED(8)},
+      .sizing = {.width = CLAY_SIZING_GROW(0), .height = CLAY_SIZING_FIXED(12)},
       .childAlignment = {CLAY_ALIGN_X_LEFT,CLAY_ALIGN_Y_CENTER}
     },
     .backgroundColor = C_GRAY,
     .cornerRadius = CLAY_CORNER_RADIUS_MAX(),
     }) {
+      HandleScrubberHover();
+
       CLAY(CLAY_ID("PlayedTrack"), {
       .layout = {
         .sizing = {.width = CLAY_SIZING_PERCENT((float)turn/(game_log.count-1)), .height = CLAY_SIZING_GROW(0)},
@@ -152,6 +181,7 @@ void ControlsComponent() {
       }) {
         CLAY(CLAY_ID("ScrubberThumb"), {
         .floating = {
+          .pointerCaptureMode = CLAY_POINTER_CAPTURE_MODE_PASSTHROUGH,
           .attachTo = CLAY_ATTACH_TO_PARENT,
           .attachPoints = {
             .parent = CLAY_ATTACH_POINT_RIGHT_CENTER,
