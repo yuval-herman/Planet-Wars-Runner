@@ -25,16 +25,22 @@ void FreeInnerTournametData(TournametData tournament) {
 
 LogEntry DeepCopyLogEntry(LogEntry entry) {
   LogEntry new_entry = {
-      .fleets = malloc(sizeof *entry.fleets * entry.fleet_count),
-      .planets = malloc(sizeof *entry.planets * entry.planet_count),
+      .fleets = entry.fleet_count
+                    ? malloc(sizeof *entry.fleets * entry.fleet_count)
+                    : NULL,
+      .planets = entry.planet_count
+                     ? malloc(sizeof *entry.planets * entry.planet_count)
+                     : NULL,
       .planet_count = entry.planet_count,
       .fleet_count = entry.fleet_count,
       .remaining_players = entry.remaining_players,
   };
-  memcpy(new_entry.fleets, entry.fleets,
-         sizeof *entry.fleets * entry.fleet_count);
-  memcpy(new_entry.planets, entry.planets,
-         sizeof *entry.planets * entry.planet_count);
+  if (entry.fleet_count)
+    memcpy(new_entry.fleets, entry.fleets,
+           sizeof *entry.fleets * entry.fleet_count);
+  if (entry.planet_count)
+    memcpy(new_entry.planets, entry.planets,
+           sizeof *entry.planets * entry.planet_count);
   return new_entry;
 }
 

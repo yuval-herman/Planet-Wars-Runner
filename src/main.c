@@ -24,11 +24,13 @@ int main(int argc, char *argv[]) {
 
   if (exit_code == 0 && configs.mode == MODE_TOURNAMENT) {
     TournametData tournament = {0};
+    EnsureNullTerminated(&configs.map_file);
     RunTournament(&tournament, configs.map_file.items, configs.players);
     FreeInnerTournametData(tournament);
   } else if (exit_code == 0 && configs.mode == MODE_SINGLE_MATCH) {
     GameState state = {0};
     GameLog game_log = {0};
+    EnsureNullTerminated(&configs.map_file);
     if (MakeGame(&state, configs.map_file.items, configs.players.count)) {
       if (!RunMatch(&game_log, &state, configs.players)) {
         nob_log(NOB_ERROR, "Failed running match.");
