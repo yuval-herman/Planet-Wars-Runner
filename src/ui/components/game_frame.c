@@ -15,13 +15,20 @@ typedef struct {
   float max_radius;
 } GameSpace;
 
+typedef struct {
+  Planet *planets;
+  unsigned planet_count;
+  Fleet *fleets;
+  unsigned fleet_count;
+  GameSpace game_space;
+} DrawGameFrameUserData;
+
 // Calculates the minimum and maximum coordinates of all planets, used to space
 // planets across the entire screen.
 GameSpace ComputeGameSpace(Planet *planets, unsigned p_count);
 
-void Component_GameFrame(GameSpace game_space, Planet *planets,
-                         unsigned planet_count, Fleet *fleets,
-                         unsigned fleet_count);
+void Component_GameFrame(DrawGameFrameUserData user_data);
+float GetPlanetRadius(Planet planet);
 
 // Don't include implementation when included from the components header file
 #ifndef COMPONENTS_H
@@ -31,7 +38,7 @@ void Component_GameFrame(GameSpace game_space, Planet *planets,
 #define PLANET_RING_MAX_RADIUS 3.0F
 #define SHIP_FONT_SIZE 20
 
-static inline float GetPlanetRadius(Planet planet) {
+float GetPlanetRadius(Planet planet) {
   return BASE_PLANET_RADIUS + PLANET_RADIUS_GROWTH_CURVE -
          PLANET_RADIUS_GROWTH_CURVE / fmaxf(planet.growth, 1);
 }
@@ -63,7 +70,7 @@ GameSpace ComputeGameSpace(Planet *planets, unsigned p_count) {
 }
 
 static Vector2 Game2ScreenCoords(Vector2 coords, Clay_BoundingBox bounding_box,
-                          GameSpace game_space) {
+                                 GameSpace game_space) {
   return (Vector2){
       .x = Remap(coords.x, game_space.min_coords.x, game_space.max_coords.x,
                  bounding_box.x + game_space.max_radius,
@@ -93,7 +100,7 @@ static inline void DrawTextCenteredOnPoint(Vector2 center, const char *text,
 }
 
 static void DrawPlanet(Planet planet, Clay_BoundingBox bounding_box,
-                GameSpace game_space) {
+                       GameSpace game_space) {
   Vector2 draw_coords =
       Game2ScreenCoords(planet.coords, bounding_box, game_space);
 
@@ -116,8 +123,8 @@ static void DrawPlanet(Planet planet, Clay_BoundingBox bounding_box,
                           GetFontDefault());
 }
 
-static void DrawFleet(Planet *planets, Fleet fleet, Clay_BoundingBox bounding_box,
-               GameSpace game_space) {
+static void DrawFleet(Planet *planets, Fleet fleet,
+                      Clay_BoundingBox bounding_box, GameSpace game_space) {
   Vector2 draw_coords = Game2ScreenCoords(
       Vector2Lerp(planets[fleet.src_id].coords, planets[fleet.dst_id].coords,
                   1 - (float)fleet.remaining / fleet.total),
@@ -130,16 +137,8 @@ static void DrawFleet(Planet *planets, Fleet fleet, Clay_BoundingBox bounding_bo
                           GetOwnerColor(fleet.owner), GetFontDefault());
 }
 
-struct DrawGameFrameUserData {
-  Planet *planets;
-  unsigned planet_count;
-  Fleet *fleets;
-  unsigned fleet_count;
-  GameSpace game_space;
-};
-
 static void DrawGameFrame(Clay_BoundingBox bounding_box, void *user_data) {
-  struct DrawGameFrameUserData *data = user_data;
+  DrawGameFrameUserData *data = user_data;
   for (unsigned i = 0; i < data->planet_count; i++) {
     DrawPlanet(data->planets[i], bounding_box, data->game_space);
   }
@@ -150,7 +149,7 @@ static void DrawGameFrame(Clay_BoundingBox bounding_box, void *user_data) {
 }
 
 struct DrawGameFrameArenaItem {
-  struct DrawGameFrameUserData user_data;
+  DrawGameFrameUserData user_data;
   CustomElementData custom_element_data;
 };
 
@@ -163,22 +162,14 @@ static struct GameFrameMemoryArena {
 // Used to make the first frame behave like any other frame.
 static unsigned last_frame = UINT_MAX;
 
-void Component_GameFrame(GameSpace game_space, Planet *planets,
-                         unsigned planet_count, Fleet *fleets,
-                         unsigned fleet_count) {
+void Component_GameFrame(DrawGameFrameUserData user_data) {
   if (last_frame != GetFrame()) {
     last_frame = GetFrame();
     frame_arena.count = 0;
   }
   nob_da_append(&frame_arena, (struct DrawGameFrameArenaItem){0});
   struct DrawGameFrameArenaItem *data = &nob_da_last(&frame_arena);
-  data->user_data = (struct DrawGameFrameUserData){
-      .game_space = game_space,
-      .planets = planets,
-      .planet_count = planet_count,
-      .fleets = fleets,
-      .fleet_count = fleet_count,
-  };
+  data->user_data = user_data;
   data->custom_element_data = (CustomElementData){
       .type = CUSTOM_ELEMENT_TYPE_FUNCTION,
       .as.function = {.user_data = &data->user_data, .fn = &DrawGameFrame},

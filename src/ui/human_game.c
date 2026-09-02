@@ -12,6 +12,12 @@ static Nob_String_Builder sb = {0};
 static unsigned short game_speed = 10;
 static unsigned short bot_speed = 150;
 
+struct {
+  unsigned *items;
+  unsigned capacity;
+  unsigned count;
+} selected_planets_ids = {0};
+
 void SetGameState(GameState state) {
   FreeInnerGameState(game_state);
   game_state = DeepCopyGameState(state);
@@ -28,7 +34,8 @@ static void HumanGameInit() {
   assert(game_state.planets.items != NULL &&
          "Planets array is null. Did you forgot to set game state?");
 
-  sb = (Nob_String_Builder){0};
+  sb.count = 0;
+  selected_planets_ids.count = 0;
 
   StarsShaderInit((StarsShaderConfig){
       .size = 0.5,
@@ -43,7 +50,20 @@ static void HumanGameInit() {
       NOB_TODO("Can't handle errors yet");
   }
 
-  Clay_SetDebugModeEnabled(true);
+  // Clay_SetDebugModeEnabled(true);
+}
+
+static void HandlePlanetSelection() {
+  // selected_planets_ids.count = 0;
+  if (IsMouseButtonDown(MOUSE_LEFT_BUTTON)) {
+    for (unsigned i = 0; i < game_state.planets.count; i++) {
+      const Planet planet = game_state.planets.items[i];
+      if (CheckCollisionPointCircle(GetMousePosition(), planet.coords,
+                                    GetPlanetRadius(planet))) {
+        nob_da_append(&selected_planets_ids, i);
+      }
+    }
+  }
 }
 
 static void HumanGameDraw() {
@@ -56,6 +76,7 @@ static void HumanGameDraw() {
   // ====== DRAWING =======
 
   StarsShaderDraw((Rectangle){0, 0, GetScreenWidth(), GetScreenHeight()});
+
   CLAY(CLAY_ID("OuterContainer"),
        {.layout = {.sizing = {CLAY_SIZING_GROW(0), CLAY_SIZING_GROW(0)},
                    .padding = CLAY_PADDING_ALL(10),
@@ -63,9 +84,13 @@ static void HumanGameDraw() {
                                       .y = CLAY_ALIGN_Y_CENTER},
                    .layoutDirection = CLAY_TOP_TO_BOTTOM,
                    .childGap = 32}}) {
-    Component_GameFrame(game_space, game_state.planets.items,
-                        game_state.planets.count, game_state.fleets.items,
-                        game_state.fleets.count);
+    Component_GameFrame((DrawGameFrameUserData){
+        .game_space = game_space,
+        .planets = game_state.planets.items,
+        .planet_count = game_state.planets.count,
+        .fleets = game_state.fleets.items,
+        .fleet_count = game_state.fleets.count,
+    });
   }
 }
 

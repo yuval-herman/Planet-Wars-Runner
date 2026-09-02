@@ -122,17 +122,20 @@ static void SpeedControlsComponent() {
              .cornerRadius = CLAY_CORNER_RADIUS_MAX(),
              .border = {.color = C_LIGHTGRAY, .width = CLAY_BORDER_OUTSIDE(1)},
          }) {
-      if (Component_Button(CLAY_STRING("0.5x"),
-                           BUTTON_STYLE_CONTROLLER_NAKED, false)) {
+      if (Component_Button(CLAY_STRING("0.5x"), BUTTON_STYLE_CONTROLLER_NAKED,
+                           false)) {
         game_speed = 10;
       }
-      if (Component_Button(CLAY_STRING("1x"), BUTTON_STYLE_CONTROLLER_NAKED, false)) {
+      if (Component_Button(CLAY_STRING("1x"), BUTTON_STYLE_CONTROLLER_NAKED,
+                           false)) {
         game_speed = 5;
       }
-      if (Component_Button(CLAY_STRING("2x"), BUTTON_STYLE_CONTROLLER_NAKED, false)) {
+      if (Component_Button(CLAY_STRING("2x"), BUTTON_STYLE_CONTROLLER_NAKED,
+                           false)) {
         game_speed = 2;
       }
-      if (Component_Button(CLAY_STRING("5x"), BUTTON_STYLE_CONTROLLER_NAKED, false)) {
+      if (Component_Button(CLAY_STRING("5x"), BUTTON_STYLE_CONTROLLER_NAKED,
+                           false)) {
         game_speed = 0;
       }
     }
@@ -219,7 +222,6 @@ void ViewerDraw() {
   }
 
   // ============= START DRAWING =============
-  ClearBackground(BLACK);
   StarsShaderDraw((Rectangle){0, 0, GetScreenWidth(), GetScreenHeight()});
   // clang-format off
   CLAY(CLAY_ID("OuterContainer"), {
@@ -231,10 +233,13 @@ void ViewerDraw() {
          .childGap = 32,
        },
    }) {
-    Component_GameFrame(game_space, game_log.items[turn].planets,
-                        game_log.items[turn].planet_count,
-                        game_log.items[turn].fleets,
-                        game_log.items[turn].fleet_count);
+    Component_GameFrame((DrawGameFrameUserData){
+        .planets = game_log.items[turn].planets,
+        .planet_count = game_log.items[turn].planet_count,
+        .fleets = game_log.items[turn].fleets,
+        .fleet_count = game_log.items[turn].fleet_count,
+        .game_space = game_space,
+    });
     ControlsComponent();
   }
   // clang-format on
