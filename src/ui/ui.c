@@ -5,6 +5,7 @@
 
 #include "menu.h"
 #include "viewer.h"
+#include "human_game.h"
 
 #define CLAY_IMPLEMENTATION
 #include "clay.h"
@@ -14,7 +15,9 @@
 static const UIScreen *screens[] = {
     [SCREEN_VIEWER] = &viewer_screen,
     [SCREEN_MENU] = &menu_screen,
+    [SCREEN_HUMAN_GAME] = &human_game_screen,
 };
+
 static UIScreen active_screen = {0};
 static Font fonts[4];
 static unsigned frame;

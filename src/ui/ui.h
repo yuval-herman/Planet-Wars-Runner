@@ -5,6 +5,7 @@ enum Screens {
   SCREEN_NULL = 0, // Starting empty screen
   SCREEN_VIEWER,
   SCREEN_MENU,
+  SCREEN_HUMAN_GAME,
 };
 
 // Get the frame number. Frames are counted for every frame drawn in UIRun

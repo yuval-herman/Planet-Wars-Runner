@@ -701,6 +701,7 @@ int main(int argc, char **argv) {
       "src/ui/ui.c",
       "src/ui/viewer.c",
       "src/ui/menu.c",
+      "src/ui/human_game.c",
       "src/ui/shaders.c",
       "src/ui/fonts.c",
       "src/ui/stars_shader.c",
