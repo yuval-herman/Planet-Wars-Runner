@@ -11,7 +11,7 @@
 Clay_String Component_TextEdit(Nob_String_Builder *sb, unsigned *caret_pos,
                                bool *is_active);
 
-// Don't include implementation when included from the componenets header file
+// Don't include implementation when included from the components header file
 #ifndef COMPONENTS_H
 
 #define CARET_COLOR ((Clay_Color){255, 255, 255, 127})

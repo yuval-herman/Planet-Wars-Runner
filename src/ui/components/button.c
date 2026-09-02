@@ -17,7 +17,7 @@ typedef void (*ButtonOnClickFunction)(void *userData);
 
 bool Component_Button(Clay_String buttonText, enum ButtonStyle style);
 
-// Don't include implementation when included from the componenets header file
+// Don't include implementation when included from the components header file
 #ifndef COMPONENTS_H
 
 struct HoverData {

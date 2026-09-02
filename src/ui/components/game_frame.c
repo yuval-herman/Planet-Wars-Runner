@@ -12,7 +12,7 @@ typedef struct {
   Vector2 min_coords;
   Vector2 max_coords;
   // Planets max radius
-  uint8_t max_radius;
+  float max_radius;
 } GameSpace;
 
 // Calculates the minimum and maximum coordinates of all planets, used to space
@@ -23,7 +23,7 @@ void Component_GameFrame(GameSpace game_space, Planet *planets,
                          unsigned planet_count, Fleet *fleets,
                          unsigned fleet_count);
 
-// Don't include implementation when included from the componenets header file
+// Don't include implementation when included from the components header file
 #ifndef COMPONENTS_H
 
 #define BASE_PLANET_RADIUS 10.0f
@@ -62,7 +62,7 @@ GameSpace ComputeGameSpace(Planet *planets, unsigned p_count) {
   return game_space;
 }
 
-Vector2 Game2ScreenCoords(Vector2 coords, Clay_BoundingBox bounding_box,
+static Vector2 Game2ScreenCoords(Vector2 coords, Clay_BoundingBox bounding_box,
                           GameSpace game_space) {
   return (Vector2){
       .x = Remap(coords.x, game_space.min_coords.x, game_space.max_coords.x,
@@ -92,7 +92,7 @@ static inline void DrawTextCenteredOnPoint(Vector2 center, const char *text,
   DrawTextEx(font, text, text_coords, font_size, spacing, tint);
 }
 
-void DrawPlanet(Planet planet, Clay_BoundingBox bounding_box,
+static void DrawPlanet(Planet planet, Clay_BoundingBox bounding_box,
                 GameSpace game_space) {
   Vector2 draw_coords =
       Game2ScreenCoords(planet.coords, bounding_box, game_space);
@@ -116,7 +116,7 @@ void DrawPlanet(Planet planet, Clay_BoundingBox bounding_box,
                           GetFontDefault());
 }
 
-void DrawFleet(Planet *planets, Fleet fleet, Clay_BoundingBox bounding_box,
+static void DrawFleet(Planet *planets, Fleet fleet, Clay_BoundingBox bounding_box,
                GameSpace game_space) {
   Vector2 draw_coords = Game2ScreenCoords(
       Vector2Lerp(planets[fleet.src_id].coords, planets[fleet.dst_id].coords,
@@ -154,12 +154,14 @@ struct DrawGameFrameArenaItem {
   CustomElementData custom_element_data;
 };
 
-static struct MemoryArena {
+static struct GameFrameMemoryArena {
   struct DrawGameFrameArenaItem *items;
   size_t count;
   size_t capacity;
 } frame_arena = {0};
-static unsigned last_frame = 0;
+
+// Used to make the first frame behave like any other frame.
+static unsigned last_frame = UINT_MAX;
 
 void Component_GameFrame(GameSpace game_space, Planet *planets,
                          unsigned planet_count, Fleet *fleets,
