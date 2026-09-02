@@ -11,9 +11,6 @@
 
 #include "ui.h"
 
-#define RAYLIB_VECTOR2_TO_CLAY_VECTOR2(vector)                                 \
-  (Clay_Vector2) { .x = vector.x, .y = vector.y }
-
 static const UIScreen *screens[] = {
     [SCREEN_VIEWER] = &viewer_screen,
     [SCREEN_MENU] = &menu_screen,
