@@ -169,7 +169,6 @@ static void ControlsComponent() {
 
 void ViewerInit() {
   assert(game_log.count > 0);
-  // Clay_SetDebugModeEnabled(true);
 
   turn = 0;
   frame_counter = 0;
