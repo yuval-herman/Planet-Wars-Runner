@@ -221,6 +221,7 @@ void StartMatch() {
     }
     if (has_human) {
       SetGameState(state);
+      SetPlayers(configs->players);
       ChangeScreen(SCREEN_HUMAN_GAME);
     } else {
       if (!RunMatch(&game_log, &state, configs->players)) {
@@ -370,7 +371,7 @@ void MenuDraw() {
 
 void MenuInit() {
   assert(configs);
-  sub_menu = MENU_MAIN;
+  sub_menu = MENU_PLAY_MATCH;
   memset(&inputs_data, 0, sizeof inputs_data);
   StarsShaderInit((StarsShaderConfig){
       .size = 0.4,

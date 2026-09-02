@@ -317,25 +317,16 @@ static void RunBotCycle(GameState *state, PlayerDA players,
   }
 }
 
-bool RunMatch(GameLog *game_log, GameState *state, PlayerDA players) {
-  // Reusable string builder to hold messages sent and received between the bots
-  // and the engine.
-  Nob_String_Builder sb = {0};
+bool RunTurn(GameState *state, GameLog *game_log, PlayerDA players,
+             Nob_String_Builder sb) {
+  // Bot communication
+  sb.count = 0;
+  RunBotCycle(state, players, &sb);
 
-  nob_da_foreach(Player, player, &players) {
-    if (!StartPlayer(player))
-      return false;
-  }
+  // Game logic
+  AdvanceTurn(state);
 
-  for (int sim_turn = 0; state->remaining_players > 1 && sim_turn < 1000;
-       sim_turn++) {
-    nob_log(NOB_INFO, "Turn %d", sim_turn);
-    // Bot communication
-    sb.count = 0;
-    RunBotCycle(state, players, &sb);
-
-    // Game logic
-    AdvanceTurn(state);
+  if (game_log) {
     // Save state to game log
     LogEntry entry = DeepCopyLogEntry((LogEntry){
         .remaining_players = state->remaining_players,
@@ -346,6 +337,25 @@ bool RunMatch(GameLog *game_log, GameState *state, PlayerDA players) {
     });
 
     nob_da_append(game_log, entry);
+  }
+
+  return state->remaining_players > 1;
+}
+
+bool RunMatch(GameLog *game_log, GameState *state, PlayerDA players) {
+  // Reusable string builder to hold messages sent and received between the bots
+  // and the engine.
+  Nob_String_Builder sb = {0};
+
+  nob_da_foreach(Player, player, &players) {
+    if (!StartPlayer(player))
+      return false;
+  }
+
+  for (int sim_turn = 0; sim_turn < 1000; sim_turn++) {
+    nob_log(NOB_INFO, "Turn %d", sim_turn);
+    if (!RunTurn(state, game_log, players, sb))
+      break;
   }
   nob_log(NOB_INFO, "Game ended!");
   int winning_bot = bit_index(state->player_bit_set);

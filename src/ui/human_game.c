@@ -1,24 +1,31 @@
 #include "components.h"
 
+#include "../runner.h"
 #include "human_game.h"
 #include "stars_shader.h"
 
 static GameState game_state = {0};
 static GameSpace game_space = {0};
+static PlayerDA players = {0};
+static Nob_String_Builder sb = {0};
 
 void SetGameState(GameState state) {
+  FreeInnerGameState(game_state);
   game_state = DeepCopyGameState(state);
   game_space =
       ComputeGameSpace(game_state.planets.items, game_state.planets.count);
-  printf("max x = %g\n",game_space.max_coords.x);
-  printf("max y = %g\n",game_space.max_coords.y);
-  printf("min x = %g\n",game_space.min_coords.x);
-  printf("min y = %g\n",game_space.min_coords.y);
+}
+
+void SetPlayers(PlayerDA new_players) {
+  FreeInnerPlayerDA(players);
+  players = DeepCopyPlayerDA(new_players);
 }
 
 static void HumanGameInit() {
   assert(game_state.planets.items != NULL &&
          "Planets array is null. Did you forgot to set game state?");
+
+  sb = (Nob_String_Builder){0};
 
   StarsShaderInit((StarsShaderConfig){
       .size = 0.5,
@@ -28,10 +35,20 @@ static void HumanGameInit() {
       .seed = 1,
   });
 
+  nob_da_foreach(Player, player, &players) {
+    if (!StartPlayer(player))
+      NOB_TODO("Can't handle errors yet");
+  }
+
   Clay_SetDebugModeEnabled(true);
 }
 
 static void HumanGameDraw() {
+  RunTurn(&game_state, NULL, players, sb);
+  // AdvanceTurn(&game_state);
+
+  // ====== DRAWING =======
+
   StarsShaderDraw((Rectangle){0, 0, GetScreenWidth(), GetScreenHeight()});
   CLAY(CLAY_ID("OuterContainer"),
        {.layout = {.sizing = {CLAY_SIZING_GROW(0), CLAY_SIZING_GROW(0)},
@@ -50,6 +67,8 @@ static void HumanGameDestroy() {
   FreeInnerGameState(game_state);
   game_state = (GameState){0};
   StarsShaderDestroy();
+  nob_sb_free(sb);
+  sb = (Nob_String_Builder){0};
 }
 
 const UIScreen human_game_screen = {
