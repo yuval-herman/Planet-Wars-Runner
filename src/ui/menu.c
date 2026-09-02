@@ -9,6 +9,7 @@
 #include "nob.h"
 
 #include "components.h"
+#include "human_game.h"
 #include "menu.h"
 #include "stars_shader.h"
 #include "ui.h"
@@ -211,18 +212,30 @@ void StartMatch() {
   GameState state = {0};
   EnsureNullTerminated(&configs->map_file);
   if (MakeGame(&state, configs->map_file.items, configs->players.count)) {
-    if (!RunMatch(&game_log, &state, configs->players)) {
-      nob_log(NOB_ERROR, "Failed running match.");
-      NOB_TODO("handle errors isn't implemented...");
+    bool has_human = false;
+    nob_da_foreach(Player, player, &configs->players) {
+      if (player->type == PLAYER_HUMAN) {
+        has_human = true;
+        break;
+      }
     }
-    if (configs->write_save) {
-      FILE *file = fopen("game.plws", "wb");
-      WriteGameLogToFile(file, game_log);
-      fclose(file);
-    }
+    if (has_human) {
+      SetGameState(state);
+      ChangeScreen(SCREEN_HUMAN_GAME);
+    } else {
+      if (!RunMatch(&game_log, &state, configs->players)) {
+        nob_log(NOB_ERROR, "Failed running match.");
+        NOB_TODO("handle errors isn't implemented...");
+      }
+      if (configs->write_save) {
+        FILE *file = fopen("game.plws", "wb");
+        WriteGameLogToFile(file, game_log);
+        fclose(file);
+      }
 
-    SetGameLog(game_log);
-    ChangeScreen(SCREEN_VIEWER);
+      SetGameLog(game_log);
+      ChangeScreen(SCREEN_VIEWER);
+    }
   } else {
     NOB_TODO("handle errors isn't implemented...");
   }

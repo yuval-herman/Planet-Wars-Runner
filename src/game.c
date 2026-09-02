@@ -13,13 +13,21 @@
 #include <string.h>
 
 GameState DeepCopyGameState(GameState state) {
-  NOB_UNUSED(state);
-  // Copying is unsupported because game state contains some things relevant to
-  // a single game that would not make sense duplicated, such as bot processes.
-  // It would be technically possible to spin up new bot processes using the
-  // same command and so on, but it wouldn't make sense. If you got here,
-  // perhaps you should reconsider what you are trying to do.
-  NOB_UNREACHABLE("Coping game state is unsupported.");
+  GameState new_state = state;
+
+  new_state.planets = (PlanetDA){
+      .count = state.planets.count,
+      .capacity = state.planets.count,
+      .items = state.planets.count
+                   ? malloc(sizeof *state.planets.items * state.planets.count)
+                   : NULL};
+  new_state.fleets = (FleetsDA){
+      .count = state.fleets.count,
+      .capacity = state.fleets.count,
+      .items = state.fleets.count
+                   ? malloc(sizeof *state.fleets.items * state.fleets.count)
+                   : NULL};
+  return new_state;
 }
 
 void FreeInnerGameState(GameState state) {

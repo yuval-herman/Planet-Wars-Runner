@@ -2,11 +2,11 @@
 #define HUMAN_GAME_H
 #include "ui_screen.h"
 
-#include "../configs.h"
+#include "../game.h"
 
 extern const UIScreen human_game_screen;
 
-void SetConfig(Configs *configs);
+void SetGameState(GameState state);
 
 #endif // HUMAN_GAME_H
 
