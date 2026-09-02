@@ -17,6 +17,11 @@ static const UIScreen *screens[] = {
 };
 static UIScreen active_screen = {0};
 static Font fonts[4];
+static unsigned frame;
+
+unsigned GetFrame() {
+  return frame;
+}
 
 void HandleClayErrors(Clay_ErrorData errorData) {
   nob_log(NOB_ERROR, "%s", errorData.errorText.chars);
@@ -86,6 +91,7 @@ void UIDestroy() {
 void UIRun() {
   assert(active_screen.draw);
   while (!WindowShouldClose()) {
+    frame++;
     UpdateClayState();
 
     BeginDrawing();

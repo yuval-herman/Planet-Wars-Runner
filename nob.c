@@ -706,6 +706,7 @@ int main(int argc, char **argv) {
       "src/ui/stars_shader.c",
       "src/ui/components/text_edit.c",
       "src/ui/components/button.c",
+      "src/ui/components/game_frame.c",
   };
 
   for (unsigned i = 0; i < NOB_ARRAY_LEN(source_files); i++) {

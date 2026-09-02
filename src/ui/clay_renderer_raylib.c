@@ -286,7 +286,7 @@ void Clay_Raylib_Render(Clay_RenderCommandArray renderCommands, Font* fonts)
                 if (!customElement) continue;
                 switch (customElement->type) {
                     case CUSTOM_ELEMENT_TYPE_FUNCTION: {
-                        customElement->as.function(boundingBox);
+                        customElement->as.function.fn(boundingBox, customElement->as.function.user_data);
                         break;
                     }
                     default: break;

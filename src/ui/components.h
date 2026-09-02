@@ -3,6 +3,7 @@
 
 #include "components/button.c"
 #include "components/text_edit.c"
+#include "components/game_frame.c"
 
 #define SpacerComponent(id)                                                    \
   CLAY(CLAY_ID_LOCAL(id),                                                      \

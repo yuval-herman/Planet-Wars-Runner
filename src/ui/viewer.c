@@ -9,20 +9,7 @@
 #include "ui_utils.h"
 #include "viewer.h"
 
-typedef struct {
-  Vector2 min_coords;
-  Vector2 max_coords;
-  // Planets max radius
-  uint8_t max_radius;
-} GameSpace;
-
-static void DrawGameFrame(Clay_BoundingBox bounding_box);
-
-static CustomElementData game_frame_data = {
-    .type = CUSTOM_ELEMENT_TYPE_FUNCTION, .as.function = &DrawGameFrame};
-
 static GameSpace game_space = {0};
-static Font font;
 static unsigned int frame_counter;
 // Game run speed in viewer. 0 is realtime, higher is slower.
 static int game_speed;
@@ -31,97 +18,6 @@ static bool playing_forewards;
 
 static GameLog game_log = {0};
 static unsigned turn;
-
-static inline float GetPlanetRadius(Planet planet) {
-  return BASE_PLANET_RADIUS + PLANET_RADIUS_GROWTH_CURVE -
-         PLANET_RADIUS_GROWTH_CURVE / fmaxf(planet.growth, 1);
-}
-
-// Calculates the minimum and maximum coordinates of all planets, used to space
-// planets across the entire screen.
-void ComputeGameSpace(Planet *planets, unsigned p_count) {
-  game_space = (GameSpace){
-      .min_coords = {INFINITY, INFINITY},
-      .max_coords = {-INFINITY, -INFINITY},
-      .max_radius = 0,
-  };
-  for (unsigned i = 0; i < p_count; i++) {
-    game_space.min_coords.x =
-        CLAY__MIN(game_space.min_coords.x, planets[i].coords.x);
-    game_space.min_coords.y =
-        CLAY__MIN(game_space.min_coords.y, planets[i].coords.y);
-    game_space.max_coords.x =
-        CLAY__MAX(game_space.max_coords.x, planets[i].coords.x);
-    game_space.max_coords.y =
-        CLAY__MAX(game_space.max_coords.y, planets[i].coords.y);
-
-    game_space.max_radius =
-        CLAY__MAX(game_space.max_radius, GetPlanetRadius(planets[i]));
-  }
-}
-
-Vector2 Game2ScreenCoords(Vector2 coords, Clay_BoundingBox bounding_box) {
-  return (Vector2){
-      .x = Remap(coords.x, game_space.min_coords.x, game_space.max_coords.x,
-                 bounding_box.x + game_space.max_radius,
-                 bounding_box.x + bounding_box.width - game_space.max_radius),
-      .y = Remap(coords.y, game_space.min_coords.y, game_space.max_coords.y,
-                 bounding_box.y + game_space.max_radius,
-                 bounding_box.y + bounding_box.height - game_space.max_radius)};
-}
-
-static inline Color GetOwnerColor(int owner) {
-  return owner == 0 ? GRAY
-                    : ColorFromHSV((((owner - 1) * 7) % MAX_PLAYER_AMOUNT) *
-                                       360.0f / MAX_PLAYER_AMOUNT,
-                                   1.0f, 1.0f);
-}
-
-void DrawTextCenteredOnPoint(Vector2 center, const char *text, float font_size,
-                             float spacing, Color tint) {
-
-  const Vector2 text_measurements =
-      MeasureTextEx(font, text, font_size, spacing);
-  const Vector2 text_coords =
-      Vector2Subtract(center, Vector2Scale(text_measurements, 0.5));
-
-  DrawTextEx(font, text, text_coords, font_size, spacing, tint);
-}
-
-// Draws a Planet on the screen.
-void DrawPlanet(Planet planet, Clay_BoundingBox bounding_box) {
-  Vector2 draw_coords = Game2ScreenCoords(planet.coords, bounding_box);
-
-  const float draw_radius = GetPlanetRadius(planet);
-
-  // Wrapped time for use in repeating functions
-  float r_time = fmodf(GetTime(), PLANET_RING_MAX_RADIUS);
-  float ring_radius = r_time;
-
-  DrawCircleV(draw_coords, draw_radius, GetOwnerColor(planet.owner));
-  DrawCircleLinesV(
-      draw_coords, draw_radius + ring_radius,
-      ColorAlpha(GetOwnerColor(planet.owner),
-                 (4 * r_time * (PLANET_RING_MAX_RADIUS - r_time)) /
-                     (PLANET_RING_MAX_RADIUS * PLANET_RING_MAX_RADIUS)));
-
-  const float font_size = draw_radius;
-  const char *ships_text = TextFormat("%d", planet.ships);
-  DrawTextCenteredOnPoint(draw_coords, ships_text, font_size, 1, BLACK);
-}
-
-void DrawFleet(Planet *planets, Fleet fleet, Clay_BoundingBox bounding_box) {
-  Vector2 draw_coords = Game2ScreenCoords(
-      Vector2Lerp(planets[fleet.src_id].coords, planets[fleet.dst_id].coords,
-                  1 - (float)fleet.remaining / fleet.total),
-      bounding_box);
-
-  const char *ships_text = TextFormat("%d", fleet.ships);
-  const float font_size = SHIP_FONT_SIZE;
-
-  DrawTextCenteredOnPoint(draw_coords, ships_text, font_size, 1,
-                          GetOwnerColor(fleet.owner));
-}
 
 static void HandleScrubberHover() {
   static bool is_scrubber_held = false;
@@ -281,9 +177,8 @@ void ViewerInit() {
   game_running = false;
   playing_forewards = true;
 
-  ComputeGameSpace(game_log.items[0].planets, game_log.items[0].planet_count);
-
-  font = GetFontDefault();
+  game_space = ComputeGameSpace(game_log.items[0].planets,
+                                game_log.items[0].planet_count);
 
   StarsShaderInit((StarsShaderConfig){
       .size = 0.5,
@@ -292,20 +187,6 @@ void ViewerInit() {
       .time_scale = 1,
       .seed = 1,
   });
-}
-
-static void DrawGameFrame(Clay_BoundingBox bounding_box) {
-  NOB_UNUSED(bounding_box);
-  StarsShaderDraw((Rectangle){0, 0, GetScreenWidth(), GetScreenHeight()});
-
-  for (unsigned i = 0; i < game_log.items[turn].planet_count; i++) {
-    DrawPlanet(game_log.items[turn].planets[i], bounding_box);
-  }
-
-  for (unsigned i = 0; i < game_log.items[turn].fleet_count; i++) {
-    DrawFleet(game_log.items[turn].planets, game_log.items[turn].fleets[i],
-              bounding_box);
-  }
 }
 
 void ViewerDraw() {
@@ -340,6 +221,7 @@ void ViewerDraw() {
 
   // ============= START DRAWING =============
   ClearBackground(BLACK);
+  StarsShaderDraw((Rectangle){0, 0, GetScreenWidth(), GetScreenHeight()});
   // clang-format off
   CLAY(CLAY_ID("OuterContainer"), {
        .layout = {
@@ -350,12 +232,10 @@ void ViewerDraw() {
          .childGap = 32,
        },
    }) {
-    CLAY(CLAY_ID("GameFrame"), {
-       .layout = {
-         .sizing = {CLAY_SIZING_GROW(0), CLAY_SIZING_GROW(0)},
-       },
-       .custom = {.customData = &game_frame_data},
-       });
+    Component_GameFrame(game_space, game_log.items[turn].planets,
+                        game_log.items[turn].planet_count,
+                        game_log.items[turn].fleets,
+                        game_log.items[turn].fleet_count);
     ControlsComponent();
   }
   // clang-format on

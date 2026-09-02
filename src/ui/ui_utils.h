@@ -5,12 +5,16 @@
 
 typedef enum { CUSTOM_ELEMENT_TYPE_FUNCTION } CustomElementType;
 
-typedef void (*CustomElementFunction)(Clay_BoundingBox bounding_box);
+typedef void (*CustomElementFunction)(Clay_BoundingBox bounding_box,
+                                      void *user_data);
 
 typedef struct {
   CustomElementType type;
   union {
-      CustomElementFunction function;
+    struct {
+      CustomElementFunction fn;
+      void *user_data;
+    } function;
   } as;
 } CustomElementData;
 
