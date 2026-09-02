@@ -8,6 +8,9 @@ static GameState game_state = {0};
 static GameSpace game_space = {0};
 static PlayerDA players = {0};
 static Nob_String_Builder sb = {0};
+// 0 is realtime, higher is slower.
+static unsigned short game_speed = 10;
+static unsigned short bot_speed = 150;
 
 void SetGameState(GameState state) {
   FreeInnerGameState(game_state);
@@ -44,8 +47,11 @@ static void HumanGameInit() {
 }
 
 static void HumanGameDraw() {
-  RunTurn(&game_state, NULL, players, sb);
-  // AdvanceTurn(&game_state);
+  if (bot_speed == 0 || GetFrame() % bot_speed == 0)
+    RunPlayerCycle(&game_state, players, &sb);
+
+  if (game_speed == 0 || GetFrame() % game_speed == 0)
+    AdvanceTurn(&game_state);
 
   // ====== DRAWING =======
 

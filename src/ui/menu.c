@@ -371,7 +371,7 @@ void MenuDraw() {
 
 void MenuInit() {
   assert(configs);
-  sub_menu = MENU_PLAY_MATCH;
+  sub_menu = MENU_MAIN;
   memset(&inputs_data, 0, sizeof inputs_data);
   StarsShaderInit((StarsShaderConfig){
       .size = 0.4,

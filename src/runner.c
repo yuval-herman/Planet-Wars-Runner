@@ -269,7 +269,7 @@ bool RunTournament(TournametData *tournament, const char *map_file_path,
   return true;
 }
 
-static void RunBotCycle(GameState *state, PlayerDA players,
+void RunPlayerCycle(GameState *state, PlayerDA players,
                         Nob_String_Builder *sb) {
   unsigned bot_num = 0;
   nob_da_foreach(Player, player, &players) {
@@ -321,7 +321,7 @@ bool RunTurn(GameState *state, GameLog *game_log, PlayerDA players,
              Nob_String_Builder sb) {
   // Bot communication
   sb.count = 0;
-  RunBotCycle(state, players, &sb);
+  RunPlayerCycle(state, players, &sb);
 
   // Game logic
   AdvanceTurn(state);
