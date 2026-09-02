@@ -45,6 +45,44 @@ struct {
     inputs_data.current_input++;                                               \
   }
 
+#define PlayerInputComponent(player_number)                                    \
+  CLAY(CLAY_ID("Player" #player_number "InputContainer"),                      \
+       {.layout = {.sizing = {.width = CLAY_SIZING_GROW(0)},                   \
+                   .layoutDirection = CLAY_LEFT_TO_RIGHT,                      \
+                   .childGap = 16,                                             \
+                   .childAlignment = {.y = CLAY_ALIGN_Y_BOTTOM}}}) {           \
+    CLAY_AUTO_ID(                                                              \
+        {.layout = {.sizing = {.width = CLAY_SIZING_GROW(0, 200)}}}) {         \
+      InputComponent("Player" #player_number "Name",                           \
+                     "Player " #player_number " name",                         \
+                     &configs->players.items[player_number - 1].name);         \
+    }                                                                          \
+    CLAY(                                                                      \
+        CLAY_ID("Player" #player_number "TypeControls"),                       \
+        {                                                                      \
+            .cornerRadius = CLAY_CORNER_RADIUS_MAX(),                          \
+            .border = {.color = C_LIGHTGRAY, .width = CLAY_BORDER_OUTSIDE(1)}, \
+        }) {                                                                   \
+      if (Component_Button(CLAY_STRING("BOT"), BUTTON_STYLE_CONTROLLER_NAKED,  \
+                           configs->players.items[player_number - 1].type ==   \
+                               PLAYER_BOT)) {                                  \
+        configs->players.items[player_number - 1].type = PLAYER_BOT;           \
+      }                                                                        \
+      if (Component_Button(CLAY_STRING("HUMAN"),                               \
+                           BUTTON_STYLE_CONTROLLER_NAKED,                      \
+                           configs->players.items[player_number - 1].type ==   \
+                               PLAYER_HUMAN)) {                                \
+        configs->players.items[player_number - 1].type = PLAYER_HUMAN;         \
+      }                                                                        \
+    }                                                                          \
+    if (configs->players.items[player_number - 1].type == PLAYER_BOT) {        \
+      InputComponent(                                                          \
+          "Player" #player_number "Command",                                   \
+          "Player " #player_number " command",                                 \
+          &configs->players.items[player_number - 1].as.bot.start_command);    \
+    }                                                                          \
+  }
+
 #define SubMenuContainer(id)                                                   \
   CLAY(CLAY_ID(id),                                                            \
        {                                                                       \
@@ -109,7 +147,7 @@ void ReplayView() {
           InputComponent("ReplayFilePath", "REPLAY FILE (.PLWS)",
                          &configs->save_file);
         }
-        if (Component_Button(CLAY_STRING("Browse..."), BUTTON_STYLE_SETTINGS)) {
+        if (Component_Button(CLAY_STRING("Browse..."), BUTTON_STYLE_SETTINGS, false)) {
           char *result = tinyfd_openFileDialog("Select file to replay", NULL, 1,
                                                (const char *[]){"*.plws"},
                                                "Planet Wars Serialization files.",
@@ -158,9 +196,9 @@ void ReplayView() {
     CLAY(CLAY_ID("StateButtonsContainer"), {
            .layout = { .sizing = { .width = CLAY_SIZING_GROW(0) }}
          }) {
-      if (Component_Button(CLAY_STRING("Back"), BUTTON_STYLE_SUB_MENU)) sub_menu = MENU_MAIN;
+      if (Component_Button(CLAY_STRING("Back"), BUTTON_STYLE_SUB_MENU, false)) sub_menu = MENU_MAIN;
       SpacerComponent("Spacer");
-      if (Component_Button(CLAY_STRING("Launch Replay"), BUTTON_STYLE_SUB_MENU)) {
+      if (Component_Button(CLAY_STRING("Launch Replay"), BUTTON_STYLE_SUB_MENU, false)) {
         StartReplay();
       }
     }
@@ -221,7 +259,7 @@ void PlayMatchView() {
           InputComponent("MapPath", "MAP PATH",
                          &configs->map_file);
         }
-        if (Component_Button(CLAY_STRING("Browse..."), BUTTON_STYLE_SETTINGS)) {
+        if (Component_Button(CLAY_STRING("Browse..."), BUTTON_STYLE_SETTINGS, false)) {
           char *result = tinyfd_openFileDialog("Select map file", NULL, 1,
                                                (const char *[]){"*.txt"},
                                                "Map text files.",
@@ -233,43 +271,16 @@ void PlayMatchView() {
         }
       }
 
-      CLAY(CLAY_ID("Player1InputContainer"), {
-           .layout = {
-             .sizing = {.width = CLAY_SIZING_GROW(0)},
-             .layoutDirection = CLAY_LEFT_TO_RIGHT,
-             .childGap = 16
-           }
-         }) {
-        CLAY_AUTO_ID({.layout = {.sizing = {.width = CLAY_SIZING_GROW(0, 200)}}}) {
-          InputComponent("Player1Name", "Player 1 name",
-                         &configs->players.items[0].name);
-        }
-        InputComponent("Player1Command", "Player 1 command",
-                       &configs->players.items[0].as.bot.start_command);
-      }
-
-      CLAY(CLAY_ID("Player2InputContainer"), {
-           .layout = {
-             .sizing = {.width = CLAY_SIZING_GROW(0)},
-             .layoutDirection = CLAY_LEFT_TO_RIGHT,
-             .childGap = 16
-           }
-         }) {
-        CLAY_AUTO_ID({.layout = {.sizing = {.width = CLAY_SIZING_GROW(0, 200)}}}) {
-          InputComponent("Player2Name", "Player 2 name",
-                         &configs->players.items[1].name);
-        }
-        InputComponent("Player2Command", "Player 2 command",
-                       &configs->players.items[1].as.bot.start_command);
-      }
+      PlayerInputComponent(1);
+      PlayerInputComponent(2);
     }
 
     CLAY(CLAY_ID("StateButtonsContainer"), {
            .layout = { .sizing = { .width = CLAY_SIZING_GROW(0) }}
          }) {
-      if (Component_Button(CLAY_STRING("Back"), BUTTON_STYLE_SUB_MENU)) sub_menu = MENU_MAIN;
+      if (Component_Button(CLAY_STRING("Back"), BUTTON_STYLE_SUB_MENU, false)) sub_menu = MENU_MAIN;
       SpacerComponent("Spacer");
-      if (Component_Button(CLAY_STRING("Start match"), BUTTON_STYLE_SUB_MENU)) {
+      if (Component_Button(CLAY_STRING("Start match"), BUTTON_STYLE_SUB_MENU, false)) {
         StartMatch();
       }
     }
@@ -298,10 +309,10 @@ void MainMenuView() {
       .layoutDirection = CLAY_TOP_TO_BOTTOM,
      },
   }) {
-    if(Component_Button(CLAY_STRING("PLAY MATCH"), BUTTON_STYLE_MENU)) {
+    if(Component_Button(CLAY_STRING("PLAY MATCH"), BUTTON_STYLE_MENU, false)) {
       sub_menu = MENU_PLAY_MATCH;
     }
-    if(Component_Button(CLAY_STRING("REPLAY MATCH"), BUTTON_STYLE_MENU)) {
+    if(Component_Button(CLAY_STRING("REPLAY MATCH"), BUTTON_STYLE_MENU, false)) {
       sub_menu = MENU_REPLAY;
     }
   }

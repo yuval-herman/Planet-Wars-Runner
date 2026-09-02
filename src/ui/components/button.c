@@ -15,7 +15,7 @@ enum ButtonStyle {
 
 typedef void (*ButtonOnClickFunction)(void *userData);
 
-bool Component_Button(Clay_String buttonText, enum ButtonStyle style);
+bool Component_Button(Clay_String buttonText, enum ButtonStyle style, bool force_hover);
 
 // Don't include implementation when included from the components header file
 #ifndef COMPONENTS_H
@@ -144,7 +144,7 @@ struct ButtonStyleConfig {
    - textColor
   */
 
-bool Component_Button(Clay_String buttonText, enum ButtonStyle style) {
+bool Component_Button(Clay_String buttonText, enum ButtonStyle style, bool force_hover) {
   assert(style < BUTTON_STYLE__COUNT);
   bool clicked = false;
   // clang-format off
@@ -156,13 +156,13 @@ bool Component_Button(Clay_String buttonText, enum ButtonStyle style) {
     },
     .cornerRadius = button_styles[style].cornerRadius,
     .border = button_styles[style].border,
-    .backgroundColor = Clay_Hovered() ? button_styles[style].hovered.backgroundColor : button_styles[style].backgroundColor
+    .backgroundColor = force_hover || Clay_Hovered() ? button_styles[style].hovered.backgroundColor : button_styles[style].backgroundColor
   }) {
     if(Clay_Hovered() && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) clicked = true;
     CLAY_TEXT(buttonText, {
       .fontId = button_styles[style].fontId,
       .fontSize = button_styles[style].fontSize,
-      .textColor = Clay_Hovered() ? button_styles[style].hovered.textColor : button_styles[style].textColor,
+      .textColor = force_hover || Clay_Hovered() ? button_styles[style].hovered.textColor : button_styles[style].textColor,
     });
   }
   // clang-format on

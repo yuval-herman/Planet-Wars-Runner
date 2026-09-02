@@ -92,15 +92,15 @@ static void ScrubberTrackComponent() {
 
 static void PlaybackControlsComponent() {
   CLAY(CLAY_ID("PlaybackControls"), {.layout = {.childGap = 8}}) {
-    if (Component_Button(CLAY_STRING("|<"), BUTTON_STYLE_CONTROLLER) &&
+    if (Component_Button(CLAY_STRING("|<"), BUTTON_STYLE_CONTROLLER, false) &&
         turn > 0) {
       playing_forewards = false;
       game_running = true;
     }
-    if (Component_Button(CLAY_STRING("||"), BUTTON_STYLE_CONTROLLER)) {
+    if (Component_Button(CLAY_STRING("||"), BUTTON_STYLE_CONTROLLER, false)) {
       game_running = !game_running;
     }
-    if (Component_Button(CLAY_STRING(">|"), BUTTON_STYLE_CONTROLLER) &&
+    if (Component_Button(CLAY_STRING(">|"), BUTTON_STYLE_CONTROLLER, false) &&
         turn < game_log.count) {
       playing_forewards = true;
       game_running = true;
@@ -123,16 +123,16 @@ static void SpeedControlsComponent() {
              .border = {.color = C_LIGHTGRAY, .width = CLAY_BORDER_OUTSIDE(1)},
          }) {
       if (Component_Button(CLAY_STRING("0.5x"),
-                           BUTTON_STYLE_CONTROLLER_NAKED)) {
+                           BUTTON_STYLE_CONTROLLER_NAKED, false)) {
         game_speed = 10;
       }
-      if (Component_Button(CLAY_STRING("1x"), BUTTON_STYLE_CONTROLLER_NAKED)) {
+      if (Component_Button(CLAY_STRING("1x"), BUTTON_STYLE_CONTROLLER_NAKED, false)) {
         game_speed = 5;
       }
-      if (Component_Button(CLAY_STRING("2x"), BUTTON_STYLE_CONTROLLER_NAKED)) {
+      if (Component_Button(CLAY_STRING("2x"), BUTTON_STYLE_CONTROLLER_NAKED, false)) {
         game_speed = 2;
       }
-      if (Component_Button(CLAY_STRING("5x"), BUTTON_STYLE_CONTROLLER_NAKED)) {
+      if (Component_Button(CLAY_STRING("5x"), BUTTON_STYLE_CONTROLLER_NAKED, false)) {
         game_speed = 0;
       }
     }
