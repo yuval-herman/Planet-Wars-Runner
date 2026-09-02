@@ -1191,6 +1191,30 @@ static void test_advance_turn_remaining_players_when_no_fleets(void **state) {
   assert_uint_equal(game_state->remaining_players, 1);
 }
 
+static void
+test_advance_turn_remaining_players_whith_1_fleet_and_planet(void **state) {
+  GameState *game_state = *state;
+  game_state->player_count = 2;
+  game_state->remaining_players = 2;
+
+  // Player 1 has a planet but player 2 has no planets
+  add_test_planet(game_state, (Vector2){0.0f, 0.0f}, 1, 50, 5);
+  add_test_planet(game_state, (Vector2){1.0f, 1.0f}, 0, 10, 3);
+
+  // Player 2 has a fleet in flight that is now arriving and should conquer the
+  // neutral planet
+  add_test_fleet(game_state, 2, 20, 0, 1, 5, 1);
+
+  AdvanceTurn(game_state);
+
+  // Player 1 is alive, Player 2 is eliminated
+  assert_true(IsPlayerAlive(game_state, 0));
+  assert_true(IsPlayerAlive(game_state, 1));
+
+  // Expected remaining_players is 2
+  assert_uint_equal(game_state->remaining_players, 2);
+}
+
 // -----------------------------------------------------------------------------
 // Misc Unit Tests
 // -----------------------------------------------------------------------------
@@ -1351,6 +1375,9 @@ DEFINE_TESTS(
         teardown),
     cmocka_unit_test_setup_teardown(
         test_advance_turn_remaining_players_when_no_fleets, setup, teardown),
+    cmocka_unit_test_setup_teardown(
+        test_advance_turn_remaining_players_whith_1_fleet_and_planet, setup,
+        teardown),
 
     // Misc Unit Tests
     cmocka_unit_test_setup_teardown(test_is_player_alive_bitset, setup,

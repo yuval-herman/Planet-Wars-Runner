@@ -317,116 +317,116 @@ int cmp_fleet_owner_remaining(const void *a, const void *b) {
 }
 
 void AdvanceTurn(GameState *state) {
-  int bot_count = 0;
-
-  state->player_bit_set = 0;
   nob_da_foreach(Planet, planet, &state->planets) {
     if (planet->owner != 0) {
       planet->ships += planet->growth;
-      // If the player wasn't counted yet
-      if (!TestBit(state->player_bit_set, planet->owner - 1)) {
-        bot_count++;
-        SetBit(state->player_bit_set, planet->owner - 1);
+    }
+  }
+
+  if (state->fleets.count > 0) {
+
+    qsort(state->fleets.items, state->fleets.count,
+          sizeof(state->fleets.items[0]), cmp_fleet_owner_remaining);
+
+    nob_da_foreach(Fleet, fleet, &state->fleets) { fleet->remaining--; }
+
+    Fleet *current_fleet = state->fleets.items;
+    Fleet *end_fleet = state->fleets.items + state->fleets.count;
+
+    while (current_fleet < end_fleet && current_fleet->remaining == 0) {
+      int current_dst = current_fleet->dst_id;
+      Planet *planet = &state->planets.items[current_dst];
+
+      // MAX_PLAYER_AMOUNT + 1 to account for neutral planets
+      struct {
+        int owner;
+        int force;
+      } forces[MAX_PLAYER_AMOUNT + 1];
+      int forces_count = 0;
+
+      // Add current planet being attack, even if it's a neutral planet
+      forces[forces_count].owner = planet->owner;
+      forces[forces_count].force = planet->ships;
+      forces_count++;
+
+      // Process all fleets attacking the current planet
+      while (current_fleet < end_fleet && current_fleet->remaining == 0 &&
+             current_fleet->dst_id == current_dst) {
+
+        // In case this fleet belongs to the owner of the current planet
+        if (current_fleet->owner == forces[0].owner) {
+          forces[0].force += current_fleet->ships;
+        }
+        // In case this fleet is from the same owner that sent the previous
+        // fleet in the list. This works because fleet are sorted by
+        // remaining->dst_id->owner. So we don't need to search the forces array
+        // for the owner.
+        else if (current_fleet->owner == forces[forces_count - 1].owner) {
+          forces[forces_count - 1].force += current_fleet->ships;
+        }
+        // In case this is a new owner, add it to the list.
+        else {
+          forces[forces_count].owner = current_fleet->owner;
+          forces[forces_count].force = current_fleet->ships;
+          forces_count++;
+        }
+
+        current_fleet++;
+      }
+
+      // Find the two biggest forces
+      int max_force_idx = 0;
+      int second_force_idx = -1;
+
+      for (int i = 1; i < forces_count; i++) {
+        if (forces[i].force > forces[max_force_idx].force) {
+          second_force_idx = max_force_idx;
+          max_force_idx = i;
+        } else if (second_force_idx == -1 ||
+                   forces[i].force > forces[second_force_idx].force) {
+          second_force_idx = i;
+        }
+      }
+
+      if (second_force_idx == -1 ||
+          forces[max_force_idx].force > forces[second_force_idx].force) {
+        int winner_force = forces[max_force_idx].force;
+        int runner_up_force =
+            (second_force_idx == -1) ? 0 : forces[second_force_idx].force;
+
+        planet->owner = forces[max_force_idx].owner;
+        planet->ships = winner_force - runner_up_force;
+      } else {
+        planet->ships = 0;
+      }
+    }
+    // We do this after processing becuase we need to keep fleet order while
+    // processing them.
+    for (unsigned i = 0; i < state->fleets.count; i++) {
+      if (state->fleets.items[i].remaining == 0) {
+        nob_da_remove_unordered(&state->fleets, i);
+        // Remove unordered replaces the current fleet with the last one,
+        // so we need to run the loop again on the same index.
+        i--;
       }
     }
   }
 
-  if (state->fleets.count == 0) {
-    state->remaining_players = bot_count;
-    return;
-  }
-
-  qsort(state->fleets.items, state->fleets.count,
-        sizeof(state->fleets.items[0]), cmp_fleet_owner_remaining);
-
-  nob_da_foreach(Fleet, fleet, &state->fleets) { fleet->remaining--; }
-
-  Fleet *current_fleet = state->fleets.items;
-  Fleet *end_fleet = state->fleets.items + state->fleets.count;
-
-  while (current_fleet < end_fleet && current_fleet->remaining == 0) {
-    int current_dst = current_fleet->dst_id;
-    Planet *planet = &state->planets.items[current_dst];
-
-    // MAX_PLAYER_AMOUNT + 1 to account for neutral planets
-    struct {
-      int owner;
-      int force;
-    } forces[MAX_PLAYER_AMOUNT + 1];
-    int forces_count = 0;
-
-    // Add current planet being attack, even if it's a neutral planet
-    forces[forces_count].owner = planet->owner;
-    forces[forces_count].force = planet->ships;
-    forces_count++;
-
-    // Process all fleets attacking the current planet
-    while (current_fleet < end_fleet && current_fleet->remaining == 0 &&
-           current_fleet->dst_id == current_dst) {
-
-      // In case this fleet belongs to the owner of the current planet
-      if (current_fleet->owner == forces[0].owner) {
-        forces[0].force += current_fleet->ships;
-      }
-      // In case this fleet is from the same owner that sent the previous
-      // fleet in the list. This works because fleet are sorted by
-      // remaining->dst_id->owner. So we don't need to search the forces array
-      // for the owner.
-      else if (current_fleet->owner == forces[forces_count - 1].owner) {
-        forces[forces_count - 1].force += current_fleet->ships;
-      }
-      // In case this is a new owner, add it to the list.
-      else {
-        forces[forces_count].owner = current_fleet->owner;
-        forces[forces_count].force = current_fleet->ships;
-        forces_count++;
-      }
-
-      current_fleet++;
-    }
-
-    // Find the two biggest forces
-    int max_force_idx = 0;
-    int second_force_idx = -1;
-
-    for (int i = 1; i < forces_count; i++) {
-      if (forces[i].force > forces[max_force_idx].force) {
-        second_force_idx = max_force_idx;
-        max_force_idx = i;
-      } else if (second_force_idx == -1 ||
-                 forces[i].force > forces[second_force_idx].force) {
-        second_force_idx = i;
-      }
-    }
-
-    if (second_force_idx == -1 ||
-        forces[max_force_idx].force > forces[second_force_idx].force) {
-      int winner_force = forces[max_force_idx].force;
-      int runner_up_force =
-          (second_force_idx == -1) ? 0 : forces[second_force_idx].force;
-
-      planet->owner = forces[max_force_idx].owner;
-      planet->ships = winner_force - runner_up_force;
-    } else {
-      planet->ships = 0;
+  int player_count = 0;
+  state->player_bit_set = 0;
+  nob_da_foreach(Planet, planet, &state->planets) {
+    if (planet->owner == 0)
+      continue;
+    if (!TestBit(state->player_bit_set, planet->owner - 1)) {
+      player_count++;
+      SetBit(state->player_bit_set, planet->owner - 1);
     }
   }
-  // We do this after processing becuase we need to keep fleet order while
-  // processing them.
-  for (unsigned i = 0; i < state->fleets.count; i++) {
-    if (state->fleets.items[i].remaining == 0) {
-      nob_da_remove_unordered(&state->fleets, i);
-      // Remove unordered replaces the current fleet with the last one,
-      // so we need to run the loop again on the same index.
-      i--;
-    }
-    // If the player wasn't counted yet
-    else if (!TestBit(state->player_bit_set,
-                      state->fleets.items[i].owner - 1)) {
-      bot_count++;
-      SetBit(state->player_bit_set, state->fleets.items[i].owner - 1);
+  nob_da_foreach(Fleet, fleet, &state->fleets) {
+    if (!TestBit(state->player_bit_set, fleet->owner - 1)) {
+      player_count++;
+      SetBit(state->player_bit_set, fleet->owner - 1);
     }
   }
-
-  state->remaining_players = bot_count;
+  state->remaining_players = player_count;
 }
