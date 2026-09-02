@@ -806,6 +806,20 @@ static void test_send_player_ships_str_garbage_starting_with_go(void **state) {
   assert_false(IsPlayerAlive(game_state, 0));
 }
 
+static void test_send_player_ships_str_multiple_orders_same_link(void **state) {
+  GameState *game_state = *state;
+  game_state->player_count = 2;
+  game_state->remaining_players = 2;
+
+  add_test_planet(game_state, (Vector2){0.0f, 0.0f}, 1, 50, 5);
+  add_test_planet(game_state, (Vector2){3.0f, 4.0f}, 2, 30, 5);
+
+  const char orders[] = "0 1 10\n0 1 15\ngo\n";
+  assert_true(SendPlayerShipsStr(game_state, 0, nob_sv_from_cstr(orders)));
+  assert_uint_equal(game_state->planets.items[0].ships, 25);
+  assert_uint_equal(game_state->fleets.count, 2);
+}
+
 // -----------------------------------------------------------------------------
 // DisqualifyPlayer Tests
 // -----------------------------------------------------------------------------
@@ -883,6 +897,26 @@ static void test_disqualify_player_first_and_only_fleet(void **state) {
   assert_uint_equal(game_state->fleets.count, 0);
 }
 
+static void
+test_disqualify_player_consecutive_fleets_and_last_element(void **state) {
+  GameState *game_state = *state;
+  game_state->player_count = 2;
+  game_state->remaining_players = 2;
+
+  add_test_planet(game_state, (Vector2){0.0f, 0.0f}, 1, 50, 0);
+  add_test_planet(game_state, (Vector2){1.0f, 1.0f}, 2, 50, 0);
+
+  // Array end replacement edge cases
+  add_test_fleet(game_state, 1, 10, 0, 1, 5, 2); // idx 0: P1
+  add_test_fleet(game_state, 1, 10, 0, 1, 5, 3); // idx 1: P1
+  add_test_fleet(game_state, 2, 10, 1, 0, 5, 4); // idx 2: P2
+  add_test_fleet(game_state, 1, 10, 0, 1, 5, 5); // idx 3: P1 (last element)
+
+  DisqualifyPlayer(game_state, 0);
+
+  assert_uint_equal(game_state->fleets.count, 1);
+  assert_uint_equal(game_state->fleets.items[0].owner, 2);
+}
 // -----------------------------------------------------------------------------
 // AdvanceTurn Combat & Mechanics Tests
 // -----------------------------------------------------------------------------
@@ -1215,6 +1249,25 @@ test_advance_turn_remaining_players_whith_1_fleet_and_planet(void **state) {
   assert_uint_equal(game_state->remaining_players, 2);
 }
 
+static void
+test_advance_turn_destroyed_arriving_fleet_eliminates_player(void **state) {
+  GameState *game_state = *state;
+  game_state->player_count = 2;
+  game_state->remaining_players = 2;
+
+  // Player 1 owns Planet 0 with 50 ships; Player 2 owns 0 planets
+  add_test_planet(game_state, (Vector2){0.0f, 0.0f}, 1, 50, 0);
+
+  // Player 2 sends 5 ships arriving this turn (remaining = 1)
+  add_test_fleet(game_state, 2, 5, 0, 0, 5, 1);
+
+  AdvanceTurn(game_state);
+
+  // Player 2 fleet is destroyed, owns 0 planets and 0 fleets -> ELIMINATED
+  assert_true(IsPlayerAlive(game_state, 0));
+  assert_false(IsPlayerAlive(game_state, 1));
+  assert_uint_equal(game_state->remaining_players, 1);
+}
 // -----------------------------------------------------------------------------
 // Misc Unit Tests
 // -----------------------------------------------------------------------------
@@ -1334,6 +1387,8 @@ DEFINE_TESTS(
         test_send_player_ships_str_invalid_ship_logic, setup, teardown),
     cmocka_unit_test_setup_teardown(
         test_send_player_ships_str_garbage_starting_with_go, setup, teardown),
+    cmocka_unit_test_setup_teardown(
+        test_send_player_ships_str_multiple_orders_same_link, setup, teardown),
 
     // DisqualifyPlayer
     cmocka_unit_test_setup_teardown(test_disqualify_player_neutralizes_planets,
@@ -1341,6 +1396,8 @@ DEFINE_TESTS(
     cmocka_unit_test_setup_teardown(test_disqualify_player_removes_fleets,
                                     setup, teardown),
     cmocka_unit_test_setup_teardown(test_disqualify_player_first_and_only_fleet,
+                                    setup, teardown),
+    cmocka_unit_test_setup_teardown(test_disqualify_player_consecutive_fleets_and_last_element,
                                     setup, teardown),
 
     // AdvanceTurn Combat & Mechanics
@@ -1377,6 +1434,9 @@ DEFINE_TESTS(
         test_advance_turn_remaining_players_when_no_fleets, setup, teardown),
     cmocka_unit_test_setup_teardown(
         test_advance_turn_remaining_players_whith_1_fleet_and_planet, setup,
+        teardown),
+    cmocka_unit_test_setup_teardown(
+        test_advance_turn_destroyed_arriving_fleet_eliminates_player, setup,
         teardown),
 
     // Misc Unit Tests
