@@ -21,12 +21,18 @@ GameState DeepCopyGameState(GameState state) {
       .items = state.planets.count
                    ? malloc(sizeof *state.planets.items * state.planets.count)
                    : NULL};
+  if (state.planets.count)
+    memcpy(new_state.planets.items, state.planets.items,
+           sizeof *state.planets.items * state.planets.count);
   new_state.fleets = (FleetsDA){
       .count = state.fleets.count,
       .capacity = state.fleets.count,
       .items = state.fleets.count
                    ? malloc(sizeof *state.fleets.items * state.fleets.count)
                    : NULL};
+  if (state.fleets.count)
+    memcpy(new_state.fleets.items, state.fleets.items,
+           sizeof *state.fleets.items * state.fleets.count);
   return new_state;
 }
 
