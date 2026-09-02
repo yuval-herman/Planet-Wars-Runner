@@ -120,6 +120,9 @@ bool MakeGame(GameState *state, const char *map_file_path,
 void DisqualifyPlayer(GameState *state, unsigned player_idx) {
   assert(player_idx < state->player_count &&
          "Attempted to disqualify non existent player");
+  assert(state->remaining_players &&
+         TestBit(state->player_bit_set, player_idx) &&
+         "Attempted to disqualify dead player");
 
   state->remaining_players--;
   nob_da_foreach(Planet, planet, &state->planets) {
