@@ -73,18 +73,20 @@ static int ini_parse_handler(void *user_data, const char *section,
   if (p_bool < 0) {                                                            \
     nob_log(NOB_ERROR, #var " may only be set to `true` or `false`. line %d.", \
             lineno);                                                           \
-    return 0;                                                                  \
+    return false;                                                              \
   }                                                                            \
   var = p_bool;
 
   Configs *configs = user_data;
 
   if (name == NULL && value == NULL) {
-    // If we start parsing a new bot, reserve it's place
+    // If we start parsing a new bot or human section, reserve it's place
     if (MATCH(section, "bot")) {
       nob_da_append(&configs->players, (Player){.type = PLAYER_BOT});
+    } else if (MATCH(section, "human")) {
+      nob_da_append(&configs->players, (Player){.type = PLAYER_HUMAN});
     }
-    return 1;
+    return true;
   }
 
   if (MATCH(section, "application")) {
@@ -105,7 +107,7 @@ static int ini_parse_handler(void *user_data, const char *section,
       nob_sb_append_cstr(&configs->map_file, value);
     } else {
       nob_log(NOB_ERROR, "Unknown simulation config. line %d.", lineno);
-      return 0;
+      return false;
     }
 
   } else if (MATCH(section, "bot")) {
@@ -117,24 +119,28 @@ static int ini_parse_handler(void *user_data, const char *section,
                          value);
     } else {
       nob_log(NOB_ERROR, "Unknown bot config. line %d.", lineno);
-      return 0;
+      return false;
+    }
+
+  } else if (MATCH(section, "human")) {
+
+    if (MATCH(name, "name")) {
+      nob_sb_append_cstr(&nob_da_last(&configs->players).name, value);
+    } else {
+      nob_log(NOB_ERROR, "Unknown human config. line %d.", lineno);
+      return false;
     }
 
   } else {
     nob_log(NOB_ERROR, "Unknown section. line %d.", lineno);
-    return 0;
+    return false;
   }
-  return 1;
+  return true;
 #undef MATCH
 }
 
-bool ParseConfigsFromIni(Configs *configs, FILE *ini_file) {
-  if (ini_parse_file(ini_file, ini_parse_handler, configs) < 0) {
-    nob_log(NOB_ERROR, "Failed parsing config file");
-    return false;
-  }
-
-  return true;
+static bool ParseConfigsFromIni(Configs *configs, FILE *ini_file) {
+  return ini_parse_file(ini_file, ini_parse_handler, configs) == 0;
 }
 
 static void Usage(FILE *stream) {
@@ -265,7 +271,11 @@ bool ParseConfigsFromCLI(Configs *configs, int argc, char *argv[]) {
       nob_log(NOB_ERROR, "Could not open config file: %s", strerror(errno));
       return false;
     }
-    ParseConfigsFromIni(configs, ini_file);
+    if (!ParseConfigsFromIni(configs, ini_file)) {
+      nob_log(NOB_ERROR, "Failed parsing config file");
+      fclose(ini_file);
+      return false;
+    }
     fclose(ini_file);
   }
 
