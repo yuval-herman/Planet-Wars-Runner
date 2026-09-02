@@ -180,154 +180,6 @@ static bool compile_raylib(void) {
 }
 
 // ---------------------------------------------------------------------------
-// Library compilation
-// ---------------------------------------------------------------------------
-
-static bool compile_libraries(bool headless) {
-  Nob_Cmd cmd = {0};
-
-  // miniz
-  nob_cc(&cmd);
-  nob_cmd_append(&cmd, "-c");
-  nob_cmd_append(&cmd, "external/miniz/miniz.c");
-  nob_cmd_append(&cmd, "-o", BUILD_DIR "/miniz.o");
-  nob_cmd_append(&cmd, "-isystemexternal/miniz");
-  nob_cmd_append(&cmd, "-std=gnu11");
-  if (!nob_cmd_run(&cmd))
-    return false;
-
-  if (!headless) {
-    // tinyfiledialogs
-    nob_cc(&cmd);
-    nob_cmd_append(&cmd, "-c");
-    nob_cmd_append(&cmd, "external/tinyfiledialogs/tinyfiledialogs.c");
-    nob_cmd_append(&cmd, "-o", BUILD_DIR "/tinyfiledialogs.o");
-    nob_cmd_append(&cmd, "-isystemexternal/tinyfiledialogs");
-    nob_cmd_append(&cmd, "-std=gnu11");
-    if (!nob_cmd_run(&cmd))
-      return false;
-  } else {
-    // raymath
-    nob_cc(&cmd);
-    nob_cmd_append(&cmd, "-c");
-    nob_cmd_append(&cmd, "-x", "c");
-    nob_cmd_append(&cmd, "-DRAYMATH_IMPLEMENTATION");
-    nob_cmd_append(&cmd, "-isystemexternal/raylib");
-    nob_cmd_append(&cmd, "external/raylib/raymath.h");
-    nob_cmd_append(&cmd, "-o", BUILD_DIR "/raymath.o");
-    nob_cmd_append(&cmd, "-std=gnu11");
-    if (!nob_cmd_run(&cmd))
-      return false;
-  }
-
-  return true;
-}
-
-// ---------------------------------------------------------------------------
-// Shader embedding
-// ---------------------------------------------------------------------------
-
-struct EmbedFilesData {
-  FILE *source_file;
-  FILE *header_file;
-  bool append_null; // If we embedd a string, like a shader
-  unsigned amount;  // Amount of files that were embedded. Zero out before
-                    // calling the walker!
-};
-
-static bool embed_files_walker(Nob_Walk_Entry entry) {
-  struct EmbedFilesData *data = entry.data;
-  FILE *source_file = data->source_file;
-  FILE *header_file = data->header_file;
-  Nob_String_Builder sb = {0};
-
-  if (entry.type == NOB_FILE_REGULAR) {
-    nob_read_entire_file(entry.path, &sb);
-
-    // Strip directory prefix, keeping only the filename
-    Nob_String_View sv = {.data = entry.path, .count = strlen(entry.path)};
-    unsigned i = 0;
-    while (i < sv.count && PATH_SEP[0] != sv.data[sv.count - 1 - i]) {
-      i += 1;
-    }
-    sv.data += sv.count - i;
-    sv.count = i;
-
-    // Strip file extension
-    sv = nob_sv_chop_by_delim(&sv, '.');
-
-    fprintf(header_file, "extern const unsigned char %.*s_source[];\n",
-            (int)sv.count, sv.data);
-
-    fprintf(header_file, "extern const unsigned %.*s_size;\n", (int)sv.count,
-            sv.data);
-
-    fprintf(source_file, "const unsigned %.*s_size = %zu;\n", (int)sv.count,
-            sv.data, sb.count + (data->append_null));
-
-    fprintf(source_file, "const unsigned char %.*s_source[] = {\n",
-            (int)sv.count, sv.data);
-
-    unsigned char bytes_in_line = 0;
-    nob_da_foreach(char, byte, &sb) {
-      if (bytes_in_line > 10) {
-        fputc('\n', source_file);
-        bytes_in_line = 0;
-      }
-      fprintf(source_file, "0x%02x,", (unsigned char)*byte);
-      bytes_in_line++;
-    }
-    if (data->append_null) {
-      fputs("0x0", source_file);
-    }
-    fputs("};\n\n", source_file);
-
-    nob_log(NOB_INFO, "Embedded %s.", entry.path);
-    data->amount++;
-  }
-  // The first directory we walk is the target directory itself; only warn for
-  // unexpected non-regular files at deeper levels.
-  else if (entry.level > 1) {
-    nob_log(NOB_WARNING, "While traversing directory to embed files, "
-                         "encountered a non-regular file. Skipping.");
-    *entry.action = NOB_WALK_SKIP;
-  }
-
-  nob_sb_free(sb);
-  return true;
-}
-
-static void embed_shaders(void) {
-  FILE *shaders_source = fopen("src/ui/shaders.c", "w");
-  FILE *shaders_header = fopen("src/ui/shaders.h", "w");
-  struct EmbedFilesData data = {
-      .source_file = shaders_source,
-      .header_file = shaders_header,
-      .append_null = true,
-      .amount = 0,
-  };
-
-  nob_walk_dir("assets/shaders", embed_files_walker, .data = &data);
-  fclose(shaders_source);
-  fclose(shaders_header);
-}
-
-static void embed_fonts(void) {
-  FILE *fonts_source = fopen("src/ui/fonts.c", "w");
-  FILE *fonts_header = fopen("src/ui/fonts.h", "w");
-  struct EmbedFilesData data = {
-      .source_file = fonts_source,
-      .header_file = fonts_header,
-      .append_null = false,
-      .amount = 0,
-  };
-
-  nob_walk_dir("assets/fonts", embed_files_walker, .data = &data);
-  fclose(fonts_source);
-  fclose(fonts_header);
-}
-
-// ---------------------------------------------------------------------------
 // Compilation database + per-file compilation
 // ---------------------------------------------------------------------------
 
@@ -477,6 +329,164 @@ static bool compile_file(Nob_Cmd *cmd, Nob_Procs *procs, const char *file_path,
     cmd->count = 0;
     return true;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Library compilation
+// ---------------------------------------------------------------------------
+
+static bool compile_libraries(bool headless, bool force) {
+  Nob_Cmd cmd = {0};
+  Nob_Procs procs = {0};
+
+  char *file_path;
+  char *output_path;
+
+  // miniz
+  file_path = "external/miniz/miniz.c";
+  output_path = BUILD_DIR "/miniz.o";
+  nob_cc(&cmd);
+  nob_cmd_append(&cmd, "-c");
+  nob_cmd_append(&cmd, file_path);
+  nob_cmd_append(&cmd, "-o", output_path);
+  nob_cmd_append(&cmd, "-isystemexternal/miniz");
+  nob_cmd_append(&cmd, "-std=gnu11");
+  if (!compile_file(&cmd, &procs, file_path, output_path, force))
+    return false;
+
+  if (!headless) {
+    // tinyfiledialogs
+    file_path = "external/tinyfiledialogs/tinyfiledialogs.c";
+    output_path = BUILD_DIR "/tinyfiledialogs.o";
+    nob_cc(&cmd);
+    nob_cmd_append(&cmd, "-c");
+    nob_cmd_append(&cmd, file_path);
+    nob_cmd_append(&cmd, "-o", output_path);
+    nob_cmd_append(&cmd, "-isystemexternal/tinyfiledialogs");
+    nob_cmd_append(&cmd, "-std=gnu11");
+    if (!compile_file(&cmd, &procs, file_path, output_path, force))
+      return false;
+  } else {
+    // raymath
+    file_path = "external/raylib/raymath.h";
+    output_path = BUILD_DIR "/raymath.o";
+    nob_cc(&cmd);
+    nob_cmd_append(&cmd, "-c");
+    nob_cmd_append(&cmd, "-x", "c");
+    nob_cmd_append(&cmd, "-DRAYMATH_IMPLEMENTATION");
+    nob_cmd_append(&cmd, "-isystemexternal/raylib");
+    nob_cmd_append(&cmd, file_path);
+    nob_cmd_append(&cmd, "-o", output_path);
+    nob_cmd_append(&cmd, "-std=gnu11");
+    if (!compile_file(&cmd, &procs, file_path, output_path, force))
+      return false;
+  }
+
+  return nob_procs_flush(&procs);
+}
+
+// ---------------------------------------------------------------------------
+// Shader embedding
+// ---------------------------------------------------------------------------
+
+struct EmbedFilesData {
+  FILE *source_file;
+  FILE *header_file;
+  bool append_null; // If we embedd a string, like a shader
+  unsigned amount;  // Amount of files that were embedded. Zero out before
+                    // calling the walker!
+};
+
+static bool embed_files_walker(Nob_Walk_Entry entry) {
+  struct EmbedFilesData *data = entry.data;
+  FILE *source_file = data->source_file;
+  FILE *header_file = data->header_file;
+  Nob_String_Builder sb = {0};
+
+  if (entry.type == NOB_FILE_REGULAR) {
+    nob_read_entire_file(entry.path, &sb);
+
+    // Strip directory prefix, keeping only the filename
+    Nob_String_View sv = {.data = entry.path, .count = strlen(entry.path)};
+    unsigned i = 0;
+    while (i < sv.count && PATH_SEP[0] != sv.data[sv.count - 1 - i]) {
+      i += 1;
+    }
+    sv.data += sv.count - i;
+    sv.count = i;
+
+    // Strip file extension
+    sv = nob_sv_chop_by_delim(&sv, '.');
+
+    fprintf(header_file, "extern const unsigned char %.*s_source[];\n",
+            (int)sv.count, sv.data);
+
+    fprintf(header_file, "extern const unsigned %.*s_size;\n", (int)sv.count,
+            sv.data);
+
+    fprintf(source_file, "const unsigned %.*s_size = %zu;\n", (int)sv.count,
+            sv.data, sb.count + (data->append_null));
+
+    fprintf(source_file, "const unsigned char %.*s_source[] = {\n",
+            (int)sv.count, sv.data);
+
+    unsigned char bytes_in_line = 0;
+    nob_da_foreach(char, byte, &sb) {
+      if (bytes_in_line > 10) {
+        fputc('\n', source_file);
+        bytes_in_line = 0;
+      }
+      fprintf(source_file, "0x%02x,", (unsigned char)*byte);
+      bytes_in_line++;
+    }
+    if (data->append_null) {
+      fputs("0x0", source_file);
+    }
+    fputs("};\n\n", source_file);
+
+    nob_log(NOB_INFO, "Embedded %s.", entry.path);
+    data->amount++;
+  }
+  // The first directory we walk is the target directory itself; only warn for
+  // unexpected non-regular files at deeper levels.
+  else if (entry.level > 1) {
+    nob_log(NOB_WARNING, "While traversing directory to embed files, "
+                         "encountered a non-regular file. Skipping.");
+    *entry.action = NOB_WALK_SKIP;
+  }
+
+  nob_sb_free(sb);
+  return true;
+}
+
+static void embed_shaders(void) {
+  FILE *shaders_source = fopen("src/ui/shaders.c", "w");
+  FILE *shaders_header = fopen("src/ui/shaders.h", "w");
+  struct EmbedFilesData data = {
+      .source_file = shaders_source,
+      .header_file = shaders_header,
+      .append_null = true,
+      .amount = 0,
+  };
+
+  nob_walk_dir("assets/shaders", embed_files_walker, .data = &data);
+  fclose(shaders_source);
+  fclose(shaders_header);
+}
+
+static void embed_fonts(void) {
+  FILE *fonts_source = fopen("src/ui/fonts.c", "w");
+  FILE *fonts_header = fopen("src/ui/fonts.h", "w");
+  struct EmbedFilesData data = {
+      .source_file = fonts_source,
+      .header_file = fonts_header,
+      .append_null = false,
+      .amount = 0,
+  };
+
+  nob_walk_dir("assets/fonts", embed_files_walker, .data = &data);
+  fclose(fonts_source);
+  fclose(fonts_header);
 }
 
 // ---------------------------------------------------------------------------
@@ -677,7 +687,7 @@ int main(int argc, char **argv) {
       return 1;
   }
 
-  if (!compile_libraries(*headless_flag))
+  if (!compile_libraries(*headless_flag, *force_flag))
     return 1;
 
   Nob_Cmd cmd = {0};
