@@ -226,6 +226,10 @@ void GetMapRepresentation(GameState *state, Nob_String_Builder *sb,
 #undef MoveOwner
 }
 
+uint8_t GetTravelTime(Vector2 src, Vector2 dst) {
+  return ceilf(Vector2Distance(src, dst));
+}
+
 bool SendPlayerShips(GameState *state, unsigned player_idx, uint16_t src_id,
                      uint16_t dst_id, uint16_t ships) {
   Fleet fleet;
@@ -258,7 +262,7 @@ bool SendPlayerShips(GameState *state, unsigned player_idx, uint16_t src_id,
   src->ships -= fleet.ships;
   Planet dst = state->planets.items[fleet.dst_id];
 
-  fleet.total = ceilf(Vector2Distance(src->coords, dst.coords));
+  fleet.total = GetTravelTime(src->coords, dst.coords);
   fleet.remaining = fleet.total;
 
   nob_da_append(&state->fleets, fleet);

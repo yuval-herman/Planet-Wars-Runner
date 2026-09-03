@@ -47,6 +47,10 @@ bool ParseMapBuffer(unsigned *owner_count, GameState *state,
 void GetMapRepresentation(GameState *state, Nob_String_Builder *sb,
                           unsigned player_idx);
 
+// Get the amount of turn it would take a ship to travel between `src` and
+// `dst`.
+uint8_t GetTravelTime(Vector2 src, Vector2 dst);
+
 // Return true if the player can play this action.
 bool SendPlayerShips(GameState *state, unsigned player_idx, uint16_t src_id,
                      uint16_t dst_id, uint16_t ships);
