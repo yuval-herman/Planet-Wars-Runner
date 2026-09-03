@@ -11,7 +11,7 @@ static PlayerDA players = {0};
 static Nob_String_Builder sb = {0};
 // 0 is realtime, higher is slower.
 static unsigned short game_speed = 10;
-static unsigned short bot_speed = 150;
+static unsigned short bot_speed = 200;
 
 struct {
   unsigned *items;
