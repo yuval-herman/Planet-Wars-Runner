@@ -53,17 +53,29 @@ static void HumanGameInit() {
   // Clay_SetDebugModeEnabled(true);
 }
 
-static void HandlePlanetSelection() {
+static void HandlePlanetSelection(Clay_BoundingBox box) {
   // selected_planets_ids.count = 0;
-  if (IsMouseButtonDown(MOUSE_LEFT_BUTTON)) {
-    for (unsigned i = 0; i < game_state.planets.count; i++) {
-      const Planet planet = game_state.planets.items[i];
-      if (CheckCollisionPointCircle(GetMousePosition(), planet.coords,
+  if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+    for (unsigned planet_idx = 0; planet_idx < game_state.planets.count;
+         planet_idx++) {
+      const Planet planet = game_state.planets.items[planet_idx];
+      Vector2 box_coords = Game2boxCoords(planet.coords, box, game_space);
+      if (CheckCollisionPointCircle(GetMousePosition(), box_coords,
                                     GetPlanetRadius(planet))) {
-        nob_da_append(&selected_planets_ids, i);
+        bool already_added = false;
+        for (unsigned i = 0; i < selected_planets_ids.count; i++) {
+          if (selected_planets_ids.items[i] == planet_idx) {
+            nob_da_remove_unordered(&selected_planets_ids, i);
+            already_added = true;
+            break;
+          }
+        }
+        if (!already_added)
+          nob_da_append(&selected_planets_ids, planet_idx);
       }
     }
   }
+  printf("selected count = %u\n", selected_planets_ids.count);
 }
 
 static void HumanGameDraw() {
@@ -84,13 +96,13 @@ static void HumanGameDraw() {
                                       .y = CLAY_ALIGN_Y_CENTER},
                    .layoutDirection = CLAY_TOP_TO_BOTTOM,
                    .childGap = 32}}) {
-    Component_GameFrame((DrawGameFrameUserData){
+    HandlePlanetSelection(Component_GameFrame((DrawGameFrameUserData){
         .game_space = game_space,
         .planets = game_state.planets.items,
         .planet_count = game_state.planets.count,
         .fleets = game_state.fleets.items,
         .fleet_count = game_state.fleets.count,
-    });
+    }));
   }
 }
 

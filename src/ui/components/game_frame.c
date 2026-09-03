@@ -26,9 +26,13 @@ typedef struct {
 // Calculates the minimum and maximum coordinates of all planets, used to space
 // planets across the entire screen.
 GameSpace ComputeGameSpace(Planet *planets, unsigned p_count);
-
-void Component_GameFrame(DrawGameFrameUserData user_data);
+Vector2 Game2boxCoords(Vector2 coords, Clay_BoundingBox bounding_box,
+                       GameSpace game_space);
+Vector2 box2GameCoords(Vector2 coords, Clay_BoundingBox bounding_box,
+                       GameSpace game_space);
 float GetPlanetRadius(Planet planet);
+
+Clay_BoundingBox Component_GameFrame(DrawGameFrameUserData user_data);
 
 // Don't include implementation when included from the components header file
 #ifndef COMPONENTS_H
@@ -69,8 +73,8 @@ GameSpace ComputeGameSpace(Planet *planets, unsigned p_count) {
   return game_space;
 }
 
-static Vector2 Game2ScreenCoords(Vector2 coords, Clay_BoundingBox bounding_box,
-                                 GameSpace game_space) {
+Vector2 Game2boxCoords(Vector2 coords, Clay_BoundingBox bounding_box,
+                       GameSpace game_space) {
   return (Vector2){
       .x = Remap(coords.x, game_space.min_coords.x, game_space.max_coords.x,
                  bounding_box.x + game_space.max_radius,
@@ -78,6 +82,17 @@ static Vector2 Game2ScreenCoords(Vector2 coords, Clay_BoundingBox bounding_box,
       .y = Remap(coords.y, game_space.min_coords.y, game_space.max_coords.y,
                  bounding_box.y + game_space.max_radius,
                  bounding_box.y + bounding_box.height - game_space.max_radius)};
+}
+
+Vector2 box2GameCoords(Vector2 coords, Clay_BoundingBox bounding_box,
+                       GameSpace game_space) {
+  return (Vector2){
+      .x = Remap(coords.x, bounding_box.x + game_space.max_radius,
+                 bounding_box.x + bounding_box.width - game_space.max_radius,
+                 game_space.min_coords.x, game_space.max_coords.x),
+      .y = Remap(coords.y, bounding_box.y + game_space.max_radius,
+                 bounding_box.y + bounding_box.height - game_space.max_radius,
+                 game_space.min_coords.y, game_space.max_coords.y)};
 }
 
 static inline Color GetOwnerColor(int owner) {
@@ -101,8 +116,7 @@ static inline void DrawTextCenteredOnPoint(Vector2 center, const char *text,
 
 static void DrawPlanet(Planet planet, Clay_BoundingBox bounding_box,
                        GameSpace game_space) {
-  Vector2 draw_coords =
-      Game2ScreenCoords(planet.coords, bounding_box, game_space);
+  Vector2 draw_coords = Game2boxCoords(planet.coords, bounding_box, game_space);
 
   const float draw_radius = GetPlanetRadius(planet);
 
@@ -125,7 +139,7 @@ static void DrawPlanet(Planet planet, Clay_BoundingBox bounding_box,
 
 static void DrawFleet(Planet *planets, Fleet fleet,
                       Clay_BoundingBox bounding_box, GameSpace game_space) {
-  Vector2 draw_coords = Game2ScreenCoords(
+  Vector2 draw_coords = Game2boxCoords(
       Vector2Lerp(planets[fleet.src_id].coords, planets[fleet.dst_id].coords,
                   1 - (float)fleet.remaining / fleet.total),
       bounding_box, game_space);
@@ -162,7 +176,7 @@ static struct GameFrameMemoryArena {
 // Used to make the first frame behave like any other frame.
 static unsigned last_frame = UINT_MAX;
 
-void Component_GameFrame(DrawGameFrameUserData user_data) {
+Clay_BoundingBox Component_GameFrame(DrawGameFrameUserData user_data) {
   if (last_frame != GetFrame()) {
     last_frame = GetFrame();
     frame_arena.count = 0;
@@ -175,10 +189,17 @@ void Component_GameFrame(DrawGameFrameUserData user_data) {
       .as.function = {.user_data = &data->user_data, .fn = &DrawGameFrame},
   };
 
+  Clay_BoundingBox box = {0};
   CLAY_AUTO_ID({
       .layout = {.sizing = {CLAY_SIZING_GROW(0), CLAY_SIZING_GROW(0)}},
       .custom = {.customData = &data->custom_element_data},
-  });
+  }) {
+    Clay_ElementData e_data =
+        Clay_GetElementData((Clay_ElementId){.id = Clay_GetOpenElementId()});
+    if (e_data.found)
+      box = e_data.boundingBox;
+  }
+  return box;
 }
 
 #endif // COMPONENTS_H
