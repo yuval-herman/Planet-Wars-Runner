@@ -126,13 +126,50 @@ static bool PointInPlanet(Clay_BoundingBox box, Planet planet, Vector2 point) {
       CheckCollisionPointCircle(point, box_coords, GetPlanetRadius(planet)));
 }
 
-static void SendSelectedPlanetShips(unsigned dst_planet_id) {
+// Pass - for `num_ships` to attempt to send enough ships to take over the
+// destination planet automatically. If the destionation planet is ours, 0 will
+// send half the available ships.
+static void SendSelectedPlanetShips(unsigned dst_planet_id,
+                                    unsigned num_ships) {
+  const Planet dst_planet = game_state.planets.items[dst_planet_id];
+  bool enemy_planet_auto_conquer = num_ships == 0;
+
+  if (dst_planet.owner == player_id + 1) {
+    enemy_planet_auto_conquer = false;
+  }
+
+  uint8_t max_travel_time = -INFINITY;
+  uint16_t selected_num_ships = 0;
+
+  nob_da_foreach(unsigned, planet_id, &selected_planets_ids) {
+    const Planet selected_planet = game_state.planets.items[*planet_id];
+    if (enemy_planet_auto_conquer) {
+      const uint8_t travel_time =
+          GetTravelTime(selected_planet.coords, dst_planet.coords);
+      max_travel_time = CLAY__MAX(max_travel_time, travel_time);
+    }
+    selected_num_ships += selected_planet.ships;
+  }
+
+  const uint16_t ships_when_last_fleet_arrives =
+      1 + (!dst_planet.owner
+               ? dst_planet.ships
+               : dst_planet.ships + dst_planet.growth * max_travel_time);
+
   while (selected_planets_ids.count > 0) {
     const unsigned src_id = nob_da_pop(&selected_planets_ids);
     const Planet src_planet = game_state.planets.items[src_id];
+    uint16_t ships_to_send;
+    if (enemy_planet_auto_conquer) {
+      ships_to_send =
+          ceilf(src_planet.ships *
+                ((float)ships_when_last_fleet_arrives / selected_num_ships));
+    } else {
+      ships_to_send = num_ships == 0 ? src_planet.ships / 2 : num_ships;
+    }
 
     SendPlayerShips(&game_state, player_id, src_id, dst_planet_id,
-                    src_planet.ships / 2);
+                    ships_to_send);
   }
 }
 
@@ -154,7 +191,7 @@ static void HandlePlanetSelection(Clay_BoundingBox box) {
          planet_idx++) {
       if (PointInPlanet(box, game_state.planets.items[planet_idx],
                         GetMousePosition())) {
-        SendSelectedPlanetShips(planet_idx);
+        SendSelectedPlanetShips(planet_idx, 0);
         break;
       }
     }
