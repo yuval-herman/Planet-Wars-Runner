@@ -47,13 +47,13 @@ bool ParseMapBuffer(unsigned *owner_count, GameState *state,
 void GetMapRepresentation(GameState *state, Nob_String_Builder *sb,
                           unsigned player_idx);
 
-// Return true if the player can play this actions. Return false in case the
-// player has bean disqualified for attempting an invalid action.
+// Return true if the player can play this action.
 bool SendPlayerShips(GameState *state, unsigned player_idx, uint16_t src_id,
                      uint16_t dst_id, uint16_t ships);
 
 // Play player actions from string. Parses the string and calls
-// `SendPlayerShips`.
+// `SendPlayerShips`. Return false in case the player has bean disqualified for
+// attempting an invalid action. True otherwise.
 bool SendPlayerShipsStr(GameState *state, unsigned player_idx,
                         Nob_String_View order_sv);
 

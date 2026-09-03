@@ -236,29 +236,23 @@ bool SendPlayerShips(GameState *state, unsigned player_idx, uint16_t src_id,
 
   if ((unsigned)fleet.src_id >= state->planets.count) {
     nob_log(NOB_INFO, "Bot tried sending fleet from nonexistent planet.");
-    DisqualifyPlayer(state, player_idx);
     return false;
   }
   Planet *src = &state->planets.items[fleet.src_id];
   if (fleet.ships < 1) {
     nob_log(NOB_INFO, "Bot tried sending invalid amount of ships.");
-    DisqualifyPlayer(state, player_idx);
     return false;
   } else if (fleet.src_id == fleet.dst_id) {
     nob_log(NOB_INFO, "Bot tried sending fleet from a planet itself.");
-    DisqualifyPlayer(state, player_idx);
     return false;
   } else if (src->owner != fleet.owner) {
     nob_log(NOB_INFO, "Bot tried sending fleet from a planet it does not own.");
-    DisqualifyPlayer(state, player_idx);
     return false;
   } else if (fleet.dst_id >= state->planets.count) {
     nob_log(NOB_INFO, "Bot tried sending fleet to nonexistent planet.");
-    DisqualifyPlayer(state, player_idx);
     return false;
   } else if (src->ships < fleet.ships) {
     nob_log(NOB_INFO, "Bot tried sending more ships then the planet has.");
-    DisqualifyPlayer(state, player_idx);
     return false;
   }
   src->ships -= fleet.ships;
@@ -302,9 +296,10 @@ bool SendPlayerShipsStr(GameState *state, unsigned player_idx,
               "Amount of ships is too high, to low, or impossible to parse.");
 #undef PARSE_INT
 
-    if (!SendPlayerShips(state, player_idx, src_id, dst_id, ships))
+    if (!SendPlayerShips(state, player_idx, src_id, dst_id, ships)) {
+      DisqualifyPlayer(state, player_idx);
       return false;
-
+    }
     order_sv = nob_sv_trim_left(order_sv);
   }
   nob_log(NOB_DEBUG, "done parsing bot %u fleets", player_idx);

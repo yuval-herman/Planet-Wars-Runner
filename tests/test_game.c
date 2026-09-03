@@ -611,8 +611,6 @@ static void test_send_player_ships_invalid_src_out_of_bounds(void **state) {
 
   // src_id 5 is out of bounds
   assert_false(SendPlayerShips(game_state, 0, 5, 1, 10));
-  // Player 0 should be disqualified
-  assert_false(IsPlayerAlive(game_state, 0));
 }
 
 static void test_send_player_ships_invalid_dst_out_of_bounds(void **state) {
@@ -625,7 +623,6 @@ static void test_send_player_ships_invalid_dst_out_of_bounds(void **state) {
 
   // dst_id 5 is out of bounds
   assert_false(SendPlayerShips(game_state, 0, 0, 5, 10));
-  assert_false(IsPlayerAlive(game_state, 0));
 }
 
 static void test_send_player_ships_invalid_same_src_dst(void **state) {
@@ -638,7 +635,6 @@ static void test_send_player_ships_invalid_same_src_dst(void **state) {
 
   // src_id == dst_id
   assert_false(SendPlayerShips(game_state, 0, 0, 0, 10));
-  assert_false(IsPlayerAlive(game_state, 0));
 }
 
 static void test_send_player_ships_invalid_zero_ships(void **state) {
@@ -651,7 +647,6 @@ static void test_send_player_ships_invalid_zero_ships(void **state) {
 
   // ships = 0
   assert_false(SendPlayerShips(game_state, 0, 0, 1, 0));
-  assert_false(IsPlayerAlive(game_state, 0));
 }
 
 static void test_send_player_ships_invalid_not_owner(void **state) {
@@ -665,7 +660,6 @@ static void test_send_player_ships_invalid_not_owner(void **state) {
 
   // Player 0 (owner 1) tries to send ships from planet 1 (owned by 2)
   assert_false(SendPlayerShips(game_state, 0, 1, 0, 10));
-  assert_false(IsPlayerAlive(game_state, 0));
 }
 
 static void test_send_player_ships_invalid_insufficient_ships(void **state) {
@@ -678,7 +672,6 @@ static void test_send_player_ships_invalid_insufficient_ships(void **state) {
 
   // Planet has 10 ships, trying to send 11
   assert_false(SendPlayerShips(game_state, 0, 0, 1, 11));
-  assert_false(IsPlayerAlive(game_state, 0));
 }
 
 static void test_send_player_ships_str_empty_and_go(void **state) {
