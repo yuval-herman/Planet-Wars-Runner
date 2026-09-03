@@ -4,6 +4,7 @@
 #include "human_game.h"
 #include "stars_shader.h"
 
+static uint8_t player_id;
 static GameState game_state = {0};
 static GameSpace game_space = {0};
 static PlayerDA players = {0};
@@ -45,9 +46,12 @@ static void HumanGameInit() {
       .seed = 1,
   });
 
-  nob_da_foreach(Player, player, &players) {
-    if (!StartPlayer(player))
+  for (unsigned i = 0; i < players.count; i++) {
+    if (!StartPlayer(players.items + i))
       NOB_TODO("Can't handle errors yet");
+    if (players.items[i].type == PLAYER_HUMAN) {
+      player_id = i;
+    }
   }
 
   // Clay_SetDebugModeEnabled(true);
@@ -62,20 +66,34 @@ static void HandlePlanetSelection(Clay_BoundingBox box) {
       Vector2 box_coords = Game2boxCoords(planet.coords, box, game_space);
       if (CheckCollisionPointCircle(GetMousePosition(), box_coords,
                                     GetPlanetRadius(planet))) {
-        bool already_added = false;
-        for (unsigned i = 0; i < selected_planets_ids.count; i++) {
-          if (selected_planets_ids.items[i] == planet_idx) {
-            nob_da_remove_unordered(&selected_planets_ids, i);
-            already_added = true;
-            break;
+        if (planet.owner == player_id + 1) {
+          bool already_added = false;
+          for (unsigned i = 0; i < selected_planets_ids.count; i++) {
+            if (selected_planets_ids.items[i] == planet_idx) {
+              nob_da_remove_unordered(&selected_planets_ids, i);
+              already_added = true;
+              break;
+            }
           }
+          if (!already_added)
+            nob_da_append(&selected_planets_ids, planet_idx);
+        } else {
+          const unsigned src_id = nob_da_pop(&selected_planets_ids);
+          SendPlayerShips(&game_state, player_id, src_id, planet_idx,
+                          game_state.planets.items[src_id].ships / 2);
         }
-        if (!already_added)
-          nob_da_append(&selected_planets_ids, planet_idx);
       }
     }
   }
   printf("selected count = %u\n", selected_planets_ids.count);
+}
+
+static void DrawPlanetHighlight(Planet planet, Clay_BoundingBox box) {
+  Vector2 draw_coords = Game2boxCoords(planet.coords, box, game_space);
+
+  const float draw_radius = GetPlanetRadius(planet);
+
+  DrawCircleLinesV(draw_coords, draw_radius + 10, YELLOW);
 }
 
 static void HumanGameDraw() {
@@ -96,13 +114,17 @@ static void HumanGameDraw() {
                                       .y = CLAY_ALIGN_Y_CENTER},
                    .layoutDirection = CLAY_TOP_TO_BOTTOM,
                    .childGap = 32}}) {
-    HandlePlanetSelection(Component_GameFrame((DrawGameFrameUserData){
+    Clay_BoundingBox box = Component_GameFrame((DrawGameFrameUserData){
         .game_space = game_space,
         .planets = game_state.planets.items,
         .planet_count = game_state.planets.count,
         .fleets = game_state.fleets.items,
         .fleet_count = game_state.fleets.count,
-    }));
+    });
+    HandlePlanetSelection(box);
+    nob_da_foreach(unsigned, planet_idx, &selected_planets_ids) {
+      DrawPlanetHighlight(game_state.planets.items[*planet_idx], box);
+    }
   }
 }
 
