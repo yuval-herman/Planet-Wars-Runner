@@ -57,10 +57,10 @@ static void HumanGameInit() {
   // Clay_SetDebugModeEnabled(true);
 }
 
-static void HandlePlanetSelection(Clay_BoundingBox box) {
+static Rectangle GetSelectionRect() {
   static bool is_holding_select = false;
   static Vector2 selection_start = {0};
-  Rectangle select_rect;
+  Rectangle select_rect = {0};
   if (!is_holding_select && IsMouseButtonDown(MOUSE_LEFT_BUTTON)) {
     is_holding_select = true;
     Vector2 mp = GetMousePosition();
@@ -88,32 +88,63 @@ static void HandlePlanetSelection(Clay_BoundingBox box) {
       DrawRectangleRec(select_rect, (Color){0, 121, 241, 125});
     }
   }
+  return select_rect;
+}
 
-  if (is_holding_select) {
-    for (unsigned planet_idx = 0; planet_idx < game_state.planets.count;
-         planet_idx++) {
-      const Planet planet = game_state.planets.items[planet_idx];
-      Vector2 box_coords = Game2boxCoords(planet.coords, box, game_space);
-      if (CheckCollisionCircleRec(box_coords, GetPlanetRadius(planet),
-                                  select_rect)) {
-        if (planet.owner == player_id + 1) {
-          bool already_added = false;
-          for (unsigned i = 0; i < selected_planets_ids.count; i++) {
-            if (selected_planets_ids.items[i] == planet_idx) {
-              already_added = true;
-              break;
-            }
-          }
-          if (!already_added)
-            nob_da_append(&selected_planets_ids, planet_idx);
-        }
+static void AddPlanetToSelection(unsigned planet_id) {
+  const Planet planet = game_state.planets.items[planet_id];
+  if (planet.owner == player_id + 1) {
+    bool already_added = false;
+    for (unsigned i = 0; i < selected_planets_ids.count; i++) {
+      if (selected_planets_ids.items[i] == planet_id) {
+        already_added = true;
+        break;
+      }
+    }
+    if (!already_added)
+      nob_da_append(&selected_planets_ids, planet_id);
+  }
+}
+
+static void RemovePlanetFromSelection(unsigned planet_id) {
+  for (unsigned i = 0; i < selected_planets_ids.count; i++) {
+    if (selected_planets_ids.items[i] == planet_id) {
+      nob_da_remove_unordered(&selected_planets_ids, i);
+      break;
+    }
+  }
+}
+
+static bool PlanetInRect(Clay_BoundingBox box, Rectangle rect, Planet planet) {
+  Vector2 box_coords = Game2boxCoords(planet.coords, box, game_space);
+  return (CheckCollisionCircleRec(box_coords, GetPlanetRadius(planet), rect));
+}
+
+static bool PointInPlanet(Clay_BoundingBox box, Planet planet, Vector2 point) {
+  Vector2 box_coords = Game2boxCoords(planet.coords, box, game_space);
+  return (
+      CheckCollisionPointCircle(point, box_coords, GetPlanetRadius(planet)));
+}
+
+static void SendSelectedPlanetShips(unsigned dst_planet_id) {
+  while (selected_planets_ids.count > 0) {
+    const unsigned src_id = nob_da_pop(&selected_planets_ids);
+    const Planet src_planet = game_state.planets.items[src_id];
+
+    SendPlayerShips(&game_state, player_id, src_id, dst_planet_id,
+                    src_planet.ships / 2);
+  }
+}
+
+static void HandlePlanetSelection(Clay_BoundingBox box) {
+  Rectangle select_rect = GetSelectionRect();
+  if (select_rect.width || select_rect.height) {
+    for (unsigned planet_id = 0; planet_id < game_state.planets.count;
+         planet_id++) {
+      if (PlanetInRect(box, select_rect, game_state.planets.items[planet_id])) {
+        AddPlanetToSelection(planet_id);
       } else {
-        for (unsigned i = 0; i < selected_planets_ids.count; i++) {
-          if (selected_planets_ids.items[i] == planet_idx) {
-            nob_da_remove_unordered(&selected_planets_ids, i);
-            break;
-          }
-        }
+        RemovePlanetFromSelection(planet_id);
       }
     }
   }
@@ -121,22 +152,13 @@ static void HandlePlanetSelection(Clay_BoundingBox box) {
   if (IsMouseButtonPressed(MOUSE_RIGHT_BUTTON)) {
     for (unsigned planet_idx = 0; planet_idx < game_state.planets.count;
          planet_idx++) {
-      const Planet dst_planet = game_state.planets.items[planet_idx];
-      Vector2 box_coords = Game2boxCoords(dst_planet.coords, box, game_space);
-      if (CheckCollisionPointCircle(GetMousePosition(), box_coords,
-                                    GetPlanetRadius(dst_planet))) {
-        while (selected_planets_ids.count > 0) {
-          unsigned src_id = nob_da_pop(&selected_planets_ids);
-          Planet src_planet = game_state.planets.items[src_id];
-
-          SendPlayerShips(&game_state, player_id, src_id, planet_idx,
-                          src_planet.ships / 2);
-        }
+      if (PointInPlanet(box, game_state.planets.items[planet_idx],
+                        GetMousePosition())) {
+        SendSelectedPlanetShips(planet_idx);
         break;
       }
     }
   }
-  printf("selected count = %u\n", selected_planets_ids.count);
 }
 
 static void DrawPlanetHighlight(Planet planet, Clay_BoundingBox box) {
