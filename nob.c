@@ -151,7 +151,8 @@ static bool compile_raylib(bool wasm) {
     if (wasm) {
       nob_cmd_append(&cmd, "-std=gnu99");
       nob_cmd_append(&cmd, "-DPLATFORM_WEB");
-      nob_cmd_append(&cmd, "-DGRAPHICS_API_OPENGL_ES2");
+      nob_cmd_append(&cmd, "-DGRAPHICS_API_OPENGL_ES3");
+      nob_cmd_append(&cmd, "-sMAX_WEBGL_VERSION=2");
       nob_cmd_append(&cmd, "-Os");
       nob_cmd_append(&cmd, "-flto");
     } else {
@@ -543,7 +544,8 @@ static bool link_main_executable(Nob_Cmd *cmd, const char *source_files[],
                                  bool headless, bool debug, bool profile) {
   if (wasm) {
     nob_cmd_append(cmd, "emcc");
-    nob_cmd_append(cmd, "-s", "USE_GLFW=3");
+    nob_cmd_append(cmd, "-sUSE_GLFW=3");
+    nob_cmd_append(cmd, "-sMAX_WEBGL_VERSION=2");
   } else {
     nob_cc(cmd);
   }
@@ -568,11 +570,15 @@ static bool link_main_executable(Nob_Cmd *cmd, const char *source_files[],
 
   add_linker_flags(cmd, headless);
 
+  if (wasm) {
+    nob_cc_output(cmd, "planet_wars.html");
+  } else {
 #ifdef _WIN32
-  nob_cc_output(cmd, "planet_wars.exe");
+    nob_cc_output(cmd, "planet_wars.exe");
 #else
-  nob_cc_output(cmd, "planet_wars");
+    nob_cc_output(cmd, "planet_wars");
 #endif
+  }
 
   return nob_cmd_run(cmd);
 }

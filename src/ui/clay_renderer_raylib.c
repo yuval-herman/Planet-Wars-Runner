@@ -10,7 +10,8 @@
 #define CLAY_RECTANGLE_TO_RAYLIB_RECTANGLE(rectangle) (Rectangle) { .x = rectangle.x, .y = rectangle.y, .width = rectangle.width, .height = rectangle.height }
 #define CLAY_COLOR_TO_RAYLIB_COLOR(color) (Color) { .r = (unsigned char)roundf(color.r), .g = (unsigned char)roundf(color.g), .b = (unsigned char)roundf(color.b), .a = (unsigned char)roundf(color.a) }
 
-const char* overlayShaderCode = "#version 330\n"
+const char* overlayShaderCode = "#version 300 es\n"
+                                "precision mediump float;\n"
                                 "\n"
                                 "in vec2 fragTexCoord;\n"
                                 "in vec4 fragColor;\n"
