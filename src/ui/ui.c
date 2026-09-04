@@ -3,9 +3,13 @@
 #include "clay_renderer_raylib.c"
 #include "fonts.h"
 
+#include "human_game.h"
 #include "menu.h"
 #include "viewer.h"
-#include "human_game.h"
+
+#ifdef WASM_MODE
+#include <emscripten/emscripten.h>
+#endif
 
 #define CLAY_IMPLEMENTATION
 #include "clay.h"
@@ -22,9 +26,7 @@ static UIScreen active_screen = {0};
 static Font fonts[4];
 static unsigned frame;
 
-unsigned GetFrame() {
-  return frame;
-}
+unsigned GetFrame() { return frame; }
 
 void HandleClayErrors(Clay_ErrorData errorData) {
   nob_log(NOB_ERROR, "%s", errorData.errorText.chars);
@@ -60,7 +62,9 @@ void UIInit(enum Screens start_screen) {
   SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_MSAA_4X_HINT);
   InitWindow(screenWidth, screenHeight, "Planet Wars Viewer");
 
+#ifndef WASM_MODE
   SetTargetFPS(60);
+#endif
 
   fonts[0] = GetFontDefault();
   fonts[1] = LoadFontFromMemory(".ttf", Cousine_Regular_source,
@@ -91,17 +95,25 @@ void UIDestroy() {
   Clay_Raylib_Close();
 }
 
+static void UpdateDrawUI() {
+  frame++;
+  UpdateClayState();
+
+  BeginDrawing();
+  Clay_BeginLayout();
+  active_screen.draw();
+  Clay_RenderCommandArray renderCommands = Clay_EndLayout(GetFrameTime());
+  Clay_Raylib_Render(renderCommands, fonts);
+  EndDrawing();
+}
+
 void UIRun() {
   assert(active_screen.draw);
+#ifdef WASM_MODE
+  emscripten_set_main_loop(UpdateDrawUI, 0, 1);
+#else
   while (!WindowShouldClose()) {
-    frame++;
-    UpdateClayState();
-
-    BeginDrawing();
-    Clay_BeginLayout();
-    active_screen.draw();
-    Clay_RenderCommandArray renderCommands = Clay_EndLayout(GetFrameTime());
-    Clay_Raylib_Render(renderCommands, fonts);
-    EndDrawing();
+    UpdateDrawUI();
   }
+#endif
 }

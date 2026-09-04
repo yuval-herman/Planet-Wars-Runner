@@ -88,9 +88,9 @@ static void add_linker_flags(Nob_Cmd *cmd, bool headless) {
   if (!headless) {
 #ifdef _WIN32
     nob_cmd_append(cmd, "-lgdi32", "-lwinmm", "-lshcore", "-luser32",
-                   "-lshell32", "-lcomdlg32", "-lole32");
+                   "-lshell32", "-lcomdlg32", "-lole32", "-lopengl32");
 #else
-    nob_cmd_append(cmd, "-lX11");
+    nob_cmd_append(cmd, "-lX11", "-lGL");
 #endif
   }
 
@@ -148,10 +148,10 @@ static bool compile_raylib(bool wasm) {
     nob_cmd_append(&cmd, "-fPIC");
 #endif
 
+    nob_cmd_append(&cmd, "-DGRAPHICS_API_OPENGL_ES3");
     if (wasm) {
       nob_cmd_append(&cmd, "-std=gnu99");
       nob_cmd_append(&cmd, "-DPLATFORM_WEB");
-      nob_cmd_append(&cmd, "-DGRAPHICS_API_OPENGL_ES3");
       nob_cmd_append(&cmd, "-sMAX_WEBGL_VERSION=2");
       nob_cmd_append(&cmd, "-Os");
       nob_cmd_append(&cmd, "-flto");
@@ -159,7 +159,6 @@ static bool compile_raylib(bool wasm) {
       nob_cmd_append(&cmd, "-std=c99");
 
       nob_cmd_append(&cmd, "-DPLATFORM_DESKTOP_GLFW");
-      nob_cmd_append(&cmd, "-DGRAPHICS_API_OPENGL_33");
 #ifndef _WIN32
       nob_cmd_append(&cmd, "-D_GLFW_X11");
 #endif
@@ -211,7 +210,8 @@ static bool compile_raylib(bool wasm) {
 
 // Return true if all files should be recompiled.
 // Checks whether the compilation flags changed since last time.
-static bool should_recompile_all(bool headless, bool debug, bool profile) {
+static bool should_recompile_all(bool wasm, bool headless, bool debug,
+                                 bool profile) {
   const char *flag_file_path = "prev-comp.txt";
   Nob_String_Builder prev = {0};
   Nob_String_Builder curr = {0};
@@ -225,6 +225,7 @@ static bool should_recompile_all(bool headless, bool debug, bool profile) {
   nob_sb_appendf(&curr, "headless=%s\n", headless ? "true" : "false");
   nob_sb_appendf(&curr, "debug=%s\n", debug ? "true" : "false");
   nob_sb_appendf(&curr, "profile=%s\n", profile ? "true" : "false");
+  nob_sb_appendf(&curr, "wasm=%s\n", wasm ? "true" : "false");
 
   nob_write_entire_file(flag_file_path, curr.items, curr.count);
 
@@ -723,9 +724,9 @@ int main(int argc, char **argv) {
 
   // should_recompile_all() must run before the force flag is OR-ed in, because
   // it also persists the current flags to disk for future comparison.
-  bool force_rebuild =
-      should_recompile_all(*headless_flag, *debug_flag, *profile_flag) ||
-      *force_flag;
+  bool force_rebuild = should_recompile_all(*wasm_flag, *headless_flag,
+                                            *debug_flag, *profile_flag) ||
+                       *force_flag;
 
   FILE *compile_commands_file = fopen("compile_commands.json", "w");
   bool first_compile_cmd = true;
