@@ -1,6 +1,8 @@
 #ifndef BOT_H
 #define BOT_H
+#ifndef WASM_MODE
 #include "subprocess.h"
+#endif
 #include "utils.h"
 
 // Time in nanoseconds, currently set to 100ms

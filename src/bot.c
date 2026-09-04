@@ -37,6 +37,27 @@ void FreeInnerBotsDA(BotsDA bots) {
   nob_da_free(bots);
 }
 
+// subprocess based bots are unavailable in wasm mode
+#ifdef WASM_MODE
+bool StopBot(Bot bot) {
+  NOB_UNREACHABLE("subprocess based bots are unavailable in wasm mode");
+}
+bool StartBot(Bot *bot) {
+  NOB_UNREACHABLE("subprocess based bots are unavailable in wasm mode");
+}
+bool IsBotAlive(Bot bot) {
+  NOB_UNREACHABLE("subprocess based bots are unavailable in wasm mode");
+}
+bool GetBotMessage(Bot bot, Nob_String_Builder *sb) {
+  NOB_UNREACHABLE("subprocess based bots are unavailable in wasm mode");
+}
+void GetBotDebugMessage(Bot bot, Nob_String_Builder *sb) {
+  NOB_UNREACHABLE("subprocess based bots are unavailable in wasm mode");
+}
+bool SendMessageToBot(Bot bot, char *message, unsigned length) {
+  NOB_UNREACHABLE("subprocess based bots are unavailable in wasm mode");
+}
+#else
 bool StopBot(Bot bot) {
   if (bot.process == NULL)
     return true;
@@ -173,3 +194,4 @@ bool SendMessageToBot(Bot bot, char *message, unsigned length) {
   fflush(bot_stdin);
   return true;
 }
+#endif
