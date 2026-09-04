@@ -547,6 +547,7 @@ static bool link_main_executable(Nob_Cmd *cmd, const char *source_files[],
     nob_cmd_append(cmd, "emcc");
     nob_cmd_append(cmd, "-sUSE_GLFW=3");
     nob_cmd_append(cmd, "-sMAX_WEBGL_VERSION=2");
+    nob_cmd_append(cmd, "--shell-file", "assets/wasm-shell.html");
   } else {
     nob_cc(cmd);
   }
