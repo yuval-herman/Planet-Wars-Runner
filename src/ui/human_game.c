@@ -138,7 +138,7 @@ static void SendSelectedPlanetShips(unsigned dst_planet_id,
     enemy_planet_auto_conquer = false;
   }
 
-  uint8_t max_travel_time = -INFINITY;
+  uint8_t max_travel_time = 0;
   uint16_t selected_num_ships = 0;
 
   nob_da_foreach(unsigned, planet_id, &selected_planets_ids) {
@@ -173,12 +173,22 @@ static void SendSelectedPlanetShips(unsigned dst_planet_id,
   }
 }
 
-static void HandlePlanetSelection(Clay_BoundingBox box) {
+static void HandleMouse(Clay_BoundingBox box) {
   Rectangle select_rect = GetSelectionRect();
   if (select_rect.width || select_rect.height) {
     for (unsigned planet_id = 0; planet_id < game_state.planets.count;
          planet_id++) {
       if (PlanetInRect(box, select_rect, game_state.planets.items[planet_id])) {
+        AddPlanetToSelection(planet_id);
+      } else {
+        RemovePlanetFromSelection(planet_id);
+      }
+    }
+  } else if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+    for (unsigned planet_id = 0; planet_id < game_state.planets.count;
+         planet_id++) {
+      if (PointInPlanet(box, game_state.planets.items[planet_id],
+                        GetMousePosition())) {
         AddPlanetToSelection(planet_id);
       } else {
         RemovePlanetFromSelection(planet_id);
@@ -231,7 +241,7 @@ static void HumanGameDraw() {
         .fleets = game_state.fleets.items,
         .fleet_count = game_state.fleets.count,
     });
-    HandlePlanetSelection(box);
+    HandleMouse(box);
     nob_da_foreach(unsigned, planet_idx, &selected_planets_ids) {
       DrawPlanetHighlight(game_state.planets.items[*planet_idx], box);
     }
