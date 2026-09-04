@@ -4,8 +4,7 @@
 /nob.old
 /compile_flags.txt
 /log.txt
-/planet_wars
-/planet_wars.exe
+/planet_wars*
 /config.ini
 /*.plws
 /.cache
