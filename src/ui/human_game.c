@@ -12,6 +12,7 @@ static Nob_String_Builder sb = {0};
 // 0 is realtime, higher is slower.
 static unsigned short game_speed = 10;
 static unsigned short bot_speed = 200;
+static bool game_running = true;
 
 struct {
   unsigned *items;
@@ -35,6 +36,7 @@ static void HumanGameInit() {
   assert(game_state.planets.items != NULL &&
          "Planets array is null. Did you forgot to set game state?");
 
+  game_running = true;
   sb.count = 0;
   selected_planets_ids.count = 0;
 
@@ -217,11 +219,19 @@ static void DrawPlanetHighlight(Planet planet, Clay_BoundingBox box) {
 }
 
 static void HumanGameDraw() {
-  if (bot_speed == 0 || GetFrame() % bot_speed == 0)
-    RunPlayerCycle(&game_state, players, &sb);
+  static Nob_String_Builder winner_sb = {0};
+  winner_sb.count = 0;
+  if (game_state.remaining_players == 1) {
+    game_running = false;
+  }
 
-  if (game_speed == 0 || GetFrame() % game_speed == 0)
-    AdvanceTurn(&game_state);
+  if (game_running) {
+    if (bot_speed == 0 || GetFrame() % bot_speed == 0)
+      RunPlayerCycle(&game_state, players, &sb);
+
+    if (game_speed == 0 || GetFrame() % game_speed == 0)
+      AdvanceTurn(&game_state);
+  }
 
   // ====== DRAWING =======
 
@@ -234,16 +244,29 @@ static void HumanGameDraw() {
                                       .y = CLAY_ALIGN_Y_CENTER},
                    .layoutDirection = CLAY_TOP_TO_BOTTOM,
                    .childGap = 32}}) {
-    Clay_BoundingBox box = Component_GameFrame((DrawGameFrameUserData){
-        .game_space = game_space,
-        .planets = game_state.planets.items,
-        .planet_count = game_state.planets.count,
-        .fleets = game_state.fleets.items,
-        .fleet_count = game_state.fleets.count,
-    });
-    HandleMouse(box);
-    nob_da_foreach(unsigned, planet_idx, &selected_planets_ids) {
-      DrawPlanetHighlight(game_state.planets.items[*planet_idx], box);
+    if (game_running) {
+      Clay_BoundingBox box = Component_GameFrame((DrawGameFrameUserData){
+          .game_space = game_space,
+          .planets = game_state.planets.items,
+          .planet_count = game_state.planets.count,
+          .fleets = game_state.fleets.items,
+          .fleet_count = game_state.fleets.count,
+      });
+      HandleMouse(box);
+      nob_da_foreach(unsigned, planet_idx, &selected_planets_ids) {
+        DrawPlanetHighlight(game_state.planets.items[*planet_idx], box);
+      }
+    } else {
+      int winner_idx = bit_index(game_state.player_bit_set);
+      if (winner_idx == -1) {
+        nob_sb_appendf(&winner_sb, "It's a draw!");
+      } else {
+        nob_sb_appendf(&winner_sb, "%.*s won!",
+                       (int)players.items[winner_idx].name.count,
+                       players.items[winner_idx].name.items);
+      }
+
+      CLAY_TEXT(SB_TO_CLAY(winner_sb), {.fontId = 2, .fontSize = 64, .textColor = C_WHITE});
     }
   }
 }
