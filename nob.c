@@ -116,12 +116,21 @@ static bool compile_raylib(bool wasm) {
   Nob_Cmd cmd = {0};
   Nob_Procs procs = {0};
 
-  const char *module_names[] = {"rcore", "rglfw",   "rshapes", "rtextures",
-                                "rtext", "rmodels", "raudio"};
+  const char *module_names[] = {"rcore",   "rshapes", "rtextures", "rtext",
+                                "rmodels", "raudio",  "rglfw"};
+  unsigned module_names_length = NOB_ARRAY_LEN(module_names);
+  // Skip rglfw when compiling wasm
+  if (wasm) {
+    module_names_length--;
+  }
 
-  for (size_t i = 0; i < NOB_ARRAY_LEN(module_names); i++) {
+  for (size_t i = 0; i < module_names_length; i++) {
     size_t mark = nob_temp_save();
-    nob_cc(&cmd);
+    if (wasm) {
+      nob_cmd_append(&cmd, "emcc");
+    } else {
+      nob_cc(&cmd);
+    }
 
     nob_cmd_append(&cmd, "-c");
     nob_cmd_append(&cmd,
@@ -132,25 +141,38 @@ static bool compile_raylib(bool wasm) {
     nob_cmd_append(&cmd, "-D_GNU_SOURCE");
     if (strcmp(module_names[i], "rglfw") == 0)
       nob_cmd_append(&cmd, "-U_GNU_SOURCE");
-    nob_cmd_append(&cmd, "-DPLATFORM_DESKTOP_GLFW");
-    nob_cmd_append(&cmd, "-DGRAPHICS_API_OPENGL_33");
 
 #ifdef _WIN32
     nob_cmd_append(&cmd, "-DUNICODE");
 #else
-    nob_cmd_append(&cmd, "-D_GLFW_X11");
     nob_cmd_append(&cmd, "-fPIC");
 #endif
 
-    nob_cmd_append(&cmd, "-fno-strict-aliasing");
-    nob_cmd_append(&cmd, "-std=c99");
-    nob_cmd_append(&cmd, "-O2");
+    if (wasm) {
+      nob_cmd_append(&cmd, "-std=gnu99");
+      nob_cmd_append(&cmd, "-DPLATFORM_WEB");
+      nob_cmd_append(&cmd, "-DGRAPHICS_API_OPENGL_ES2");
+      nob_cmd_append(&cmd, "-Os");
+      nob_cmd_append(&cmd, "-flto");
+    } else {
+      nob_cmd_append(&cmd, "-std=c99");
+
+      nob_cmd_append(&cmd, "-DPLATFORM_DESKTOP_GLFW");
+      nob_cmd_append(&cmd, "-DGRAPHICS_API_OPENGL_33");
+#ifndef _WIN32
+      nob_cmd_append(&cmd, "-D_GLFW_X11");
+#endif
+
+      nob_cmd_append(&cmd, "-O2");
 
 #if defined(__clang__)
-    nob_cmd_append(&cmd, "-flto", "-ffat-lto-objects", "-fuse-ld=lld");
+      nob_cmd_append(&cmd, "-flto", "-ffat-lto-objects", "-fuse-ld=lld");
 #elif !defined(_WIN32)
-    nob_cmd_append(&cmd, "-flto", "-ffat-lto-objects");
+      nob_cmd_append(&cmd, "-flto", "-ffat-lto-objects");
 #endif
+    }
+
+    nob_cmd_append(&cmd, "-fno-strict-aliasing");
 
     nob_cmd_append(&cmd, "-Iexternal/raylib");
     nob_cmd_append(&cmd, "-Iexternal/raylib/external/glfw/include");
@@ -164,15 +186,18 @@ static bool compile_raylib(bool wasm) {
   if (!nob_procs_flush(&procs))
     return false;
 
+  if (wasm) {
+    nob_cmd_append(&cmd, "emar", "rcs", RAYLIB_LIB);
+  } else {
 #if defined(__clang__)
-  nob_cmd_append(&cmd, "llvm-ar", "rcs", RAYLIB_LIB);
+    nob_cmd_append(&cmd, "llvm-ar", "rcs", RAYLIB_LIB);
 #elif defined(__GNUC__)
-  nob_cmd_append(&cmd, "gcc-ar", "rcs", RAYLIB_LIB);
+    nob_cmd_append(&cmd, "gcc-ar", "rcs", RAYLIB_LIB);
 #else
-  nob_cmd_append(&cmd, "ar", "rcs", RAYLIB_LIB);
+    nob_cmd_append(&cmd, "ar", "rcs", RAYLIB_LIB);
 #endif
-
-  for (size_t i = 0; i < NOB_ARRAY_LEN(module_names); i++) {
+  }
+  for (size_t i = 0; i < module_names_length; i++) {
     nob_cmd_append(&cmd, nob_temp_sprintf(BUILD_DIR "/%s.o", module_names[i]));
   }
 
@@ -214,9 +239,13 @@ static bool should_recompile_all(bool headless, bool debug, bool profile) {
 }
 
 static void create_compile_cmd(Nob_Cmd *cmd, const char *file_path,
-                               const char *output_path, bool headless,
-                               bool debug, bool profile) {
-  nob_cc(cmd);
+                               const char *output_path, bool wasm,
+                               bool headless, bool debug, bool profile) {
+  if (wasm) {
+    nob_cmd_append(cmd, "emcc");
+  } else {
+    nob_cc(cmd);
+  }
   nob_cmd_append(cmd, "-c");
   nob_cmd_append(cmd, "-Wall", "-Wextra", "-Wno-unused-function", "-Wshadow");
   if (output_path) {
@@ -226,6 +255,8 @@ static void create_compile_cmd(Nob_Cmd *cmd, const char *file_path,
 
   if (headless)
     nob_cmd_append(cmd, "-DHEADLESS_MODE");
+  if (wasm)
+    nob_cmd_append(cmd, "-DWASM_MODE");
 
   add_include_paths(cmd);
   nob_cmd_append(cmd, "-std=gnu11");
@@ -335,7 +366,7 @@ static bool compile_file(Nob_Cmd *cmd, Nob_Procs *procs, const char *file_path,
 // Library compilation
 // ---------------------------------------------------------------------------
 
-static bool compile_libraries(bool headless, bool force) {
+static bool compile_libraries(bool wasm, bool headless, bool force) {
   Nob_Cmd cmd = {0};
   Nob_Procs procs = {0};
 
@@ -345,7 +376,11 @@ static bool compile_libraries(bool headless, bool force) {
   // miniz
   file_path = "external/miniz/miniz.c";
   output_path = BUILD_DIR "/miniz.o";
-  nob_cc(&cmd);
+  if (wasm) {
+    nob_cmd_append(&cmd, "emcc");
+  } else {
+    nob_cc(&cmd);
+  }
   nob_cmd_append(&cmd, "-c");
   nob_cmd_append(&cmd, file_path);
   nob_cmd_append(&cmd, "-o", output_path);
@@ -358,7 +393,11 @@ static bool compile_libraries(bool headless, bool force) {
     // tinyfiledialogs
     file_path = "external/tinyfiledialogs/tinyfiledialogs.c";
     output_path = BUILD_DIR "/tinyfiledialogs.o";
-    nob_cc(&cmd);
+    if (wasm) {
+      nob_cmd_append(&cmd, "emcc");
+    } else {
+      nob_cc(&cmd);
+    }
     nob_cmd_append(&cmd, "-c");
     nob_cmd_append(&cmd, file_path);
     nob_cmd_append(&cmd, "-o", output_path);
@@ -370,7 +409,11 @@ static bool compile_libraries(bool headless, bool force) {
     // raymath
     file_path = "external/raylib/raymath.h";
     output_path = BUILD_DIR "/raymath.o";
-    nob_cc(&cmd);
+    if (wasm) {
+      nob_cmd_append(&cmd, "emcc");
+    } else {
+      nob_cc(&cmd);
+    }
     nob_cmd_append(&cmd, "-c");
     nob_cmd_append(&cmd, "-x", "c");
     nob_cmd_append(&cmd, "-DRAYMATH_IMPLEMENTATION");
@@ -496,9 +539,14 @@ static void embed_fonts(void) {
 static bool link_main_executable(Nob_Cmd *cmd, const char *source_files[],
                                  unsigned source_files_count,
                                  const char *headed_source_files[],
-                                 unsigned headed_source_files_count,
+                                 unsigned headed_source_files_count, bool wasm,
                                  bool headless, bool debug, bool profile) {
-  nob_cc(cmd);
+  if (wasm) {
+    nob_cmd_append(cmd, "emcc");
+    nob_cmd_append(cmd, "-s", "USE_GLFW=3");
+  } else {
+    nob_cc(cmd);
+  }
   for (unsigned i = 0; i < source_files_count; i++) {
     nob_cmd_append(cmd, c_to_o_path(source_files[i]));
   }
@@ -691,7 +739,7 @@ int main(int argc, char **argv) {
       return 1;
   }
 
-  if (!compile_libraries(*headless_flag, *force_flag))
+  if (!compile_libraries(*wasm_flag, *headless_flag, *force_flag))
     return 1;
 
   Nob_Cmd cmd = {0};
@@ -718,7 +766,7 @@ int main(int argc, char **argv) {
     const char *file_path = source_files[i];
     const char *output_path = c_to_o_path(file_path);
 
-    create_compile_cmd(&cmd, file_path, output_path, *headless_flag,
+    create_compile_cmd(&cmd, file_path, output_path, *wasm_flag, *headless_flag,
                        *debug_flag, *profile_flag);
     append_compile_command(compile_commands_file, file_path, output_path, &cmd,
                            &first_compile_cmd);
@@ -732,8 +780,8 @@ int main(int argc, char **argv) {
       const char *file_path = headed_source_files[i];
       const char *output_path = c_to_o_path(file_path);
 
-      create_compile_cmd(&cmd, file_path, output_path, *headless_flag,
-                         *debug_flag, *profile_flag);
+      create_compile_cmd(&cmd, file_path, output_path, *wasm_flag,
+                         *headless_flag, *debug_flag, *profile_flag);
       append_compile_command(compile_commands_file, file_path, output_path,
                              &cmd, &first_compile_cmd);
 
@@ -763,8 +811,8 @@ int main(int argc, char **argv) {
   } else {
     bool ok = link_main_executable(
         &cmd, source_files, NOB_ARRAY_LEN(source_files), headed_source_files,
-        NOB_ARRAY_LEN(headed_source_files), *headless_flag, *debug_flag,
-        *profile_flag);
+        NOB_ARRAY_LEN(headed_source_files), *wasm_flag, *headless_flag,
+        *debug_flag, *profile_flag);
     print_banner(ok ? "COMPILATION FINISHED SUCCESSFULLY"
                     : "COMPILATION FAILED");
     if (!ok)
