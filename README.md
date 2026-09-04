@@ -91,6 +91,11 @@ The build script supports auto-rebuilding via `NOB_GO_REBUILD_URSELF`. Execute `
 
 The compiled nob file has some flags to change functionallity, you can inspect them by passinh `-help`.
 
+### Building for the web
+
+Building for the web relies on [emscripten](https://emscripten.org/).
+If you installed and activated emscripten, you can follow the normal building steps to compile nob and just add `-wasm` when compiling the program.
+
 ### Running tests
 
 We use cmocka for testing. You can compile the program and use it without the tests, but you need to install cmocka if you want to contribute to this project. You can find instructions on how to install cmocka [on the cmocka repository](https://gitlab.com/cmocka/cmocka).

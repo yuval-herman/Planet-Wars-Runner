@@ -112,7 +112,7 @@ static void add_include_paths(Nob_Cmd *cmd) {
 // Raylib
 // ---------------------------------------------------------------------------
 
-static bool compile_raylib(void) {
+static bool compile_raylib(bool wasm) {
   Nob_Cmd cmd = {0};
   Nob_Procs procs = {0};
 
@@ -636,6 +636,10 @@ int main(int argc, char **argv) {
                 "are doing, it's best to run this together with -force and "
                 "-debug.");
 
+  const bool *wasm_flag = flag_bool("wasm", false,
+                                    "Compile a wasm object instead of a native "
+                                    "executable. This relies on emscripten.");
+
   const bool *help_flag = flag_bool("help", false, "Show help.");
 
   if (!flag_parse(argc, argv)) {
@@ -683,7 +687,7 @@ int main(int argc, char **argv) {
   nob_mkdir_if_not_exists(BUILD_DIR);
 
   if (!*headless_flag && !nob_file_exists(RAYLIB_LIB)) {
-    if (!compile_raylib())
+    if (!compile_raylib(*wasm_flag))
       return 1;
   }
 
