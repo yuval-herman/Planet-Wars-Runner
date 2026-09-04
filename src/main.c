@@ -4,6 +4,9 @@
 #include "ui/viewer.h"
 #endif // HEADLESS_MODE
 
+#include <lauxlib.h>
+#include <lualib.h>
+
 #include "configs.h"
 #include "game.h"
 #include "runner.h"
@@ -15,7 +18,29 @@
 #include <stdio.h>
 #include <string.h>
 
+lua_State *L;
+
 int main(int argc, char *argv[]) {
+  /* Create a Lua state */
+  L = luaL_newstate();
+
+  /* Check the return value */
+  if (L == NULL) {
+    fprintf(stderr, "Lua: cannot initialize\n");
+    return -1;
+  }
+
+  /* Provide the Lua standard libraries to the Lua state */
+  luaL_openlibs(L);
+
+  /* Execute a Lua program in script.lua */
+  luaL_dofile(L, "script.lua");
+
+  /* Close the Lua state */
+  lua_close(L);
+  printf("I am a test!\n");
+
+  return 0;
   Configs configs = MakeDefaultConfig();
   int exit_code = 0;
   if (!ParseConfigsFromCLI(&configs, argc, argv)) {

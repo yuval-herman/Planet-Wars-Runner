@@ -9,10 +9,12 @@
 
 #define BUILD_DIR "build"
 #ifdef _WIN32
-#define RAYLIB_LIB BUILD_DIR "/libraylib.lib"
+#define LUA_LIB BUILD_DIR "/libraylib.lib"
+#define RAYLIB_LIB BUILD_DIR "/liblua.lib"
 #define PATH_SEP "\\"
 #else
 #define RAYLIB_LIB BUILD_DIR "/libraylib.a"
+#define LUA_LIB BUILD_DIR "/liblua.a"
 #define PATH_SEP "/"
 #endif
 
@@ -101,6 +103,7 @@ static void add_linker_flags(Nob_Cmd *cmd, bool headless) {
 
 static void add_include_paths(Nob_Cmd *cmd) {
   nob_cmd_append(cmd, "-isystemexternal/raylib");
+  nob_cmd_append(cmd, "-isystemexternal/lua/src");
   nob_cmd_append(cmd, "-isystemexternal/inih");
   nob_cmd_append(cmd, "-isystemexternal/miniz");
   nob_cmd_append(cmd, "-isystemexternal/tinyfiledialogs");
@@ -199,6 +202,72 @@ static bool compile_raylib(bool wasm) {
   }
   for (size_t i = 0; i < module_names_length; i++) {
     nob_cmd_append(&cmd, nob_temp_sprintf(BUILD_DIR "/%s.o", module_names[i]));
+  }
+
+  return nob_cmd_run(&cmd);
+}
+
+// ---------------------------------------------------------------------------
+// Lua
+// ---------------------------------------------------------------------------
+
+static bool compile_lua(bool wasm) {
+  Nob_Cmd cmd = {0};
+  Nob_Procs procs = {0};
+
+  const char *lua_sources[] = {
+      "lapi",     "lcode",    "lctype",  "ldebug",   "ldo",      "ldump",
+      "lfunc",    "lgc",      "llex",    "lmem",     "lobject",  "lopcodes",
+      "lparser",  "lstate",   "lstring", "ltable",   "ltm",      "lundump",
+      "lvm",      "lzio",     "lauxlib", "lbaselib", "lcorolib", "ldblib",
+      "liolib",   "lmathlib", "loadlib", "loslib",   "lstrlib",  "ltablib",
+      "lutf8lib", "linit"};
+
+  for (size_t i = 0; i < NOB_ARRAY_LEN(lua_sources); i++) {
+    size_t mark = nob_temp_save();
+
+    if (wasm) {
+      nob_cmd_append(&cmd, "emcc");
+    } else {
+      nob_cc(&cmd);
+    }
+
+    nob_cmd_append(&cmd, "-c");
+    nob_cmd_append(&cmd,
+                   nob_temp_sprintf("external/lua/src/%s.c", lua_sources[i]));
+    nob_cmd_append(&cmd, "-o",
+                   nob_temp_sprintf(BUILD_DIR "/%s.o", lua_sources[i]));
+
+    nob_cmd_append(&cmd, "-O2", "-std=gnu99");
+
+#ifndef _WIN32
+    if (!wasm) {
+      nob_cmd_append(&cmd, "-DLUA_USE_LINUX");
+    }
+#endif
+
+    if (!nob_cmd_run(&cmd, .async = &procs))
+      return false;
+    nob_temp_rewind(mark);
+  }
+
+  if (!nob_procs_flush(&procs))
+    return false;
+
+  if (wasm) {
+    nob_cmd_append(&cmd, "emar", "rcs", LUA_LIB);
+  } else {
+#if defined(__clang__)
+    nob_cmd_append(&cmd, "llvm-ar", "rcs", LUA_LIB);
+#elif defined(__GNUC__)
+    nob_cmd_append(&cmd, "gcc-ar", "rcs", LUA_LIB);
+#else
+    nob_cmd_append(&cmd, "ar", "rcs", LUA_LIB);
+#endif
+  }
+
+  for (size_t i = 0; i < NOB_ARRAY_LEN(lua_sources); i++) {
+    nob_cmd_append(&cmd, nob_temp_sprintf(BUILD_DIR "/%s.o", lua_sources[i]));
   }
 
   return nob_cmd_run(&cmd);
@@ -560,6 +629,7 @@ static bool link_main_executable(Nob_Cmd *cmd, const char *source_files[],
       nob_cmd_append(cmd, c_to_o_path(headed_source_files[i]));
     }
     nob_cmd_append(cmd, RAYLIB_LIB);
+    nob_cmd_append(cmd, LUA_LIB);
     nob_cmd_append(cmd, BUILD_DIR "/tinyfiledialogs.o");
   } else {
     nob_cmd_append(cmd, BUILD_DIR "/raymath.o");
@@ -744,6 +814,11 @@ int main(int argc, char **argv) {
 
   if (!*headless_flag && !nob_file_exists(RAYLIB_LIB)) {
     if (!compile_raylib(*wasm_flag))
+      return 1;
+  }
+
+  if (!nob_file_exists(LUA_LIB)) {
+    if (!compile_lua(*wasm_flag))
       return 1;
   }
 
