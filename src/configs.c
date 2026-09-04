@@ -9,8 +9,10 @@
 #define INI_MAX_LINE 1000
 #include "ini.c"
 
+#ifndef WASM_MODE
 #define FLAG_IMPLEMENTATION
 #include "flag.h"
+#endif
 
 Configs MakeDefaultConfig() {
   Configs configs = {0};
@@ -143,13 +145,16 @@ static bool ParseConfigsFromIni(Configs *configs, FILE *ini_file) {
   return ini_parse_file(ini_file, ini_parse_handler, configs) == 0;
 }
 
+#ifndef WASM_MODE
 static void Usage(FILE *stream) {
   fprintf(stream, "Usage: %s [OPTIONS]\n", flag_program_name());
   fprintf(stream, "OPTIONS:\n");
   flag_print_options(stream);
 }
+#endif
 
 bool ParseConfigsFromCLI(Configs *configs, int argc, char *argv[]) {
+#ifndef WASM_MODE
   bool help;
   flag_bool_var(&help, "help", false, "Show this help.");
   char *config_file;
@@ -279,5 +284,6 @@ bool ParseConfigsFromCLI(Configs *configs, int argc, char *argv[]) {
     fclose(ini_file);
   }
 
+#endif
   return VerifyConfigs(*configs);
 }
