@@ -357,8 +357,8 @@ void MenuDraw() {
       break;
     case MENU_PLAY_MATCH:
       // initialize if empty
-      while (configs->players.count < 2) {
-        const Player empty_player = {.type = PLAYER_BOT};
+      for (unsigned id = 0; configs->players.count < 2; id++) {
+        const Player empty_player = {.type = PLAYER_BOT, .id = id};
         nob_da_append(&configs->players, empty_player);
       }
       PlayMatchView();

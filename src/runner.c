@@ -140,6 +140,12 @@ int ThrdMatchRunner(void *args) {
 
     playing_players.items[0] = match_args->players.items[p1_idx];
     playing_players.items[1] = match_args->players.items[p2_idx];
+
+    // This is required to because a players' id is expected to currespond to
+    // their place in the array and be their `owner` id in the game.
+    nob_da_foreach(Player, player, &playing_players) {
+      player->id = player - playing_players.items;
+    }
     // nob_log(NOB_INFO, "Running match between %s and %s", GetBotName(p1_idx),
     //         GetBotName(p2_idx));
 
@@ -269,8 +275,8 @@ bool RunTournament(TournametData *tournament, const char *map_file_path,
   return true;
 }
 
-void RunPlayerCycle(GameState *state, PlayerDA players,
-                        Nob_String_Builder *sb) {
+void RunPlayerCycle(GameState *state, PlayerDA players, Nob_String_Builder *sb,
+                    GameInstructionDA *instructions) {
   unsigned bot_num = 0;
   nob_da_foreach(Player, player, &players) {
     // Skip disqualified or lost bots.
@@ -279,8 +285,7 @@ void RunPlayerCycle(GameState *state, PlayerDA players,
 
       sb->count = 0;
 
-      GetMapRepresentation(state, sb, bot_num);
-      SendMessageToPlayer(*player, sb->items, sb->count);
+      SendMapToPlayer(*player, state, sb);
     }
     bot_num++;
   }
@@ -291,11 +296,15 @@ void RunPlayerCycle(GameState *state, PlayerDA players,
     // Skip disqualified or lost bots.
     if (TestBit(state->player_bit_set, bot_num)) {
       sb->count = 0;
-      bot_okay = GetPlayerMessage(*player, sb);
+      bot_okay = GetPlayerInstructions(*player, instructions, sb);
 
-      if (bot_okay)
-        bot_okay = SendPlayerShipsStr(state, bot_num,
-                                      nob_sv_from_parts(sb->items, sb->count));
+      if (bot_okay) {
+        nob_da_foreach(GameInstruction, inst, instructions) {
+          bot_okay = PlayGameInstruction(state, *inst);
+          if (!bot_okay)
+            break;
+        }
+      }
 
       if (bot_okay) {
         sb->count = 0;
@@ -308,6 +317,7 @@ void RunPlayerCycle(GameState *state, PlayerDA players,
         // DA index to address different players. Instead it is marked as
         // disqualified and not used.
         StopPlayer(player);
+        DisqualifyPlayer(state, bot_num);
       }
 
       nob_log(NOB_DEBUG, "done with bot %u, advancing to bot %u", bot_num,
@@ -318,10 +328,10 @@ void RunPlayerCycle(GameState *state, PlayerDA players,
 }
 
 bool RunTurn(GameState *state, GameLog *game_log, PlayerDA players,
-             Nob_String_Builder sb) {
+             Nob_String_Builder *sb, GameInstructionDA *instructions) {
   // Bot communication
-  sb.count = 0;
-  RunPlayerCycle(state, players, &sb);
+  sb->count = 0;
+  RunPlayerCycle(state, players, sb, instructions);
 
   // Game logic
   AdvanceTurn(state);
@@ -346,6 +356,7 @@ bool RunMatch(GameLog *game_log, GameState *state, PlayerDA players) {
   // Reusable string builder to hold messages sent and received between the bots
   // and the engine.
   Nob_String_Builder sb = {0};
+  GameInstructionDA instructions = {0};
 
   nob_da_foreach(Player, player, &players) {
     if (!StartPlayer(player))
@@ -354,7 +365,7 @@ bool RunMatch(GameLog *game_log, GameState *state, PlayerDA players) {
 
   for (int sim_turn = 0; sim_turn < 1000; sim_turn++) {
     nob_log(NOB_INFO, "Turn %d", sim_turn);
-    if (!RunTurn(state, game_log, players, sb))
+    if (!RunTurn(state, game_log, players, &sb, &instructions))
       break;
   }
   nob_log(NOB_INFO, "Game ended!");

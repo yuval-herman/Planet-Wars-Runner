@@ -269,43 +269,65 @@ bool SendPlayerShips(GameState *state, unsigned player_idx, uint16_t src_id,
   return true;
 }
 
-bool SendPlayerShipsStr(GameState *state, unsigned player_idx,
-                        Nob_String_View order_sv) {
-  while (order_sv.count > 1 &&
-         !(order_sv.data[0] == 'g' && order_sv.data[1] == 'o')) {
-    nob_log(NOB_DEBUG, "parsing bot %u fleets", player_idx);
-    unsigned parsed_uint;
-    uint16_t src_id, dst_id, ships;
-    ffc_result result;
-    const char *p_end = order_sv.data + order_sv.count;
-    ffc_parse_options parse_options = ffc_parse_options_default();
-    parse_options.format |= FFC_FORMAT_FLAG_SKIP_WHITE_SPACE;
+bool PlayGameInstruction(GameState *state, GameInstruction inst) {
+  return SendPlayerShips(state, inst.owner, inst.src_id, inst.dst_id,
+                         inst.ships);
+}
+
+int ParseGameInstruction(GameInstruction *inst, uint8_t owner,
+                         Nob_String_View *order_sv) {
+  if (order_sv->count == 0 ||
+      nob_sv_eq(nob_sv_trim(*order_sv), nob_sv_from_parts("go", 2))) {
+    order_sv->count = 0;
+    return PARSE_END;
+  }
+
+  unsigned parsed_uint;
+  ffc_result result;
+  const char *p_end = order_sv->data + order_sv->count;
+  ffc_parse_options parse_options = ffc_parse_options_default();
+  parse_options.format |= FFC_FORMAT_FLAG_SKIP_WHITE_SPACE;
 
 #define PARSE_INT(output, err_msg)                                             \
-  result = ffc_from_chars_u32_options(order_sv.data, p_end, 10, &parsed_uint,  \
+  result = ffc_from_chars_u32_options(order_sv->data, p_end, 10, &parsed_uint, \
                                       parse_options);                          \
   if (result.outcome != FFC_OUTCOME_OK || parsed_uint > UINT16_MAX) {          \
-    nob_log(NOB_INFO, "Invalid bot command. " err_msg);                        \
-    DisqualifyPlayer(state, player_idx);                                       \
-    return false;                                                              \
+    nob_log(NOB_INFO, "Invalid game instruction. " err_msg);                   \
+    return PARSE_FAILURE;                                                      \
   }                                                                            \
   output = parsed_uint;                                                        \
-  order_sv.count -= result.ptr - order_sv.data;                                \
-  order_sv.data = result.ptr;
+  order_sv->count -= result.ptr - order_sv->data;                              \
+  order_sv->data = result.ptr;
 
-    PARSE_INT(src_id, "Source planet out of bounds or impossible to parse.");
-    PARSE_INT(dst_id,
-              "Destionation planet out of bounds or impossible to parse.");
-    PARSE_INT(ships,
-              "Amount of ships is too high, to low, or impossible to parse.");
+  PARSE_INT(inst->src_id,
+            "Source planet out of bounds or impossible to parse.");
+  PARSE_INT(inst->dst_id,
+            "Destionation planet out of bounds or impossible to parse.");
+  PARSE_INT(inst->ships,
+            "Amount of ships is too high, to low, or impossible to parse.");
+  inst->owner = owner;
 #undef PARSE_INT
 
-    if (!SendPlayerShips(state, player_idx, src_id, dst_id, ships)) {
+  *order_sv = nob_sv_trim_left(*order_sv);
+
+  return PARSE_SUCCESS;
+}
+
+bool SendPlayerShipsStr(GameState *state, unsigned player_idx,
+                        Nob_String_View order_sv) {
+  nob_log(NOB_DEBUG, "parsing bot %u fleets", player_idx);
+
+  GameInstruction inst;
+  int ret;
+  do {
+    ret = ParseGameInstruction(&inst, player_idx, &order_sv);
+    if (ret == PARSE_FAILURE ||
+        (ret == PARSE_SUCCESS && !PlayGameInstruction(state, inst))) {
       DisqualifyPlayer(state, player_idx);
       return false;
     }
-    order_sv = nob_sv_trim_left(order_sv);
-  }
+  } while (ret > PARSE_END);
+
   nob_log(NOB_DEBUG, "done parsing bot %u fleets", player_idx);
   return true;
 }

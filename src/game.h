@@ -14,6 +14,10 @@
 // files.
 #define MAX_MAP_FILE_SIZE 10000U
 
+#define PARSE_FAILURE -1
+#define PARSE_END 0
+#define PARSE_SUCCESS 1
+
 typedef uint32_t PlayerBitset;
 _Static_assert(MAX_PLAYER_AMOUNT <= sizeof(PlayerBitset) * CHAR_BIT,
                "PlayerBitset is not wide enough to hold max amount of players");
@@ -25,6 +29,13 @@ DefineComplexStruct(GameState, {
   unsigned player_count; // The starting amount of players
   unsigned remaining_players;
 });
+
+typedef struct {
+  uint16_t src_id;
+  uint16_t dst_id;
+  uint16_t ships;
+  uint8_t owner;
+} GameInstruction;
 
 // Make game is essentially a safe wrapper around `ParseMapFile`. It adds a few
 // extra checks like verifying the number of players is correct.
@@ -60,6 +71,22 @@ bool SendPlayerShips(GameState *state, unsigned player_idx, uint16_t src_id,
 // attempting an invalid action. True otherwise.
 bool SendPlayerShipsStr(GameState *state, unsigned player_idx,
                         Nob_String_View order_sv);
+
+// Attempts to parse a game instruction from `order_sv`. Advances the `order_sv`
+// to the end of the parsed instruction.
+// Return values can be:
+//   PARSE_END - in case order_sv has been parsed completely or is empty. In
+//   this case `inst` is left untouched, no instruction has been parsed.
+//
+//   PARSE_FAILURE - in case parsing is impossible because of malformed order.
+//   PARSE_SUCCESS - in case the order was parsed into `inst` and `order_sv` has
+//   been advanced.
+int ParseGameInstruction(GameInstruction *inst, uint8_t owner,
+                         Nob_String_View *order_sv);
+
+// Play player actions from `inst`. Return false in case the player should be
+// disqualified for attempting an invalid action. True otherwise.
+bool PlayGameInstruction(GameState *state, GameInstruction inst);
 
 // Runs one game turn using the planets and fleets saved.
 // Appends an entry to the game log.

@@ -84,9 +84,11 @@ static int ini_parse_handler(void *user_data, const char *section,
   if (name == NULL && value == NULL) {
     // If we start parsing a new bot or human section, reserve it's place
     if (MATCH(section, "bot")) {
-      nob_da_append(&configs->players, (Player){.type = PLAYER_BOT});
+      Player player = {.type = PLAYER_BOT, .id = configs->players.count};
+      nob_da_append(&configs->players, player);
     } else if (MATCH(section, "human")) {
-      nob_da_append(&configs->players, (Player){.type = PLAYER_HUMAN});
+      Player player = {.type = PLAYER_HUMAN, .id = configs->players.count};
+      nob_da_append(&configs->players, player);
     }
     return true;
   }
@@ -258,6 +260,7 @@ bool ParseConfigsFromCLI(Configs *configs, int argc, char *argv[]) {
   for (unsigned i = 0; i < bot_names.count; i++) {
     Player player = {
         .type = PLAYER_BOT,
+        .id = i,
         .name = nob_sb_from_cstr(bot_names.items[i]),
         .as.bot = {
             .start_command = nob_sb_from_cstr(bot_commands.items[i]),

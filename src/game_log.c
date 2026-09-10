@@ -11,7 +11,7 @@
 #define MINIZ_NO_ZLIB_COMPATIBLE_NAMES
 #include "miniz.h"
 
-const unsigned version = 2;
+const unsigned version = 3;
 const char magic[4] = {'p', 'l', 'w', 's'};
 
 // ============================================================================
@@ -233,6 +233,7 @@ bool WriteGameLogToFile(FILE *file, GameLog game_log) {
   WRITE_32(game_log.players.count);
 
   nob_da_foreach(Player, player, &game_log.players) {
+    WRITE_32(player->id);
     WRITE_16(player->name.count);
     for (uint16_t i = 0; i < player->name.count; i++) {
       WRITE_8(player->name.items[i]);
@@ -352,10 +353,10 @@ bool ReadGameLogFromFile(FILE *file, GameLog *game_log) {
   game_log->players.items =
       calloc(game_log->players.count, sizeof *game_log->players.items);
   nob_da_foreach(Player, player, &game_log->players) {
+    READ_32(player->id);
     uint16_t string_length;
     READ_16(string_length);
-    player->name.items =
-        malloc(sizeof *player->name.items * string_length);
+    player->name.items = malloc(sizeof *player->name.items * string_length);
     READ_ERROR_CHK(ReadCompressed(&cr, player->name.items, string_length));
     player->name.count = string_length;
     player->name.capacity = string_length;

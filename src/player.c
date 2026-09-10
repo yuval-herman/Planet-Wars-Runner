@@ -2,6 +2,7 @@
 
 Player DeepCopyPlayer(Player player) {
   Player new_player = {
+      .id = player.id,
       .type = player.type,
       .name = DupeStringBuilder(player.name),
   };
@@ -125,12 +126,62 @@ bool SendMessageToPlayer(Player player, char *message, unsigned length) {
   }
 }
 
+bool SendMapToPlayer(Player player, GameState *state, Nob_String_Builder *sb) {
+  sb->count = 0;
+  switch (player.type) {
+  default:
+    NOB_UNREACHABLE("Impossible player type");
+  case PLAYER_BOT:
+    GetMapRepresentation(state, sb, player.id);
+    return SendMessageToBot(player.as.bot, sb->items, sb->count);
+    break;
+  case PLAYER_HUMAN:
+    return true;
+    break;
+  case PLAYER_REPLAY:
+    return true;
+    break;
+  }
+}
+
 bool GetPlayerMessage(Player player, Nob_String_Builder *sb) {
   switch (player.type) {
   default:
     NOB_UNREACHABLE("Impossible player type");
   case PLAYER_BOT:
     return GetBotMessage(player.as.bot, sb);
+    break;
+  case PLAYER_HUMAN:
+    sb->count = 0;
+    return true;
+    break;
+  case PLAYER_REPLAY:
+    sb->count = 0;
+    return true;
+    break;
+  }
+}
+
+bool GetPlayerInstructions(Player player, GameInstructionDA *instructions,
+                           Nob_String_Builder *sb) {
+  instructions->count = 0;
+  switch (player.type) {
+  default:
+    NOB_UNREACHABLE("Impossible player type");
+  case PLAYER_BOT:
+    if (!GetBotMessage(player.as.bot, sb))
+      return false;
+    GameInstruction inst;
+    Nob_String_View sv = nob_sv_from_parts(sb->items, sb->count);
+    int ret;
+    do {
+      ret = ParseGameInstruction(&inst, player.id, &sv);
+      if (ret == PARSE_FAILURE)
+        return false;
+      else if (ret == PARSE_SUCCESS)
+        nob_da_append(instructions, inst);
+    } while (ret > PARSE_END);
+    return true;
     break;
   case PLAYER_HUMAN:
     sb->count = 0;

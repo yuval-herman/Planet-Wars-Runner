@@ -2,6 +2,7 @@
 #define PLAYER_H
 
 #include "bot.h"
+#include "game.h"
 
 typedef enum {
   // This type is used when loading players from a save file. This players
@@ -14,6 +15,7 @@ typedef enum {
 DefineComplexStruct(Player, {
   PlayerType type;
   Nob_String_Builder name;
+  unsigned id;
   union {
     Bot bot;
     void *human; // currently nothing to store here.
@@ -25,6 +27,13 @@ DefineComplexStruct(PlayerDA, {
   unsigned count;
   unsigned capacity;
 });
+
+typedef struct {
+  GameInstruction *items;
+  unsigned count;
+  unsigned capacity;
+} GameInstructionDA;
+
 
 // If a player needs starting (for example a bot process) call this function
 // before using it. If a player can not be started, this function returns false,
@@ -44,9 +53,15 @@ bool StopPlayer(Player *player);
 bool IsPlayerActive(Player player);
 // Send a message to the player, return true on success, false otherwise.
 bool SendMessageToPlayer(Player player, char *message, unsigned length);
+// Send map to the player, return true on success, false otherwise.
+bool SendMapToPlayer(Player player, GameState *state, Nob_String_Builder *sb);
 // Return true if everythin went okay. Return false in case player should be
 // disqualified.
 bool GetPlayerMessage(Player player, Nob_String_Builder *sb);
+// Return true if everythin went okay. Return false in case player should be
+// disqualified.
+bool GetPlayerInstructions(Player player, GameInstructionDA *instructions,
+                          Nob_String_Builder *sb);
 // TODO Rename to get player chat message and add chat. Or IDK but this
 // currently only makes sense to bots, it should make sense to every type of
 // player, or a seperate system for bot development should be made.

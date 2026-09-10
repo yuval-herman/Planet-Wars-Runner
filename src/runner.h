@@ -19,8 +19,9 @@ bool RunMatch(GameLog *game_log, GameState *state, PlayerDA players);
 // Run one turn for game state. If `game_log` isn't null, save the turn in
 // `game_log`. Returns true if the game isn't over, false otherwise.
 bool RunTurn(GameState *state, GameLog *game_log, PlayerDA players,
-             Nob_String_Builder sb);
+             Nob_String_Builder *sb, GameInstructionDA *instructions);
 // Sends the map to all players, gets an order from all players, and puts the
 // orders into the game state. Does not advance the turn.
-void RunPlayerCycle(GameState *state, PlayerDA players, Nob_String_Builder *sb);
+void RunPlayerCycle(GameState *state, PlayerDA players, Nob_String_Builder *sb,
+                    GameInstructionDA *instructions);
 #endif // TOURNAMENT_H

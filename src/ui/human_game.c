@@ -9,6 +9,7 @@ static GameState game_state = {0};
 static GameSpace game_space = {0};
 static PlayerDA players = {0};
 static Nob_String_Builder sb = {0};
+static GameInstructionDA instructions = {0};
 // 0 is realtime, higher is slower.
 static unsigned short game_speed = 10;
 static unsigned short bot_speed = 200;
@@ -220,6 +221,7 @@ static void DrawPlanetHighlight(Planet planet, Clay_BoundingBox box) {
 
 static void HumanGameDraw() {
   static Nob_String_Builder winner_sb = {0};
+
   winner_sb.count = 0;
   if (game_state.remaining_players == 1) {
     game_running = false;
@@ -227,7 +229,7 @@ static void HumanGameDraw() {
 
   if (game_running) {
     if (bot_speed == 0 || GetFrame() % bot_speed == 0)
-      RunPlayerCycle(&game_state, players, &sb);
+      RunPlayerCycle(&game_state, players, &sb, &instructions);
 
     if (game_speed == 0 || GetFrame() % game_speed == 0)
       AdvanceTurn(&game_state);
@@ -266,7 +268,8 @@ static void HumanGameDraw() {
                        players.items[winner_idx].name.items);
       }
 
-      CLAY_TEXT(SB_TO_CLAY(winner_sb), {.fontId = 2, .fontSize = 64, .textColor = C_WHITE});
+      CLAY_TEXT(SB_TO_CLAY(winner_sb),
+                {.fontId = 2, .fontSize = 64, .textColor = C_WHITE});
     }
   }
 }
