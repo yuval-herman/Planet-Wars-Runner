@@ -93,7 +93,7 @@ bool StartBot(Bot *bot) {
                                  bot->process);
 
   if (0 != result) {
-    nob_log(NOB_ERROR, "ERROR: Failed to launch bot number %d: %.*s\n%s", 2,
+    nob_log(NOB_ERROR, "ERROR: Failed to launch bot: %.*s\n%s",
             (int)bot->start_command.count, bot->start_command.items,
 #ifdef _WIN32
             nob_win32_error_message(GetLastError())
