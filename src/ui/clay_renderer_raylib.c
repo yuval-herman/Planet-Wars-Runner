@@ -294,6 +294,7 @@ void Clay_Raylib_Render(Clay_RenderCommandArray renderCommands, Font* fonts)
                 }
                 break;
             }
+            case CLAY_RENDER_COMMAND_TYPE_NONE: break;
             default: {
                 printf("Error: unhandled render command.");
                 exit(1);

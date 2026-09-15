@@ -318,7 +318,8 @@ static void create_compile_cmd(Nob_Cmd *cmd, const char *file_path,
     nob_cc(cmd);
   }
   nob_cmd_append(cmd, "-c");
-  nob_cmd_append(cmd, "-Wall", "-Wextra", "-Wno-unused-function", "-Wshadow");
+  nob_cmd_append(cmd, "-Wall", "-Wextra", "-Wno-unused-function", "-Wshadow",
+                 "-Wswitch-default", "-Wswitch-enum");
   if (output_path) {
     nob_cmd_append(cmd, "-o", output_path);
   }
