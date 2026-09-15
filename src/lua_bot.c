@@ -9,6 +9,21 @@ static bool CheckLuaFunctionExists(lua_State *L, const char *func_name) {
   return is_func;
 }
 
+// This does not copy the lua state. Even if the bot being copied was started,
+// the actually have a copy of it you need to call start on the new bot as well.
+LuaBot DeepCopyLuaBot(LuaBot bot) {
+  LuaBot new_bot = {
+      .script_code = DupeStringBuilder(bot.script_code),
+      .lua_state = NULL,
+  };
+  return new_bot;
+}
+
+void FreeInnerLuaBot(LuaBot bot) {
+  StopLuaBot(bot);
+  nob_sb_free(bot.script_code);
+}
+
 bool IsLuaBotActive(LuaBot bot) {
   return bot.lua_state == NULL;
 }
@@ -60,7 +75,6 @@ bool StartLuaBot(LuaBot *bot) {
 
 void StopLuaBot(LuaBot bot) {
   lua_close(bot.lua_state);
-  nob_sb_free(bot.script_code);
 }
 
 // printf("lua_getglobal ret: %d\n", lua_getglobal(bot.lua_state, "hello"));
