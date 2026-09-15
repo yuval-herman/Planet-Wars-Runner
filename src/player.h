@@ -3,12 +3,14 @@
 
 #include "bot.h"
 #include "game.h"
+#include "lua_bot.h"
 
 typedef enum {
   // This type is used when loading players from a save file. This players
   // cannot be interacted with.
   PLAYER_REPLAY,
   PLAYER_BOT,
+  PLAYER_LUA_BOT,
   PLAYER_HUMAN,
 } PlayerType;
 
@@ -18,6 +20,7 @@ DefineComplexStruct(Player, {
   unsigned id;
   union {
     Bot bot;
+    LuaBot lua_bot;
     void *human; // currently nothing to store here.
   } as;
 });
@@ -54,7 +57,7 @@ bool GetPlayerMessage(Player player, Nob_String_Builder *sb);
 // Return true if everythin went okay. Return false in case player should be
 // disqualified.
 bool GetPlayerInstructions(Player player, GameInstructionDA *instructions,
-                          Nob_String_Builder *sb);
+                           Nob_String_Builder *sb);
 // TODO Rename to get player chat message and add chat. Or IDK but this
 // currently only makes sense to bots, it should make sense to every type of
 // player, or a seperate system for bot development should be made.

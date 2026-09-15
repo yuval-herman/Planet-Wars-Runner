@@ -13,6 +13,9 @@ Player DeepCopyPlayer(Player player) {
   case PLAYER_BOT:
     new_player.as.bot = DeepCopyBot(player.as.bot);
     break;
+  case PLAYER_LUA_BOT:
+    new_player.as.lua_bot = DeepCopyLuaBot(player.as.lua_bot);
+    break;
   case PLAYER_HUMAN:
     // currently empty
     break;
@@ -31,6 +34,9 @@ void FreeInnerPlayer(Player player) {
     NOB_UNREACHABLE("Impossible player type");
   case PLAYER_BOT:
     FreeInnerBot(player.as.bot);
+    break;
+  case PLAYER_LUA_BOT:
+    FreeInnerLuaBot(player.as.lua_bot);
     break;
   case PLAYER_HUMAN:
     // currently empty
@@ -67,6 +73,9 @@ bool StartPlayer(Player *player) {
     NOB_UNREACHABLE("Impossible player type");
   case PLAYER_BOT:
     return StartBot(&player->as.bot);
+  case PLAYER_LUA_BOT:
+    return StartLuaBot(&player->as.lua_bot);
+    break;
   case PLAYER_HUMAN:
     // currently empty
     return true;
@@ -85,6 +94,10 @@ bool StopPlayer(Player *player) {
     NOB_UNREACHABLE("Impossible player type");
   case PLAYER_BOT:
     return StopBot(player->as.bot);
+  case PLAYER_LUA_BOT:
+    StopLuaBot(player->as.lua_bot);
+    return true;
+    break;
   case PLAYER_HUMAN:
     // currently empty
     return true;
@@ -101,6 +114,9 @@ bool IsPlayerActive(Player player) {
   case PLAYER_BOT:
     return IsBotAlive(player.as.bot);
     break;
+  case PLAYER_LUA_BOT:
+    return IsLuaBotActive(player.as.lua_bot);
+    break;
   case PLAYER_HUMAN:
     return true;
     break;
@@ -116,6 +132,9 @@ bool SendMessageToPlayer(Player player, char *message, unsigned length) {
     NOB_UNREACHABLE("Impossible player type");
   case PLAYER_BOT:
     return SendMessageToBot(player.as.bot, message, length);
+    break;
+  case PLAYER_LUA_BOT:
+    NOB_TODO("TBD");
     break;
   case PLAYER_HUMAN:
     return true;
@@ -135,6 +154,9 @@ bool SendMapToPlayer(Player player, GameState *state, Nob_String_Builder *sb) {
     GetMapRepresentation(state, sb, player.id);
     return SendMessageToBot(player.as.bot, sb->items, sb->count);
     break;
+  case PLAYER_LUA_BOT:
+    NOB_TODO("TBD");
+    break;
   case PLAYER_HUMAN:
     return true;
     break;
@@ -150,6 +172,9 @@ bool GetPlayerMessage(Player player, Nob_String_Builder *sb) {
     NOB_UNREACHABLE("Impossible player type");
   case PLAYER_BOT:
     return GetBotMessage(player.as.bot, sb);
+    break;
+  case PLAYER_LUA_BOT:
+    NOB_TODO("TBD");
     break;
   case PLAYER_HUMAN:
     sb->count = 0;
@@ -183,6 +208,10 @@ bool GetPlayerInstructions(Player player, GameInstructionDA *instructions,
     } while (ret > PARSE_END);
     return true;
     break;
+  case PLAYER_LUA_BOT:
+    NOB_TODO("TBD");
+    return true;
+    break;
   case PLAYER_HUMAN:
     sb->count = 0;
     return true;
@@ -200,6 +229,9 @@ void GetPlayerDebugMessage(Player player, Nob_String_Builder *sb) {
     NOB_UNREACHABLE("Impossible player type");
   case PLAYER_BOT:
     GetBotDebugMessage(player.as.bot, sb);
+    break;
+  case PLAYER_LUA_BOT:
+    NOB_TODO("TBD");
     break;
   case PLAYER_HUMAN:
     sb->count = 0;
