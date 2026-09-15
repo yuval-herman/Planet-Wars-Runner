@@ -37,6 +37,12 @@ typedef struct {
   uint8_t owner;
 } GameInstruction;
 
+typedef struct {
+  GameInstruction *items;
+  unsigned count;
+  unsigned capacity;
+} GameInstructionDA;
+
 // Make game is essentially a safe wrapper around `ParseMapFile`. It adds a few
 // extra checks like verifying the number of players is correct.
 bool MakeGame(GameState *state, const char *map_file_path,

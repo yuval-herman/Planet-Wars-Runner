@@ -28,13 +28,6 @@ DefineComplexStruct(PlayerDA, {
   unsigned capacity;
 });
 
-typedef struct {
-  GameInstruction *items;
-  unsigned count;
-  unsigned capacity;
-} GameInstructionDA;
-
-
 // If a player needs starting (for example a bot process) call this function
 // before using it. If a player can not be started, this function returns false,
 // otherwise it returns true. Note this function will returns true even if the
