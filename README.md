@@ -55,17 +55,24 @@ tournament = true            ; Whether to run a tournament between all supplied 
 map = map.txt                ; Path to the map file that will be used.
 
 [bot]
-name = Okay Bot              ; Name for the bot. Optional, but good for tournament mode.
+name = Okay Bot              ; Name for the bot.
 command = python okay_bot.py ; Actuall command that will be invoked by the manager.
 
-; Each bot can be defined in it's own section
+; Each bot can be defined in it's own section.
+[bot]
+name = Best bot
+command = ./best_bot
+
+; Bots can be written in any language, and the full command
+; line to invoke them should be specified if needed.
 [bot]
 name = Worst bot
 command = node worst_bot.js
 
+; Bots written in lua can be run directly by specifying a script path.
 [bot]
-name = Best bot
-command = ./best_bot
+name = Lua bot
+script = lua_bot.lua
 ```
 
 ## Building the Project

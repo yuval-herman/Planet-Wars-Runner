@@ -74,7 +74,8 @@ bool StartLuaBot(LuaBot *bot) {
 }
 
 void StopLuaBot(LuaBot bot) {
-  lua_close(bot.lua_state);
+  if (bot.lua_state)
+    lua_close(bot.lua_state);
 }
 
 // printf("lua_getglobal ret: %d\n", lua_getglobal(bot.lua_state, "hello"));

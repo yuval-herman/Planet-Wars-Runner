@@ -118,7 +118,28 @@ static int ini_parse_handler(void *user_data, const char *section,
 
     if (MATCH(name, "name")) {
       nob_sb_append_cstr(&nob_da_last(&configs->players).name, value);
+    } else if (MATCH(name, "script")) {
+      if (nob_da_last(&configs->players).as.bot.start_command.count != 0) {
+        nob_log(NOB_ERROR,
+                "Bots can have either a `script` or a `command` value. A "
+                "script value was provided after a command value in line %d.",
+                lineno);
+        return false;
+      }
+      nob_da_last(&configs->players).type = PLAYER_LUA_BOT;
+      if (!nob_read_entire_file(
+              value, &nob_da_last(&configs->players).as.lua_bot.script_code)) {
+        nob_log(NOB_ERROR, "Failed reading lua script file. line %d.", lineno);
+        return false;
+      }
     } else if (MATCH(name, "command")) {
+      if (nob_da_last(&configs->players).type == PLAYER_LUA_BOT) {
+        nob_log(NOB_ERROR,
+                "Bots can have either a `script` or a `command` value. A "
+                "command value was provided after a command script in line %d.",
+                lineno);
+        return false;
+      }
       nob_sb_append_cstr(&nob_da_last(&configs->players).as.bot.start_command,
                          value);
     } else {
