@@ -141,7 +141,7 @@ int ThrdMatchRunner(void *args) {
     playing_players.items[0] = match_args->players.items[p1_idx];
     playing_players.items[1] = match_args->players.items[p2_idx];
 
-    // This is required to because a players' id is expected to currespond to
+    // This is required because a players' id is expected to currespond to
     // their place in the array and be their `owner` id in the game.
     nob_da_foreach(Player, player, &playing_players) {
       player->id = player - playing_players.items;
