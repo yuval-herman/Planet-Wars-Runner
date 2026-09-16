@@ -75,7 +75,6 @@ bool StartPlayer(Player *player) {
     return StartBot(&player->as.bot);
   case PLAYER_LUA_BOT:
     return StartLuaBot(&player->as.lua_bot);
-    break;
   case PLAYER_HUMAN:
     // currently empty
     return true;
@@ -134,7 +133,8 @@ bool SendMessageToPlayer(Player player, char *message, unsigned length) {
     return SendMessageToBot(player.as.bot, message, length);
     break;
   case PLAYER_LUA_BOT:
-    NOB_TODO("TBD");
+    NOB_TODO("Not applicable at the moment of writing. Implement this as it's "
+             "necessary for you.");
     break;
   case PLAYER_HUMAN:
     return true;
@@ -155,7 +155,7 @@ bool SendMapToPlayer(Player player, GameState *state, Nob_String_Builder *sb) {
     return SendMessageToBot(player.as.bot, sb->items, sb->count);
     break;
   case PLAYER_LUA_BOT:
-    NOB_TODO("TBD");
+    SendMapToLuaBot(player.as.lua_bot, *state);
     break;
   case PLAYER_HUMAN:
     return true;
@@ -209,8 +209,7 @@ bool GetPlayerInstructions(Player player, GameInstructionDA *instructions,
     return true;
     break;
   case PLAYER_LUA_BOT:
-    NOB_TODO("TBD");
-    return true;
+    return GetLuaBotInstructions(player.as.lua_bot, instructions);
     break;
   case PLAYER_HUMAN:
     sb->count = 0;
@@ -231,7 +230,7 @@ void GetPlayerDebugMessage(Player player, Nob_String_Builder *sb) {
     GetBotDebugMessage(player.as.bot, sb);
     break;
   case PLAYER_LUA_BOT:
-    NOB_TODO("TBD");
+    GetLuaBotDebugMessage(player.as.lua_bot);
     break;
   case PLAYER_HUMAN:
     sb->count = 0;

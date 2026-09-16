@@ -14,12 +14,17 @@
 
 DefineComplexStruct(LuaBot, {
   lua_State *lua_state;
+  int do_turn_ref;
   Nob_String_Builder script_code;
+  GameInstructionDA instructions;
 });
 
 bool StartLuaBot(LuaBot *bot);
 bool IsLuaBotActive(LuaBot bot);
 void StopLuaBot(LuaBot bot);
+bool SendMapToLuaBot(LuaBot bot, GameState state);
+// This should be called after calling `SendMapToLuaBot`. It simply copies the
+// cached instructions from the previous calls and clear them.
 bool GetLuaBotInstructions(LuaBot bot, GameInstructionDA *instructions);
 void GetLuaBotDebugMessage(LuaBot bot);
 

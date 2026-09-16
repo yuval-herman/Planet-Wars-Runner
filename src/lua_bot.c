@@ -2,11 +2,17 @@
 
 #define DO_TURN_FUNCTION "do_turn"
 
-static bool CheckLuaFunctionExists(lua_State *L, const char *func_name) {
-  lua_getglobal(L, func_name);
-  bool is_func = lua_isfunction(L, -1);
-  lua_pop(L, 1);
-  return is_func;
+static bool InitBotReferences(LuaBot *bot) {
+  lua_getglobal(bot->lua_state, DO_TURN_FUNCTION);
+
+  if (!lua_isfunction(bot->lua_state, -1)) {
+    lua_pop(bot->lua_state, 1);
+    bot->do_turn_ref = LUA_NOREF;
+    return false;
+  }
+
+  bot->do_turn_ref = luaL_ref(bot->lua_state, LUA_REGISTRYINDEX);
+  return true;
 }
 
 // This does not copy the lua state. Even if the bot being copied was started,
@@ -24,9 +30,7 @@ void FreeInnerLuaBot(LuaBot bot) {
   nob_sb_free(bot.script_code);
 }
 
-bool IsLuaBotActive(LuaBot bot) {
-  return bot.lua_state == NULL;
-}
+bool IsLuaBotActive(LuaBot bot) { return bot.lua_state != NULL; }
 
 bool StartLuaBot(LuaBot *bot) {
   if (!bot->script_code.count) {
@@ -36,7 +40,8 @@ bool StartLuaBot(LuaBot *bot) {
 
   if (!bot->lua_state) {
     bot->lua_state = luaL_newstate();
-  }
+  } else
+    return true;
 
   if (bot->lua_state == NULL) {
     nob_log(NOB_WARNING, "Failed to init lua state.");
@@ -64,7 +69,7 @@ bool StartLuaBot(LuaBot *bot) {
     return false;
   }
 
-  if (!CheckLuaFunctionExists(bot->lua_state, DO_TURN_FUNCTION)) {
+  if (!InitBotReferences(bot)) {
     nob_log(NOB_ERROR,
             "Bot code is missing required function: " DO_TURN_FUNCTION);
     return false;
@@ -83,9 +88,25 @@ void StopLuaBot(LuaBot bot) {
 // lua_pushinteger(bot.lua_state, 55);
 // lua_call(bot.lua_state, 2, 0);
 
+bool SendMapToLuaBot(LuaBot bot, GameState state) {
+  assert(bot.do_turn_ref >= 2);
+  printf("ref: %d\n", bot.do_turn_ref);
+
+  lua_rawgeti(bot.lua_state, LUA_REGISTRYINDEX, bot.do_turn_ref);
+
+  // Push arguments
+  // lua_pushnumber(bot->lua_state, delta_time);
+
+  // Execute (0 arg, 0 results)
+  if (lua_pcall(bot.lua_state, 0, 0, 0) != LUA_OK) {
+    nob_log(NOB_WARNING, "lua error: %s", lua_tostring(bot.lua_state, -1));
+    lua_pop(bot.lua_state, 1);
+    return false;
+  }
+  return true;
+}
 bool GetLuaBotInstructions(LuaBot bot, GameInstructionDA *instructions) {
-  NOB_TODO("In the works");
+  return true;
 }
-void GetLuaBotDebugMessage(LuaBot bot) {
-  NOB_TODO("In the works");
-}
+
+void GetLuaBotDebugMessage(LuaBot bot) {  }
