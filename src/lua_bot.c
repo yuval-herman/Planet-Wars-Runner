@@ -240,22 +240,87 @@ void StopLuaBot(LuaBot bot) {
     lua_close(bot.lua_state);
 }
 
-// printf("lua_getglobal ret: %d\n", lua_getglobal(bot.lua_state, "hello"));
-// lua_pushinteger(bot.lua_state, 42);
-// lua_pushinteger(bot.lua_state, 55);
-// lua_call(bot.lua_state, 2, 0);
+// Helper to push a single Planet struct as a Lua table with named fields
+static void PushPlanet(lua_State *L, const Planet *planet, unsigned planet_id) {
+  lua_createtable(L, 0, 6);
+
+  lua_pushinteger(L, planet_id);
+  lua_setfield(L, -2, "planet_id");
+
+  lua_pushinteger(L, planet->owner);
+  lua_setfield(L, -2, "owner");
+
+  lua_pushinteger(L, planet->ships);
+  lua_setfield(L, -2, "num_ships");
+
+  lua_pushinteger(L, planet->growth);
+  lua_setfield(L, -2, "growth_rate");
+
+  lua_pushnumber(L, planet->coords.x);
+  lua_setfield(L, -2, "x");
+
+  lua_pushnumber(L, planet->coords.y);
+  lua_setfield(L, -2, "y");
+}
+
+// Helper to push a single Fleet struct as a Lua table with named fields
+static void PushFleet(lua_State *L, const Fleet *fleet) {
+  lua_createtable(L, 0, 6);
+
+  lua_pushinteger(L, fleet->owner);
+  lua_setfield(L, -2, "owner");
+
+  lua_pushinteger(L, fleet->ships);
+  lua_setfield(L, -2, "num_ships");
+
+  lua_pushinteger(L, fleet->src_id);
+  lua_setfield(L, -2, "source_planet");
+
+  lua_pushinteger(L, fleet->dst_id);
+  lua_setfield(L, -2, "destination_planet");
+
+  lua_pushinteger(L, fleet->total);
+  lua_setfield(L, -2, "total_trip_length");
+
+  lua_pushinteger(L, fleet->remaining);
+  lua_setfield(L, -2, "turns_remaining");
+}
 
 bool SendMapToLuaBot(LuaBot *bot, Planet *planets, unsigned planet_count,
                      Fleet *fleets, unsigned fleet_count) {
   assert(bot->do_turn_ref >= 2);
 
+  bot->instructions.count = 0;
+  bot->debug_messages.count = 0;
+
+  // Push the do_turn function
   lua_rawgeti(bot->lua_state, LUA_REGISTRYINDEX, bot->do_turn_ref);
 
-  // Push arguments
-  // lua_pushnumber(bot->lua_state, delta_time);
+  // Build the pw table
+  lua_createtable(bot->lua_state, 0, 2);
 
-  // Execute (0 arg, 0 results)
-  if (lua_pcall(bot->lua_state, 0, 0, 0) != LUA_OK) {
+  // Build planets array
+  lua_createtable(bot->lua_state, planet_count, 0);
+  for (unsigned i = 0; i < planet_count; ++i) {
+    PushPlanet(bot->lua_state, &planets[i], i);
+    lua_rawseti(bot->lua_state, -2, i + 1);
+  }
+  lua_setfield(bot->lua_state, -2, "planets");
+
+  // Build fleets array
+  lua_createtable(bot->lua_state, fleet_count, 0);
+  for (unsigned i = 0; i < fleet_count; ++i) {
+    PushFleet(bot->lua_state, &fleets[i]);
+    lua_rawseti(bot->lua_state, -2, i + 1);
+  }
+  lua_setfield(bot->lua_state, -2, "fleets");
+
+  // Attach PlanetWars metatable so pw has all module methods
+  luaL_getmetatable(bot->lua_state, "PlanetWars");
+  lua_setmetatable(bot->lua_state, -2);
+
+  // Execute do_turn(pw)
+  if (lua_pcall(bot->lua_state, 1, 0, 0) != LUA_OK) {
     nob_log(NOB_WARNING, "lua error: %s", lua_tostring(bot->lua_state, -1));
     lua_pop(bot->lua_state, 1);
     bot->had_error = true;

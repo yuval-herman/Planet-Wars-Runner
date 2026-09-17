@@ -216,7 +216,7 @@ bool GetPlayerInstructions(Player *player, GameInstructionDA *instructions,
   switch (player->type) {
   default:
     NOB_UNREACHABLE("Impossible player type");
-  case PLAYER_BOT:
+  case PLAYER_BOT: {
     if (!GetBotMessage(player->as.bot, sb))
       return false;
     GameInstruction inst;
@@ -230,10 +230,16 @@ bool GetPlayerInstructions(Player *player, GameInstructionDA *instructions,
         nob_da_append(instructions, inst);
     } while (ret > PARSE_END);
     return true;
-    break;
-  case PLAYER_LUA_BOT:
-    return GetLuaBotInstructions(&player->as.lua_bot, instructions);
-    break;
+  } break;
+  case PLAYER_LUA_BOT: {
+    bool ret = GetLuaBotInstructions(&player->as.lua_bot, instructions);
+    if (!ret)
+      return false;
+
+    nob_da_foreach(GameInstruction, inst, instructions) {
+      inst->owner = player->id;
+    }
+  } break;
   case PLAYER_HUMAN:
     sb->count = 0;
     return true;
