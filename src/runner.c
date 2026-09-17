@@ -380,5 +380,6 @@ bool RunMatch(GameLog *game_log, GameState *state, PlayerDA players) {
   }
 
   nob_sb_free(sb);
+  nob_da_free(instructions);
   return true;
 }
