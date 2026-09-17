@@ -112,7 +112,7 @@ LuaBot DeepCopyLuaBot(LuaBot bot) {
 }
 
 void FreeInnerLuaBot(LuaBot bot) {
-  StopLuaBot(bot);
+  StopLuaBot(&bot);
   nob_sb_free(bot.script_code);
   nob_sb_free(bot.debug_messages);
   nob_da_free(bot.instructions);
@@ -235,9 +235,10 @@ bool StartLuaBot(LuaBot *bot) {
   return true;
 }
 
-void StopLuaBot(LuaBot bot) {
-  if (bot.lua_state)
-    lua_close(bot.lua_state);
+void StopLuaBot(LuaBot *bot) {
+  if (bot->lua_state)
+    lua_close(bot->lua_state);
+  bot->lua_state = NULL;
 }
 
 // Helper to push a single Planet struct as a Lua table with named fields

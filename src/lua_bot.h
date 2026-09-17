@@ -23,7 +23,7 @@ DefineComplexStruct(LuaBot, {
 
 bool StartLuaBot(LuaBot *bot);
 bool IsLuaBotActive(LuaBot bot);
-void StopLuaBot(LuaBot bot);
+void StopLuaBot(LuaBot *bot);
 bool SendMapToLuaBot(LuaBot *bot, Planet *planets, unsigned planet_count,
                      Fleet *fleets, unsigned fleet_count);
 // This should be called after calling `SendMapToLuaBot`. It simply copies the

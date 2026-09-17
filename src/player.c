@@ -92,9 +92,9 @@ bool StopPlayer(Player *player) {
   default:
     NOB_UNREACHABLE("Impossible player type");
   case PLAYER_BOT:
-    return StopBot(player->as.bot);
+    return StopBot(&player->as.bot);
   case PLAYER_LUA_BOT:
-    StopLuaBot(player->as.lua_bot);
+    StopLuaBot(&player->as.lua_bot);
     return true;
     break;
   case PLAYER_HUMAN:

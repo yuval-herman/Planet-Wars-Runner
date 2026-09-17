@@ -12,7 +12,7 @@ Bot DeepCopyBot(Bot bot) {
 
 // This DOES stop and free the bot process.
 void FreeInnerBot(Bot bot) {
-  StopBot(bot);
+  StopBot(&bot);
   nob_da_free(bot.start_command);
   free(bot.process);
 }
@@ -58,18 +58,22 @@ bool SendMessageToBot(Bot bot, char *message, unsigned length) {
   NOB_UNREACHABLE("subprocess based bots are unavailable in wasm mode");
 }
 #else
-bool StopBot(Bot bot) {
-  if (bot.process == NULL)
+bool StopBot(Bot *bot) {
+  if (bot->process == NULL)
     return true;
-  if (subprocess_alive(bot.process)) {
-    if (subprocess_terminate(bot.process) != 0 ||
-        subprocess_join(bot.process, NULL) != 0) {
+  if (subprocess_alive(bot->process)) {
+    if (subprocess_terminate(bot->process) != 0 ||
+        subprocess_join(bot->process, NULL) != 0) {
       nob_log(NOB_WARNING, "Failed terminating bot process: %.*s.",
-              (int)bot.start_command.count, bot.start_command.items);
+              (int)bot->start_command.count, bot->start_command.items);
       return false;
     }
   }
-  return 0 == subprocess_destroy(bot.process);
+  if (0 == subprocess_destroy(bot->process)) {
+    bot->process = NULL;
+    return true;
+  } else
+    return false;
 }
 
 bool IsBotAlive(Bot bot) {

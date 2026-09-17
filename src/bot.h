@@ -24,7 +24,7 @@ DefineComplexStruct(BotsDA, {
   unsigned capacity;
 });
 
-bool StopBot(Bot bot);
+bool StopBot(Bot *bot);
 bool StartBot(Bot *bot);
 bool IsBotAlive(Bot bot);
 // Return true if everythin went okay. Return false in case bot should be
