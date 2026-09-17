@@ -239,6 +239,7 @@ bool GetPlayerInstructions(Player *player, GameInstructionDA *instructions,
     nob_da_foreach(GameInstruction, inst, instructions) {
       inst->owner = player->id;
     }
+    return true;
   } break;
   case PLAYER_HUMAN:
     sb->count = 0;
