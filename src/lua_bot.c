@@ -21,6 +21,7 @@ LuaBot DeepCopyLuaBot(LuaBot bot) {
   LuaBot new_bot = {
       .script_code = DupeStringBuilder(bot.script_code),
       .lua_state = NULL,
+      .do_turn_ref = LUA_NOREF,
   };
   return new_bot;
 }
@@ -28,6 +29,8 @@ LuaBot DeepCopyLuaBot(LuaBot bot) {
 void FreeInnerLuaBot(LuaBot bot) {
   StopLuaBot(bot);
   nob_sb_free(bot.script_code);
+  nob_sb_free(bot.debug_messages);
+  nob_da_free(bot.instructions);
 }
 
 bool IsLuaBotActive(LuaBot bot) { return bot.lua_state != NULL; }
@@ -98,24 +101,25 @@ void StopLuaBot(LuaBot bot) {
 // lua_pushinteger(bot.lua_state, 55);
 // lua_call(bot.lua_state, 2, 0);
 
-bool SendMapToLuaBot(LuaBot bot, GameState state) {
-  assert(bot.do_turn_ref >= 2);
+bool SendMapToLuaBot(LuaBot *bot, Planet *planets, unsigned planet_count,
+                     Fleet *fleets, unsigned fleet_count) {
+  assert(bot->do_turn_ref >= 2);
 
-  lua_rawgeti(bot.lua_state, LUA_REGISTRYINDEX, bot.do_turn_ref);
+  lua_rawgeti(bot->lua_state, LUA_REGISTRYINDEX, bot->do_turn_ref);
 
   // Push arguments
   // lua_pushnumber(bot->lua_state, delta_time);
 
   // Execute (0 arg, 0 results)
-  if (lua_pcall(bot.lua_state, 0, 0, 0) != LUA_OK) {
-    nob_log(NOB_WARNING, "lua error: %s", lua_tostring(bot.lua_state, -1));
-    lua_pop(bot.lua_state, 1);
+  if (lua_pcall(bot->lua_state, 0, 0, 0) != LUA_OK) {
+    nob_log(NOB_WARNING, "lua error: %s", lua_tostring(bot->lua_state, -1));
+    lua_pop(bot->lua_state, 1);
     return false;
   }
   return true;
 }
-bool GetLuaBotInstructions(LuaBot bot, GameInstructionDA *instructions) {
+bool GetLuaBotInstructions(LuaBot *bot, GameInstructionDA *instructions) {
   return true;
 }
 
-void GetLuaBotDebugMessage(LuaBot bot) {}
+void GetLuaBotDebugMessage(LuaBot *bot, Nob_String_Builder *sb) {}

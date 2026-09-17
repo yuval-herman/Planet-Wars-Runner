@@ -125,12 +125,12 @@ bool IsPlayerActive(Player player) {
   }
 }
 
-bool SendMessageToPlayer(Player player, char *message, unsigned length) {
-  switch (player.type) {
+bool SendMessageToPlayer(Player *player, char *message, unsigned length) {
+  switch (player->type) {
   default:
     NOB_UNREACHABLE("Impossible player type");
   case PLAYER_BOT:
-    return SendMessageToBot(player.as.bot, message, length);
+    return SendMessageToBot(player->as.bot, message, length);
     break;
   case PLAYER_LUA_BOT:
     NOB_TODO("Not applicable at the moment of writing. Implement this as it's "
@@ -145,18 +145,40 @@ bool SendMessageToPlayer(Player player, char *message, unsigned length) {
   }
 }
 
-bool SendMapToPlayer(Player player, GameState *state, Nob_String_Builder *sb) {
+bool SendMapToPlayer(Player *player, GameState *state, Nob_String_Builder *sb) {
   sb->count = 0;
-  switch (player.type) {
+  switch (player->type) {
   default:
     NOB_UNREACHABLE("Impossible player type");
   case PLAYER_BOT:
-    GetMapRepresentation(state, sb, player.id);
-    return SendMessageToBot(player.as.bot, sb->items, sb->count);
+    GetMapRepresentation(state, sb, player->id);
+    return SendMessageToBot(player->as.bot, sb->items, sb->count);
     break;
-  case PLAYER_LUA_BOT:
-    SendMapToLuaBot(player.as.lua_bot, *state);
-    break;
+  case PLAYER_LUA_BOT: {
+    size_t sizeof_planets = sizeof *state->planets.items * state->planets.count;
+    size_t sizeof_fleets = sizeof *state->fleets.items * state->fleets.count;
+    nob_da_reserve(sb, sizeof_planets + sizeof_fleets);
+
+    Planet *planets = (Planet *)sb->items;
+    Fleet *fleets = (Fleet *)(sb->items + sizeof_planets);
+
+    for (size_t i = 0; i < state->planets.count; ++i) {
+      planets[i] = state->planets.items[i];
+      planets[i].owner =
+          RemapOwner(planets[i].owner, player->id, state->player_count);
+    }
+
+    for (size_t i = 0; i < state->fleets.count; ++i) {
+      fleets[i] = state->fleets.items[i];
+      fleets[i].owner =
+          RemapOwner(fleets[i].owner, player->id, state->player_count);
+    }
+
+    sb->count = sizeof_planets + sizeof_fleets;
+
+    return SendMapToLuaBot(&player->as.lua_bot, planets, state->planets.count,
+                           fleets, state->fleets.count);
+  }
   case PLAYER_HUMAN:
     return true;
     break;
@@ -166,15 +188,16 @@ bool SendMapToPlayer(Player player, GameState *state, Nob_String_Builder *sb) {
   }
 }
 
-bool GetPlayerMessage(Player player, Nob_String_Builder *sb) {
-  switch (player.type) {
+bool GetPlayerMessage(Player *player, Nob_String_Builder *sb) {
+  switch (player->type) {
   default:
     NOB_UNREACHABLE("Impossible player type");
   case PLAYER_BOT:
-    return GetBotMessage(player.as.bot, sb);
+    return GetBotMessage(player->as.bot, sb);
     break;
   case PLAYER_LUA_BOT:
-    NOB_TODO("TBD");
+    sb->count = 0;
+    return true;
     break;
   case PLAYER_HUMAN:
     sb->count = 0;
@@ -187,20 +210,20 @@ bool GetPlayerMessage(Player player, Nob_String_Builder *sb) {
   }
 }
 
-bool GetPlayerInstructions(Player player, GameInstructionDA *instructions,
+bool GetPlayerInstructions(Player *player, GameInstructionDA *instructions,
                            Nob_String_Builder *sb) {
   instructions->count = 0;
-  switch (player.type) {
+  switch (player->type) {
   default:
     NOB_UNREACHABLE("Impossible player type");
   case PLAYER_BOT:
-    if (!GetBotMessage(player.as.bot, sb))
+    if (!GetBotMessage(player->as.bot, sb))
       return false;
     GameInstruction inst;
     Nob_String_View sv = nob_sv_from_parts(sb->items, sb->count);
     int ret;
     do {
-      ret = ParseGameInstruction(&inst, player.id, &sv);
+      ret = ParseGameInstruction(&inst, player->id, &sv);
       if (ret == PARSE_FAILURE)
         return false;
       else if (ret == PARSE_SUCCESS)
@@ -209,7 +232,7 @@ bool GetPlayerInstructions(Player player, GameInstructionDA *instructions,
     return true;
     break;
   case PLAYER_LUA_BOT:
-    return GetLuaBotInstructions(player.as.lua_bot, instructions);
+    return GetLuaBotInstructions(&player->as.lua_bot, instructions);
     break;
   case PLAYER_HUMAN:
     sb->count = 0;
@@ -222,15 +245,15 @@ bool GetPlayerInstructions(Player player, GameInstructionDA *instructions,
   }
 }
 
-void GetPlayerDebugMessage(Player player, Nob_String_Builder *sb) {
-  switch (player.type) {
+void GetPlayerDebugMessage(Player *player, Nob_String_Builder *sb) {
+  switch (player->type) {
   default:
     NOB_UNREACHABLE("Impossible player type");
   case PLAYER_BOT:
-    GetBotDebugMessage(player.as.bot, sb);
+    GetBotDebugMessage(player->as.bot, sb);
     break;
   case PLAYER_LUA_BOT:
-    GetLuaBotDebugMessage(player.as.lua_bot);
+    GetLuaBotDebugMessage(&player->as.lua_bot, sb);
     break;
   case PLAYER_HUMAN:
     sb->count = 0;

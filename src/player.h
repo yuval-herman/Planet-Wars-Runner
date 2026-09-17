@@ -48,19 +48,19 @@ bool StopPlayer(Player *player);
 // of a bot process, whether the process is alive
 bool IsPlayerActive(Player player);
 // Send a message to the player, return true on success, false otherwise.
-bool SendMessageToPlayer(Player player, char *message, unsigned length);
+bool SendMessageToPlayer(Player *player, char *message, unsigned length);
 // Send map to the player, return true on success, false otherwise.
-bool SendMapToPlayer(Player player, GameState *state, Nob_String_Builder *sb);
+bool SendMapToPlayer(Player *player, GameState *state, Nob_String_Builder *sb);
 // Return true if everythin went okay. Return false in case player should be
 // disqualified.
-bool GetPlayerMessage(Player player, Nob_String_Builder *sb);
+bool GetPlayerMessage(Player *player, Nob_String_Builder *sb);
 // Return true if everythin went okay. Return false in case player should be
 // disqualified.
-bool GetPlayerInstructions(Player player, GameInstructionDA *instructions,
+bool GetPlayerInstructions(Player *player, GameInstructionDA *instructions,
                            Nob_String_Builder *sb);
 // TODO Rename to get player chat message and add chat. Or IDK but this
 // currently only makes sense to bots, it should make sense to every type of
 // player, or a seperate system for bot development should be made.
-void GetPlayerDebugMessage(Player player, Nob_String_Builder *sb);
+void GetPlayerDebugMessage(Player *player, Nob_String_Builder *sb);
 
 #endif // PLAYER_H

@@ -17,15 +17,17 @@ DefineComplexStruct(LuaBot, {
   int do_turn_ref;
   Nob_String_Builder script_code;
   GameInstructionDA instructions;
+  Nob_String_Builder debug_messages;
 });
 
 bool StartLuaBot(LuaBot *bot);
 bool IsLuaBotActive(LuaBot bot);
 void StopLuaBot(LuaBot bot);
-bool SendMapToLuaBot(LuaBot bot, GameState state);
+bool SendMapToLuaBot(LuaBot *bot, Planet *planets, unsigned planet_count,
+                     Fleet *fleets, unsigned fleet_count);
 // This should be called after calling `SendMapToLuaBot`. It simply copies the
 // cached instructions from the previous calls and clear them.
-bool GetLuaBotInstructions(LuaBot bot, GameInstructionDA *instructions);
-void GetLuaBotDebugMessage(LuaBot bot);
+bool GetLuaBotInstructions(LuaBot *bot, GameInstructionDA *instructions);
+void GetLuaBotDebugMessage(LuaBot *bot, Nob_String_Builder *sb);
 
 #endif // LUA_BOT_H

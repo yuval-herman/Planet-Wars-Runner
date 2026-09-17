@@ -285,7 +285,7 @@ void RunPlayerCycle(GameState *state, PlayerDA players, Nob_String_Builder *sb,
 
       sb->count = 0;
 
-      SendMapToPlayer(*player, state, sb);
+      SendMapToPlayer(player, state, sb);
     }
     bot_num++;
   }
@@ -296,7 +296,7 @@ void RunPlayerCycle(GameState *state, PlayerDA players, Nob_String_Builder *sb,
     // Skip disqualified or lost bots.
     if (TestBit(state->player_bit_set, bot_num)) {
       sb->count = 0;
-      bot_okay = GetPlayerInstructions(*player, instructions, sb);
+      bot_okay = GetPlayerInstructions(player, instructions, sb);
 
       if (bot_okay) {
         nob_da_foreach(GameInstruction, inst, instructions) {
@@ -308,7 +308,7 @@ void RunPlayerCycle(GameState *state, PlayerDA players, Nob_String_Builder *sb,
 
       if (bot_okay) {
         sb->count = 0;
-        GetPlayerDebugMessage(*player, sb);
+        GetPlayerDebugMessage(player, sb);
         if (sb->count)
           nob_log(NOB_INFO, "bot %.*s says: |%.*s|", (int)player->name.count,
                   player->name.items, (unsigned)sb->count, sb->items);
