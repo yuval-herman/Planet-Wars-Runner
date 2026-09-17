@@ -39,7 +39,7 @@ void FreeInnerBotsDA(BotsDA bots) {
 
 // subprocess based bots are unavailable in wasm mode
 #ifdef WASM_MODE
-bool StopBot(Bot bot) {
+bool StopBot(Bot *bot) {
   NOB_UNREACHABLE("subprocess based bots are unavailable in wasm mode");
 }
 bool StartBot(Bot *bot) {
