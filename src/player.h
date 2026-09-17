@@ -12,6 +12,7 @@ typedef enum {
   PLAYER_BOT,
   PLAYER_LUA_BOT,
   PLAYER_HUMAN,
+  PLAYER__COUNT,
 } PlayerType;
 
 DefineComplexStruct(Player, {

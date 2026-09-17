@@ -84,7 +84,7 @@ static int ini_parse_handler(void *user_data, const char *section,
   if (name == NULL && value == NULL) {
     // If we start parsing a new bot or human section, reserve it's place
     if (MATCH(section, "bot")) {
-      Player player = {.type = PLAYER_BOT, .id = configs->players.count};
+      Player player = {.type = PLAYER__COUNT, .id = configs->players.count};
       nob_da_append(&configs->players, player);
     } else if (MATCH(section, "human")) {
       Player player = {.type = PLAYER_HUMAN, .id = configs->players.count};
@@ -119,7 +119,7 @@ static int ini_parse_handler(void *user_data, const char *section,
     if (MATCH(name, "name")) {
       nob_sb_append_cstr(&nob_da_last(&configs->players).name, value);
     } else if (MATCH(name, "script")) {
-      if (nob_da_last(&configs->players).as.bot.start_command.count != 0) {
+      if (nob_da_last(&configs->players).type == PLAYER_BOT) {
         nob_log(NOB_ERROR,
                 "Bots can have either a `script` or a `command` value. A "
                 "script value was provided after a command value in line %d.",
@@ -140,6 +140,7 @@ static int ini_parse_handler(void *user_data, const char *section,
                 lineno);
         return false;
       }
+      nob_da_last(&configs->players).type = PLAYER_BOT;
       nob_sb_append_cstr(&nob_da_last(&configs->players).as.bot.start_command,
                          value);
     } else {

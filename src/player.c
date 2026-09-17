@@ -8,6 +8,7 @@ Player DeepCopyPlayer(Player player) {
   };
 
   switch (player.type) {
+  case PLAYER__COUNT:
   default:
     NOB_UNREACHABLE("Impossible player type");
   case PLAYER_BOT:
@@ -30,6 +31,7 @@ void FreeInnerPlayer(Player player) {
   nob_sb_free(player.name);
 
   switch (player.type) {
+  case PLAYER__COUNT:
   default:
     NOB_UNREACHABLE("Impossible player type");
   case PLAYER_BOT:
@@ -69,6 +71,7 @@ bool StartPlayer(Player *player) {
     return true;
 
   switch (player->type) {
+  case PLAYER__COUNT:
   default:
     NOB_UNREACHABLE("Impossible player type");
   case PLAYER_BOT:
@@ -89,6 +92,7 @@ bool StopPlayer(Player *player) {
     return true;
 
   switch (player->type) {
+  case PLAYER__COUNT:
   default:
     NOB_UNREACHABLE("Impossible player type");
   case PLAYER_BOT:
@@ -108,6 +112,7 @@ bool StopPlayer(Player *player) {
 
 bool IsPlayerActive(Player player) {
   switch (player.type) {
+  case PLAYER__COUNT:
   default:
     NOB_UNREACHABLE("Impossible player type");
   case PLAYER_BOT:
@@ -127,6 +132,7 @@ bool IsPlayerActive(Player player) {
 
 bool SendMessageToPlayer(Player *player, char *message, unsigned length) {
   switch (player->type) {
+  case PLAYER__COUNT:
   default:
     NOB_UNREACHABLE("Impossible player type");
   case PLAYER_BOT:
@@ -148,6 +154,7 @@ bool SendMessageToPlayer(Player *player, char *message, unsigned length) {
 bool SendMapToPlayer(Player *player, GameState *state, Nob_String_Builder *sb) {
   sb->count = 0;
   switch (player->type) {
+  case PLAYER__COUNT:
   default:
     NOB_UNREACHABLE("Impossible player type");
   case PLAYER_BOT:
@@ -190,6 +197,7 @@ bool SendMapToPlayer(Player *player, GameState *state, Nob_String_Builder *sb) {
 
 bool GetPlayerMessage(Player *player, Nob_String_Builder *sb) {
   switch (player->type) {
+  case PLAYER__COUNT:
   default:
     NOB_UNREACHABLE("Impossible player type");
   case PLAYER_BOT:
@@ -214,6 +222,7 @@ bool GetPlayerInstructions(Player *player, GameInstructionDA *instructions,
                            Nob_String_Builder *sb) {
   instructions->count = 0;
   switch (player->type) {
+  case PLAYER__COUNT:
   default:
     NOB_UNREACHABLE("Impossible player type");
   case PLAYER_BOT: {
@@ -254,6 +263,7 @@ bool GetPlayerInstructions(Player *player, GameInstructionDA *instructions,
 
 void GetPlayerDebugMessage(Player *player, Nob_String_Builder *sb) {
   switch (player->type) {
+  case PLAYER__COUNT:
   default:
     NOB_UNREACHABLE("Impossible player type");
   case PLAYER_BOT:
