@@ -48,7 +48,17 @@ bool StartLuaBot(LuaBot *bot) {
     return false;
   }
 
-  luaL_openlibs(bot->lua_state);
+  luaL_openselectedlibs(bot->lua_state,
+                        LUA_GLIBK | LUA_COLIBK | LUA_UTF8LIBK | LUA_STRLIBK |
+                            LUA_TABLIBK | LUA_MATHLIBK,
+                        0);
+
+  // Remove filesystem access functions exposed by base library
+  lua_pushnil(bot->lua_state);
+  lua_setglobal(bot->lua_state, "dofile");
+
+  lua_pushnil(bot->lua_state);
+  lua_setglobal(bot->lua_state, "loadfile");
 
   int ret = luaL_loadbufferx(bot->lua_state, bot->script_code.items,
                              bot->script_code.count, "bot code", "t");
@@ -90,7 +100,6 @@ void StopLuaBot(LuaBot bot) {
 
 bool SendMapToLuaBot(LuaBot bot, GameState state) {
   assert(bot.do_turn_ref >= 2);
-  printf("ref: %d\n", bot.do_turn_ref);
 
   lua_rawgeti(bot.lua_state, LUA_REGISTRYINDEX, bot.do_turn_ref);
 
@@ -109,4 +118,4 @@ bool GetLuaBotInstructions(LuaBot bot, GameInstructionDA *instructions) {
   return true;
 }
 
-void GetLuaBotDebugMessage(LuaBot bot) {  }
+void GetLuaBotDebugMessage(LuaBot bot) {}
