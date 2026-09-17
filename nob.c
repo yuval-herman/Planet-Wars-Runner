@@ -604,6 +604,21 @@ static void embed_fonts(void) {
   fclose(fonts_header);
 }
 
+static void embed_lua_scripts(void) {
+  FILE *lua_source = fopen("src/lua_scripts.c", "w");
+  FILE *lua_header = fopen("src/lua_scripts.h", "w");
+  struct EmbedFilesData data = {
+      .source_file = lua_source,
+      .header_file = lua_header,
+      .append_null = true,
+      .amount = 0,
+  };
+
+  nob_walk_dir("assets/lua", embed_files_walker, .data = &data);
+  fclose(lua_source);
+  fclose(lua_header);
+}
+
 // ---------------------------------------------------------------------------
 // Link steps
 // ---------------------------------------------------------------------------
@@ -813,6 +828,7 @@ int main(int argc, char **argv) {
 
   embed_shaders();
   embed_fonts();
+  embed_lua_scripts();
   nob_mkdir_if_not_exists(BUILD_DIR);
 
   if (!*headless_flag && !nob_file_exists(RAYLIB_LIB)) {
@@ -832,9 +848,10 @@ int main(int argc, char **argv) {
   Nob_Procs procs = {0};
 
   const char *source_files[] = {
-      "src/main.c",    "src/game.c",  "src/runner.c",
-      "src/configs.c", "src/bot.c",   "src/lua_bot.c",
-      "src/player.c",  "src/utils.c", "src/game_log.c",
+      "src/main.c",        "src/game.c",  "src/runner.c",
+      "src/configs.c",     "src/bot.c",   "src/lua_bot.c",
+      "src/player.c",      "src/utils.c", "src/game_log.c",
+      "src/lua_scripts.c",
   };
   const char *headed_source_files[] = {
       "src/ui/ui.c",
