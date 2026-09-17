@@ -15,3 +15,6 @@ shaders.c
 shaders.h
 fonts.c
 fonts.h
+lua_scripts.c
+lua_scripts.h
+/tournament
