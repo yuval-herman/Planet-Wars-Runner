@@ -564,7 +564,7 @@ static bool embed_files_walker(Nob_Walk_Entry entry) {
   }
   // The first directory we walk is the target directory itself; only warn for
   // unexpected non-regular files at deeper levels.
-  else if (entry.level > 1) {
+  else if (entry.type != NOB_FILE_DIRECTORY && entry.level > 1) {
     nob_log(NOB_WARNING, "While traversing directory to embed files, "
                          "encountered a non-regular file. Skipping.");
     *entry.action = NOB_WALK_SKIP;
