@@ -375,6 +375,7 @@ NOBDEF void nob_dir_entry_close(Nob_Dir_Entry dir);
 // Append several items to a dynamic array
 #define nob_da_append_many(da, new_items, new_items_count)                                      \
     do {                                                                                        \
+        if (new_items_count == 0) break;                                                        \
         nob_da_reserve((da), (da)->count + (new_items_count));                                  \
         memcpy((da)->items + (da)->count, (new_items), (new_items_count)*sizeof(*(da)->items)); \
         (da)->count += (new_items_count);                                                       \
