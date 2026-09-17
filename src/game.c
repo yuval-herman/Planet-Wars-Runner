@@ -195,35 +195,32 @@ static inline void PrintFleet(Nob_String_Builder *sb, Fleet fleet) {
             fleet.src_id, fleet.dst_id, fleet.total, fleet.remaining);
 }
 
+uint8_t RemapOwner(uint8_t owner, unsigned player_idx,
+                   unsigned player_count) {
+  if (player_idx == 0 || owner == 0)
+    return owner;
+  return (player_idx * (player_count - 1) + owner - 1) % player_count + 1;
+}
+
 void GetMapRepresentation(GameState *state, Nob_String_Builder *sb,
                           unsigned player_idx) {
   assert(player_idx < state->player_count &&
          "Attempting access to non-existent bot process");
 
-#define MoveOwner(Type, entity)                                                \
-  Type moved_##entity = *entity;                                               \
-  if (player_idx > 0 && moved_##entity.owner != 0) {                           \
-    moved_##entity.owner =                                                     \
-        (player_idx * (state->player_count - 1) + moved_##entity.owner - 1) %  \
-            state->player_count +                                              \
-        1;                                                                     \
-  }
-
   sb->count = 0;
   nob_da_foreach(Planet, planet, &state->planets) {
-    // Each bot should see itself as bot number 1.
-    MoveOwner(Planet, planet);
-    PrintPlanet(sb, moved_planet);
+    Planet remapped = *planet;
+    remapped.owner = RemapOwner(planet->owner, player_idx, state->player_count);
+    PrintPlanet(sb, remapped);
   }
 
   nob_da_foreach(Fleet, fleet, &state->fleets) {
-    MoveOwner(Fleet, fleet);
-    PrintFleet(sb, moved_fleet);
+    Fleet remapped = *fleet;
+    remapped.owner = RemapOwner(fleet->owner, player_idx, state->player_count);
+    PrintFleet(sb, remapped);
   }
 
   nob_sb_append_cstr(sb, MESSAGE_DELIMETER);
-
-#undef MoveOwner
 }
 
 uint8_t GetTravelTime(Vector2 src, Vector2 dst) {

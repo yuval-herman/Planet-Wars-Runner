@@ -58,6 +58,11 @@ bool ParseMapFile(unsigned *owner_count, GameState *state,
 bool ParseMapBuffer(unsigned *owner_count, GameState *state,
                     const char *map_buffer, unsigned buffer_length);
 
+// Remap an owner ID so that `player_idx` sees itself as player 1.
+// Neutral (owner 0) is unchanged. If player_idx is 0, owner is returned
+// unchanged.
+uint8_t RemapOwner(uint8_t owner, unsigned player_idx, unsigned player_count);
+
 // Get map representation for a specific player. Each player should see itself
 // as player 1 according to the protocol. This function takes care of that. If
 // `player_idx` is 0 the real map is returned with no modification.
