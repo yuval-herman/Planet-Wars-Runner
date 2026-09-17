@@ -669,6 +669,8 @@ static bool compile_and_run_tests(Nob_Cmd *cmd, const char *source_files[],
     nob_cmd_append(cmd, c_to_o_path(source_files[i]));
   }
 
+  nob_cmd_append(cmd, LUA_LIB);
+
   add_include_paths(cmd);
   nob_cmd_append(cmd, "-Isrc", "-Itests");
   nob_cmd_append(cmd, "-lcmocka");
