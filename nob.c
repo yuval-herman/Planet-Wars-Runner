@@ -610,7 +610,7 @@ static void embed_lua_scripts(void) {
   struct EmbedFilesData data = {
       .source_file = lua_source,
       .header_file = lua_header,
-      .append_null = true,
+      .append_null = false,
       .amount = 0,
   };
 

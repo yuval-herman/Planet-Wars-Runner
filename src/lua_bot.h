@@ -18,6 +18,7 @@ DefineComplexStruct(LuaBot, {
   Nob_String_Builder script_code;
   GameInstructionDA instructions;
   Nob_String_Builder debug_messages;
+  bool had_error;
 });
 
 bool StartLuaBot(LuaBot *bot);
