@@ -24,6 +24,7 @@ enum SubMenu {
 
 static Configs *configs = NULL;
 static enum SubMenu sub_menu = MENU_MAIN;
+static Nob_String_Builder error_message = {0};
 
 struct {
   struct {
@@ -111,15 +112,27 @@ struct {
            .cornerRadius = CLAY_CORNER_RADIUS(10),                             \
        })
 
+#define ShowErrorPopup(message, ...)                                           \
+  do {                                                                         \
+    if (error_message.count) {                                                 \
+      nob_log(NOB_WARNING,                                                     \
+              "Overwriting error message popup. Previous message was: %.*s",   \
+              (int)error_message.count, error_message.items);                  \
+      error_message.count = 0;                                                 \
+    }                                                                          \
+    nob_sb_appendf(&error_message, message, ##__VA_ARGS__);                    \
+    nob_log(NOB_ERROR, "%.*s", (int)error_message.count, error_message.items); \
+  } while (0)
+
 void StartReplay() {
   GameLog game_log = {0};
   sub_menu = MENU_REPLAY;
   EnsureNullTerminated(&configs->save_file);
   FILE *save_file = fopen(configs->save_file.items, "rb");
   if (!save_file) {
-    nob_log(NOB_ERROR, "Failed opening save file \"%s\": %s.",
-            configs->save_file.items, strerror(errno));
-    NOB_TODO("handle errors isn't implemented...");
+    ShowErrorPopup("Failed opening save file \"%s\": %s.",
+                   configs->save_file.items, strerror(errno));
+    return;
   } else {
     if (!ReadGameLogFromFile(save_file, &game_log)) {
       nob_log(NOB_ERROR, "Failed reading \"%s\".", configs->save_file.items);
@@ -236,21 +249,25 @@ void StartMatch() {
       SetPlayers(configs->players);
       ChangeScreen(SCREEN_HUMAN_GAME);
     } else {
-      if (!RunMatch(&game_log, &state, configs->players)) {
-        nob_log(NOB_ERROR, "Failed running match.");
-        NOB_TODO("handle errors isn't implemented...");
-      }
-      if (configs->write_save) {
-        FILE *file = fopen("game.plws", "wb");
-        WriteGameLogToFile(file, game_log);
-        fclose(file);
-      }
+      if (RunMatch(&game_log, &state, configs->players)) {
+        if (configs->write_save) {
+          FILE *file = fopen("game.plws", "wb");
+          WriteGameLogToFile(file, game_log);
+          fclose(file);
+        }
 
-      SetGameLog(game_log);
-      ChangeScreen(SCREEN_VIEWER);
+        SetGameLog(game_log);
+        ChangeScreen(SCREEN_VIEWER);
+      } else {
+        // TODO We need a way to know why the match failed and report a more
+        // meaningful error.
+        ShowErrorPopup("Failed running match.");
+      }
     }
   } else {
-    NOB_TODO("handle errors isn't implemented...");
+    // TODO We need a way to know why the match failed and report a more
+    // meaningful error.
+    ShowErrorPopup("Failed starting the game.");
   }
 
   FreeInnerGameState(state);
@@ -357,6 +374,10 @@ void MenuDraw() {
        },
    }) {
     // clang-format on
+    if (error_message.count != 0)
+      if (Component_MessageBox(SB_TO_CLAY(error_message))) {
+        error_message.count = 0;
+      }
     switch (sub_menu) {
     default:
       NOB_UNREACHABLE("Impossible menu sub menu");
@@ -384,6 +405,7 @@ void MenuDraw() {
 void MenuInit() {
   assert(configs);
   sub_menu = MENU_MAIN;
+  error_message.count = 0;
   memset(&inputs_data, 0, sizeof inputs_data);
   StarsShaderInit((StarsShaderConfig){
       .size = 0.4,
@@ -397,6 +419,7 @@ void MenuInit() {
 void MenuDestroy() {
   configs = NULL;
   StarsShaderDestroy();
+  nob_sb_free(error_message);
 }
 
 void SetConfig(Configs *new_configs) { configs = new_configs; }
