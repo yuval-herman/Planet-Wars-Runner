@@ -1,4 +1,4 @@
-#version 300 es
+// shader version added in build step
 
 precision mediump float;
 

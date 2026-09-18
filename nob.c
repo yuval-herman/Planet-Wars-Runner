@@ -151,14 +151,15 @@ static bool compile_raylib(bool wasm) {
     nob_cmd_append(&cmd, "-fPIC");
 #endif
 
-    nob_cmd_append(&cmd, "-DGRAPHICS_API_OPENGL_ES3");
     if (wasm) {
+      nob_cmd_append(&cmd, "-DGRAPHICS_API_OPENGL_ES3");
       nob_cmd_append(&cmd, "-std=gnu99");
       nob_cmd_append(&cmd, "-DPLATFORM_WEB");
       nob_cmd_append(&cmd, "-sMAX_WEBGL_VERSION=2");
       nob_cmd_append(&cmd, "-Os");
       nob_cmd_append(&cmd, "-flto");
     } else {
+      nob_cmd_append(&cmd, "-DGRAPHICS_API_OPENGL_33");
       nob_cmd_append(&cmd, "-std=c99");
 
       nob_cmd_append(&cmd, "-DPLATFORM_DESKTOP_GLFW");
@@ -507,9 +508,14 @@ static bool compile_libraries(bool wasm, bool headless, bool force) {
 struct EmbedFilesData {
   FILE *source_file;
   FILE *header_file;
-  bool append_null; // If we embedd a string, like a shader
-  unsigned amount;  // Amount of files that were embedded. Zero out before
-                    // calling the walker!
+  // A byte buffer that will be literally prepended to the embedded file. This
+  // can be a magic byte array, or a shader version for example.  char*
+  char *prefix_data;
+  unsigned prefix_data_len;
+  // If we embedd a string, like a shader.
+  bool append_null;
+  // Amount of files that were embedded. Zero out before calling the walker!
+  unsigned amount;
 };
 
 static bool embed_files_walker(Nob_Walk_Entry entry) {
@@ -519,6 +525,10 @@ static bool embed_files_walker(Nob_Walk_Entry entry) {
   Nob_String_Builder sb = {0};
 
   if (entry.type == NOB_FILE_REGULAR) {
+    if (data->prefix_data && data->prefix_data_len) {
+      nob_sb_append_buf(&sb, data->prefix_data, data->prefix_data_len);
+    }
+
     nob_read_entire_file(entry.path, &sb);
 
     // Strip directory prefix, keeping only the filename
@@ -552,6 +562,7 @@ static bool embed_files_walker(Nob_Walk_Entry entry) {
         bytes_in_line = 0;
       }
       fprintf(source_file, "0x%02x,", (unsigned char)*byte);
+      // fprintf(source_file, "%c,", (unsigned char)*byte);
       bytes_in_line++;
     }
     if (data->append_null) {
@@ -574,14 +585,17 @@ static bool embed_files_walker(Nob_Walk_Entry entry) {
   return true;
 }
 
-static void embed_shaders(void) {
+static void embed_shaders(bool wasm) {
   FILE *shaders_source = fopen("src/ui/shaders.c", "w");
   FILE *shaders_header = fopen("src/ui/shaders.h", "w");
+  char *shaders_version_string = wasm ? "#version 300 es\n" : "#version 330\n";
   struct EmbedFilesData data = {
       .source_file = shaders_source,
       .header_file = shaders_header,
       .append_null = true,
       .amount = 0,
+      .prefix_data = shaders_version_string,
+      .prefix_data_len = strlen(shaders_version_string),
   };
 
   nob_walk_dir("assets/shaders", embed_files_walker, .data = &data);
@@ -824,7 +838,7 @@ int main(int argc, char **argv) {
     fprintf(compile_commands_file, "[\n");
   }
 
-  embed_shaders();
+  embed_shaders(*wasm_flag);
   embed_fonts();
   embed_lua_scripts();
   nob_mkdir_if_not_exists(BUILD_DIR);
@@ -846,10 +860,9 @@ int main(int argc, char **argv) {
   Nob_Procs procs = {0};
 
   const char *source_files[] = {
-      "src/main.c",        "src/game.c",  "src/runner.c",
-      "src/configs.c",     "src/bot.c",   "src/lua_bot.c",
-      "src/player.c",      "src/utils.c", "src/game_log.c",
-      "src/lua_scripts.c",
+      "src/main.c",     "src/game.c",        "src/runner.c", "src/configs.c",
+      "src/bot.c",      "src/lua_bot.c",     "src/player.c", "src/utils.c",
+      "src/game_log.c", "src/lua_scripts.c",
   };
   const char *headed_source_files[] = {
       "src/ui/ui.c",
