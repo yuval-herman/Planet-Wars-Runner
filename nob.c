@@ -863,6 +863,7 @@ int main(int argc, char **argv) {
       "src/ui/stars_shader.c",
       "src/ui/components/text_edit.c",
       "src/ui/components/button.c",
+      "src/ui/components/message_box.c",
       "src/ui/components/game_frame.c",
   };
 
