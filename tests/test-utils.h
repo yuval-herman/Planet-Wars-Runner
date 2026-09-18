@@ -3,6 +3,12 @@
 
 #include "nob.h"
 
+// Includes that make cmocka work correctly
+#include <stdarg.h>
+#include <stddef.h>
+#include <setjmp.h>
+#include <stdint.h>
+
 #define DEFINE_TESTS(name, ...)                                                \
   static int inner__log_start_##name(void **state) {                           \
     NOB_UNUSED(state);                                                         \

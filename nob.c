@@ -690,9 +690,7 @@ static bool compile_and_run_tests(Nob_Cmd *cmd, const char *source_files[],
   nob_cmd_append(cmd, "-Isrc", "-Itests");
   nob_cmd_append(cmd, "-lcmocka");
 
-#if !defined(_WIN32) || defined(__GNUC__)
-  nob_cmd_append(cmd, "-lm");
-#endif
+  add_linker_flags(cmd, true);
 
 #ifdef _WIN32
   nob_cc_output(cmd, BUILD_DIR "/test.exe");
