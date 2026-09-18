@@ -73,6 +73,14 @@ jobs:
           clang -o nob.exe nob.c
           .\nob.exe
 
+      # --- Upload to CI Run Summary ---
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset_name }}
+          path: ${{ matrix.asset_name }}
+          retention-days: 7
+
       # --- Upload Binaries to Published Release ---
       - name: Upload Release Asset
         uses: softprops/action-gh-release@v2
