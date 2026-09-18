@@ -1,0 +1,73 @@
+name: Cross-Platform Release Build
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: linux
+            os: ubuntu-latest
+            asset_name: planet_wars-linux
+
+          - target: windows
+            os: windows-latest
+            asset_name: planet_wars.exe
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      # --- Linux Build (GCC) ---
+      - name: Install Linux Dependencies
+        if: matrix.target == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            libx11-dev \
+            libgl1-mesa-dev \
+            libxcursor-dev \
+            libxrandr-dev \
+            libxinerama-dev \
+            libxi-dev
+
+      - name: Build Standalone Binary (Linux GCC)
+        if: matrix.target == 'linux'
+        run: |
+          gcc -o nob nob.c
+          ./nob
+          mv planet_wars ${{ matrix.asset_name }}
+
+      # --- Windows Build (Clang + LTO) ---
+      - name: Set up Clang (Windows)
+        if: matrix.target == 'windows'
+        uses: egor-tensin/setup-clang@v2
+        with:
+          version: latest
+          platform: x64
+
+      - name: Build Standalone Executable (Windows Clang)
+        if: matrix.target == 'windows'
+        env:
+          CC: clang
+        run: |
+          clang -o nob.exe nob.c
+          .\nob.exe
+
+      # --- Publish Direct Binaries to Release ---
+      - name: Upload Release Asset
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: ${{ matrix.asset_name }}
