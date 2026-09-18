@@ -1,9 +1,8 @@
 name: Cross-Platform Release Build
 
 on:
-  push:
-    tags:
-      - 'v*'
+  release:
+    types: [published]
   workflow_dispatch:
 
 jobs:
@@ -35,6 +34,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             build-essential \
+            gcc \
             libx11-dev \
             libgl1-mesa-dev \
             libxcursor-dev \
@@ -65,9 +65,8 @@ jobs:
           clang -o nob.exe nob.c
           .\nob.exe
 
-      # --- Publish Direct Binaries to Release ---
+      # --- Upload Binaries to Published Release ---
       - name: Upload Release Asset
         uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
         with:
           files: ${{ matrix.asset_name }}

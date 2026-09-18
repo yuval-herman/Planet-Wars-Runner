@@ -21,7 +21,9 @@ jobs:
         with:
           submodules: recursive
 
-      # --- Linux Test (GCC) ---
+      # ---------------------------------------------------------
+      # Linux Setup & Testing (GCC)
+      # ---------------------------------------------------------
       - name: Install Dependencies (Linux)
         if: runner.os == 'Linux'
         run: |
@@ -29,7 +31,8 @@ jobs:
           sudo apt-get install -y \
             build-essential \
             gcc \
-            libcmocka-dev \
+            cmake \
+            ninja-build \
             libgl1-mesa-dev \
             libx11-dev \
             libxrandr-dev \
@@ -37,13 +40,24 @@ jobs:
             libxcursor-dev \
             libxi-dev
 
+      - name: Build & Install CMocka 2.x (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          git clone --depth 1 https://github.com/coreboot/cmocka.git cmocka-src
+          cmake -B cmocka-src/build -S cmocka-src -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build cmocka-src/build
+          sudo cmake --install cmocka-src/build
+          sudo ldconfig
+
       - name: Bootstrap nob & Run Tests (Linux GCC)
         if: runner.os == 'Linux'
         run: |
           gcc -o nob nob.c
           ./nob -test
 
-      # --- Windows Test (Clang) ---
+      # ---------------------------------------------------------
+      # Windows Setup & Testing (Clang)
+      # ---------------------------------------------------------
       - name: Set up Clang (Windows)
         if: runner.os == 'Windows'
         uses: egor-tensin/setup-clang@v2
@@ -51,10 +65,29 @@ jobs:
           version: latest
           platform: x64
 
+      - name: Set up MSVC Developer Environment (Windows)
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Build & Install CMocka 2.x (Windows Clang)
+        if: runner.os == 'Windows'
+        run: |
+          git clone --depth 1 https://github.com/coreboot/cmocka.git cmocka-src
+          cmake -B cmocka-src/build -S cmocka-src -G "Ninja" `
+            -DCMAKE_C_COMPILER=clang `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DCMAKE_INSTALL_PREFIX="C:/cmocka"
+          cmake --build cmocka-src/build
+          cmake --install cmocka-src/build
+
       - name: Bootstrap nob & Run Tests (Windows Clang)
         if: runner.os == 'Windows'
         env:
           CC: clang
         run: |
+          $env:CPATH = "C:\cmocka\include;$env:CPATH"
+          $env:LIB = "C:\cmocka\lib;$env:LIB"
+          $env:LIBRARY_PATH = "C:\cmocka\lib;$env:LIBRARY_PATH"
+          $env:PATH = "C:\cmocka\bin;$env:PATH"
           clang -o nob.exe nob.c
           .\nob.exe -test
