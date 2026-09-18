@@ -75,12 +75,24 @@ struct {
                                PLAYER_HUMAN)) {                                \
         configs->players.items[player_number - 1].type = PLAYER_HUMAN;         \
       }                                                                        \
+      if (Component_Button(CLAY_STRING("LUA_BOT"),                             \
+                           BUTTON_STYLE_CONTROLLER_NAKED,                      \
+                           configs->players.items[player_number - 1].type ==   \
+                               PLAYER_LUA_BOT)) {                              \
+        configs->players.items[player_number - 1].type = PLAYER_LUA_BOT;       \
+      }                                                                        \
     }                                                                          \
     if (configs->players.items[player_number - 1].type == PLAYER_BOT) {        \
       InputComponent(                                                          \
           "Player" #player_number "Command",                                   \
           "Player " #player_number " command",                                 \
           &configs->players.items[player_number - 1].as.bot.start_command);    \
+    } else if (configs->players.items[player_number - 1].type ==               \
+               PLAYER_LUA_BOT) {                                               \
+      InputComponent(                                                          \
+          "Player" #player_number "Lua",                                       \
+          "Player " #player_number " lua script path",                         \
+          &configs->players.items[player_number - 1].as.lua_bot.script_path);  \
     }                                                                          \
   }
 

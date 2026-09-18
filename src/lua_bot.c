@@ -4,8 +4,9 @@
 #define DO_TURN_FUNCTION "do_turn"
 
 // Extracts a planet ID from Lua stack index idx.
-// Accepts either an integer ID or a planet table containing a 'planet_id' field.
-// Returns true on successful extraction into *out_id, false on type or range error.
+// Accepts either an integer ID or a planet table containing a 'planet_id'
+// field. Returns true on successful extraction into *out_id, false on type or
+// range error.
 static bool extract_planet_id(lua_State *L, int idx, uint16_t *out_id) {
   int isnum = 0;
   if (lua_istable(L, idx)) {
@@ -104,6 +105,7 @@ static bool InitBotReferences(LuaBot *bot) {
 LuaBot DeepCopyLuaBot(LuaBot bot) {
   LuaBot new_bot = {
       .script_code = DupeStringBuilder(bot.script_code),
+      .script_path = DupeStringBuilder(bot.script_path),
       .lua_state = NULL,
       .do_turn_ref = LUA_NOREF,
       .had_error = false,
@@ -114,6 +116,7 @@ LuaBot DeepCopyLuaBot(LuaBot bot) {
 void FreeInnerLuaBot(LuaBot bot) {
   StopLuaBot(&bot);
   nob_sb_free(bot.script_code);
+  nob_sb_free(bot.script_path);
   nob_sb_free(bot.debug_messages);
   nob_da_free(bot.instructions);
 }
@@ -122,8 +125,16 @@ bool IsLuaBotActive(LuaBot bot) { return bot.lua_state != NULL; }
 
 bool StartLuaBot(LuaBot *bot) {
   if (!bot->script_code.count) {
-    nob_log(NOB_ERROR, "Attempted to start a lua bot without code.");
-    return false;
+    if (!bot->script_path.count) {
+      nob_log(NOB_ERROR,
+              "Attempted to start a lua bot without code or a script path.");
+      return false;
+    }
+    EnsureNullTerminated(&bot->script_path);
+    if (!nob_read_entire_file(bot->script_path.items, &bot->script_code)) {
+      nob_log(NOB_ERROR, "Could not read bot script file.");
+      return false;
+    }
   }
 
   if (!bot->lua_state) {
@@ -148,7 +159,8 @@ bool StartLuaBot(LuaBot *bot) {
   lua_pushnil(bot->lua_state);
   lua_setglobal(bot->lua_state, "loadfile");
 
-  // Harden package: clear paths, remove loadlib, restrict searchers to preload only
+  // Harden package: clear paths, remove loadlib, restrict searchers to preload
+  // only
   lua_getglobal(bot->lua_state, "package");
   lua_pushstring(bot->lua_state, "");
   lua_setfield(bot->lua_state, -2, "path");
