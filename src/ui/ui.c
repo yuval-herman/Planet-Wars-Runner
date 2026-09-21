@@ -61,6 +61,7 @@ void UIInit(enum Screens start_screen) {
   SetTraceLogLevel(LOG_WARNING);
   SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_MSAA_4X_HINT);
   InitWindow(screenWidth, screenHeight, "Planet Wars Viewer");
+  SetExitKey(KEY_NULL);
 
 #ifndef WASM_MODE
   SetTargetFPS(60);
