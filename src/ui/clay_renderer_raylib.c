@@ -6,6 +6,7 @@
 #include "stdio.h"
 #include "stdlib.h"
 #include "ui_utils.h"
+#include "ui.h"
 
 #define CLAY_RECTANGLE_TO_RAYLIB_RECTANGLE(rectangle) (Rectangle) { .x = rectangle.x, .y = rectangle.y, .width = rectangle.width, .height = rectangle.height }
 #define CLAY_COLOR_TO_RAYLIB_COLOR(color) (Color) { .r = (unsigned char)roundf(color.r), .g = (unsigned char)roundf(color.g), .b = (unsigned char)roundf(color.b), .a = (unsigned char)roundf(color.a) }
@@ -124,8 +125,8 @@ static inline Clay_Dimensions Raylib_MeasureText(Clay_StringSlice text, Clay_Tex
     int lineCharCount = 0;
 
     float textHeight = config->fontSize;
-    Font* fonts = (Font*)userData;
-    Font fontToUse = fonts[config->fontId];
+    FontsDA* fonts = userData;
+    Font fontToUse = fonts->items[config->fontId].font;
     // Font failed to load, likely the fonts are in the wrong place relative to the execution dir.
     // RayLib ships with a default font, so we can continue with that built in one. 
     if (!fontToUse.glyphs) {
@@ -179,7 +180,7 @@ void Clay_Raylib_Close()
 }
 
 
-void Clay_Raylib_Render(Clay_RenderCommandArray renderCommands, Font* fonts)
+void Clay_Raylib_Render(Clay_RenderCommandArray renderCommands, FontsDA* fonts)
 {
     for (int j = 0; j < renderCommands.length; j++)
     {
@@ -189,7 +190,7 @@ void Clay_Raylib_Render(Clay_RenderCommandArray renderCommands, Font* fonts)
         {
             case CLAY_RENDER_COMMAND_TYPE_TEXT: {
                 Clay_TextRenderData *textData = &renderCommand->renderData.text;
-                Font fontToUse = fonts[textData->fontId];
+                Font fontToUse = fonts->items[textData->fontId].font;
     
                 int strlen = textData->stringContents.length + 1;
     

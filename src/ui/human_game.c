@@ -269,7 +269,7 @@ static void HumanGameDraw() {
       }
 
       CLAY_TEXT(SB_TO_CLAY(winner_sb),
-                {.fontId = 2, .fontSize = 64, .textColor = C_WHITE});
+                {.fontId = CLAY_FONT(RaylibDefault, 16), .textColor = C_WHITE});
     }
   }
 }

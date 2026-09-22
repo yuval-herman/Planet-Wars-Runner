@@ -22,9 +22,45 @@ static const UIScreen *screens[] = {
     [SCREEN_HUMAN_GAME] = &human_game_screen,
 };
 
+static const unsigned char *font_lut[] = {
+    [FiraCode_Bold] = FiraCode_Bold_source,
+    [FiraCode_Regular] = FiraCode_Regular_source,
+    [Cousine_Regular] = Cousine_Regular_source,
+};
+
+static const unsigned font_size_lut[] = {
+    [FiraCode_Bold] = FiraCode_Bold_size,
+    [FiraCode_Regular] = FiraCode_Regular_size,
+    [Cousine_Regular] = Cousine_Regular_size,
+};
+
 static UIScreen active_screen = {0};
-static Font fonts[4];
+static FontsDA fonts = {0};
 static unsigned frame;
+
+unsigned GetFontId(enum Fonts font_id, unsigned size) {
+  // Default font is always the same for every size, and is loaded at the start
+  // of the array.
+  if (font_id == RaylibDefault)
+    return 0;
+
+  for (unsigned i = 0; i < fonts.count; i++) {
+    FontInfo font_info = fonts.items[i];
+    if (font_info.font_id == font_id && font_info.font_size == size)
+      return i;
+  }
+
+  nob_log(NOB_DEBUG, "Adding new font, id = %d, size = %u", font_id, size);
+
+  FontInfo new_font = {
+      .font = LoadFontFromMemory(".ttf", font_lut[font_id],
+                                 font_size_lut[font_id], 64, NULL, 0),
+      .font_id = font_id,
+      .font_size = size,
+  };
+  nob_da_append(&fonts, new_font);
+  return fonts.count - 1;
+}
 
 unsigned GetFrame() { return frame; }
 
@@ -67,13 +103,12 @@ void UIInit(enum Screens start_screen) {
   SetTargetFPS(60);
 #endif
 
-  fonts[0] = GetFontDefault();
-  fonts[1] = LoadFontFromMemory(".ttf", Cousine_Regular_source,
-                                Cousine_Regular_size, 64, NULL, 0);
-  fonts[2] = LoadFontFromMemory(".ttf", FiraCode_Regular_source,
-                                FiraCode_Regular_size, 64, NULL, 0);
-  fonts[3] = LoadFontFromMemory(".ttf", FiraCode_Bold_source,
-                                FiraCode_Bold_size, 64, NULL, 0);
+  FontInfo default_font_info = {
+      .font = GetFontDefault(),
+      .font_id = RaylibDefault,
+      .font_size = 0,
+  };
+  nob_da_append(&fonts, default_font_info);
 
   uint32_t totalMemorySize = Clay_MinMemorySize();
   Clay_Arena clayMemory = Clay_CreateArenaWithCapacityAndMemory(
@@ -82,7 +117,7 @@ void UIInit(enum Screens start_screen) {
                   (Clay_ErrorHandler){HandleClayErrors, 0});
   InitOverlay();
 
-  Clay_SetMeasureTextFunction(Raylib_MeasureText, fonts);
+  Clay_SetMeasureTextFunction(Raylib_MeasureText, &fonts);
 
   UpdateClayState();
   ChangeScreen(start_screen);
@@ -94,6 +129,7 @@ void UIDestroy() {
   active_screen = (UIScreen){0};
 
   Clay_Raylib_Close();
+  nob_da_free(fonts);
 }
 
 static void UpdateDrawUI() {
@@ -104,7 +140,7 @@ static void UpdateDrawUI() {
   Clay_BeginLayout();
   active_screen.draw();
   Clay_RenderCommandArray renderCommands = Clay_EndLayout(GetFrameTime());
-  Clay_Raylib_Render(renderCommands, fonts);
+  Clay_Raylib_Render(renderCommands, &fonts);
   EndDrawing();
 }
 

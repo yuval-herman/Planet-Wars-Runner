@@ -1,6 +1,6 @@
 #ifndef HEADLESS_MODE
-#include "ui/menu.h"
 #include "ui/ui.h"
+#include "ui/menu.h"
 #include "ui/viewer.h"
 #endif // HEADLESS_MODE
 

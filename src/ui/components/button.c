@@ -2,6 +2,7 @@
 #include "nob.h"
 #include "raylib.h"
 
+#include "../ui.h"
 #include "../ui_utils.h"
 
 enum ButtonStyle {
@@ -15,7 +16,8 @@ enum ButtonStyle {
 
 typedef void (*ButtonOnClickFunction)(void *userData);
 
-bool Component_Button(Clay_String buttonText, enum ButtonStyle style, bool force_hover);
+bool Component_Button(Clay_String buttonText, enum ButtonStyle style,
+                      bool force_hover);
 
 // Don't include implementation when included from the components header file
 #ifndef COMPONENTS_H
@@ -35,7 +37,7 @@ struct ButtonStyleConfig {
   Clay_Sizing sizing;
   Clay_CornerRadius cornerRadius;
   Clay_BorderElementConfig border;
-  uint16_t fontId;
+  enum Fonts fontId;
   uint16_t fontSize;
 
   // Dynamic styles
@@ -50,7 +52,7 @@ struct ButtonStyleConfig {
             .sizing = {.width = CLAY_SIZING_GROW(0)},
             .cornerRadius = CLAY_CORNER_RADIUS_MAX(),
             .border = {.color = C_WHITE, .width = CLAY_BORDER_OUTSIDE(2)},
-            .fontId = 2,
+            .fontId = RaylibDefault,
             .fontSize = 24,
 
             .backgroundColor = C_BLANK,
@@ -67,7 +69,7 @@ struct ButtonStyleConfig {
             .sizing = {.width = CLAY_SIZING_FIT(0)},
             .cornerRadius = CLAY_CORNER_RADIUS_MAX(),
             .border = {.color = C_WHITE, .width = CLAY_BORDER_OUTSIDE(2)},
-            .fontId = 2,
+            .fontId = RaylibDefault,
             .fontSize = 24,
 
             .backgroundColor = C_BLANK,
@@ -84,7 +86,7 @@ struct ButtonStyleConfig {
             .sizing = {.width = CLAY_SIZING_FIT(0)},
             .cornerRadius = CLAY_CORNER_RADIUS_MAX(),
             .border = {.color = C_GRAY, .width = CLAY_BORDER_OUTSIDE(1)},
-            .fontId = 1,
+            .fontId = RaylibDefault,
             .fontSize = 16,
 
             .backgroundColor = C_BLANK,
@@ -101,7 +103,7 @@ struct ButtonStyleConfig {
             .sizing = {.width = CLAY_SIZING_FIT(0)},
             .cornerRadius = CLAY_CORNER_RADIUS(8),
             .border = {.color = C_WHITE, .width = CLAY_BORDER_OUTSIDE(1)},
-            .fontId = 1,
+            .fontId = RaylibDefault,
             .fontSize = 16,
 
             .backgroundColor = C_BLANK,
@@ -117,7 +119,7 @@ struct ButtonStyleConfig {
             .padding = {16, 16, 8, 8},
             .sizing = {.width = CLAY_SIZING_FIT(0)},
             .cornerRadius = CLAY_CORNER_RADIUS_MAX(),
-            .fontId = 1,
+            .fontId = RaylibDefault,
             .fontSize = 16,
 
             .backgroundColor = C_BLANK,
@@ -144,7 +146,8 @@ struct ButtonStyleConfig {
    - textColor
   */
 
-bool Component_Button(Clay_String buttonText, enum ButtonStyle style, bool force_hover) {
+bool Component_Button(Clay_String buttonText, enum ButtonStyle style,
+                      bool force_hover) {
   assert(style < BUTTON_STYLE__COUNT);
   bool clicked = false;
   // clang-format off
@@ -160,7 +163,7 @@ bool Component_Button(Clay_String buttonText, enum ButtonStyle style, bool force
   }) {
     if(Clay_Hovered() && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) clicked = true;
     CLAY_TEXT(buttonText, {
-      .fontId = button_styles[style].fontId,
+      .fontId = GetFontId(button_styles[style].fontId, button_styles[style].fontSize),
       .fontSize = button_styles[style].fontSize,
       .textColor = force_hover || Clay_Hovered() ? button_styles[style].hovered.textColor : button_styles[style].textColor,
     });

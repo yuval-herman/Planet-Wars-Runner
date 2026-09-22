@@ -83,7 +83,7 @@ static void ScrubberTrackComponent() {
       }) {
         scrubber_text.count = 0;
         nob_sb_appendf(&scrubber_text, "%u", turn);
-        CLAY_TEXT(SB_TO_CLAY(scrubber_text), {.fontId = 2, .fontSize = 24, .textColor = C_BLACK});
+        CLAY_TEXT(SB_TO_CLAY(scrubber_text), {.fontId = CLAY_FONT(RaylibDefault, 16), .textColor = C_BLACK});
       }
     }
   }
@@ -114,8 +114,8 @@ static void SpeedControlsComponent() {
             .childGap = 8,
             .childAlignment = {CLAY_ALIGN_X_CENTER, CLAY_ALIGN_Y_CENTER},
         }}) {
-    CLAY_TEXT(CLAY_STRING("SPEED"),
-              {.fontId = 2, .fontSize = 24, .textColor = C_LIGHTGRAY});
+    CLAY_TEXT(CLAY_STRING("SPEED"), {.fontId = CLAY_FONT(RaylibDefault, 16),
+                                     .textColor = C_LIGHTGRAY});
 
     CLAY(CLAY_ID("SpeedControlsButtons"),
          {

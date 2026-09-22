@@ -2,8 +2,8 @@
 #include "nob.h"
 #include "raylib.h"
 
+#include "../ui.h"
 #include "../ui_utils.h"
-
 
 bool Component_MessageBox(Clay_String text);
 
@@ -29,8 +29,7 @@ bool Component_MessageBox(Clay_String text) {
   }) {
     if(Clay_Hovered() && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) clicked = true;
     CLAY_TEXT(text, {
-      .fontId = 1,
-      .fontSize = 16,
+      .fontId = CLAY_FONT(RaylibDefault, 16),
       .textColor = C_WHITE,
     });
   }
