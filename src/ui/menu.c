@@ -20,6 +20,7 @@ enum SubMenu {
   MENU_MAIN,
   MENU_REPLAY,
   MENU_PLAY_MATCH,
+  MENU_BEAT_BOTS,
 };
 
 static Configs *configs = NULL;
@@ -327,6 +328,84 @@ void PlayMatchView() {
   // clang-format on
 }
 
+void PlayBeatBotsView() {
+  inputs_data.current_input = 0;
+
+  // clang-format off
+  SubMenuContainer("PlayMatchContainer") {
+    CLAY_TEXT(CLAY_STRING("BEAT BOTS"), { .fontId = CLAY_FONT(FiraCode_Bold, 32), .textColor = C_WHITE});
+    HorizontalSeperatorComponent("HorizontalSeperator");
+
+    CLAY(CLAY_ID("FormContainer"), {
+         .layout = {
+           .sizing = {CLAY_SIZING_GROW(0),CLAY_SIZING_GROW(0)},
+           .childAlignment = {CLAY_ALIGN_X_LEFT, CLAY_ALIGN_Y_CENTER},
+           .layoutDirection = CLAY_TOP_TO_BOTTOM,
+           .childGap = 24
+         }
+       }) {
+      InputComponent("PlayerName", "PLAYER NAME", &configs->players.items[0].name);
+
+      CLAY_TEXT(CLAY_STRING("SELECT OPPONENT"), {.fontId = CLAY_FONT(FiraCode_Bold, 16),
+                                       .textColor = C_GRAY});
+      unsigned selected = 1;
+      for (unsigned i = 0; i < 3; i++) {
+        CLAY(CLAY_IDI("BotContainer", i), {
+             .layout = {
+               .sizing = {
+                 .width = CLAY_SIZING_GROW(0)
+               },
+               .childGap = 16,
+               .childAlignment = { .y = CLAY_ALIGN_Y_CENTER },
+               .padding = {16,16,8,8},
+             },
+             .cornerRadius = CLAY_CORNER_RADIUS(8),
+             .backgroundColor = (Clay_Color){255,255,255,20},
+             .border = {
+               .color = (Clay_Color){255,255,255,i==selected ? 220 : 30},
+               .width = CLAY_BORDER_OUTSIDE(i==selected ? 2 : 1),
+             }
+           }) {
+          CLAY(CLAY_ID_LOCAL("radio"), {
+               .layout = {
+                 .sizing = {.height = CLAY_SIZING_PERCENT(0.5)}
+               },
+               .aspectRatio = { 1 },
+               .cornerRadius = CLAY_CORNER_RADIUS_MAX(),
+               .border = {
+                 .color = C_WHITE,
+                 .width = CLAY_BORDER_OUTSIDE(i==selected ? 5 : 1),
+               }
+             });
+          CLAY(CLAY_ID_LOCAL("BotInfoCOntainer"), {
+               .layout = { .layoutDirection = CLAY_TOP_TO_BOTTOM }
+             }) {
+            CLAY_TEXT(CLAY_STRING("Test Name"), {
+                      .fontId = CLAY_FONT(FiraCode_Bold, 24),
+                      .textColor = C_WHITE
+                    });
+            CLAY_TEXT(CLAY_STRING("Lorem ipsum dolor sit ammet"), {
+                      .fontId = CLAY_FONT(FiraCode_Regular, 16),
+                      .textColor = C_GRAY
+                    });
+          }
+        }
+      }
+    }
+
+    CLAY(CLAY_ID("StateButtonsContainer"), {
+           .layout = { .sizing = { .width = CLAY_SIZING_GROW(0) }}
+         }) {
+      if (Component_Button(CLAY_STRING("Back"), BUTTON_STYLE_SUB_MENU, false)) sub_menu = MENU_MAIN;
+      SpacerComponent("Spacer");
+      if (Component_Button(CLAY_STRING("Start match"), BUTTON_STYLE_SUB_MENU, false)) {
+        StartMatch();
+      }
+    }
+  }
+  // clang-format on
+}
+
 void MainMenuView() {
   // clang-format off
   CLAY(CLAY_ID("TitleContainer"), {
@@ -348,6 +427,9 @@ void MainMenuView() {
       .layoutDirection = CLAY_TOP_TO_BOTTOM,
      },
   }) {
+    if(Component_Button(CLAY_STRING("BEAT BOTS"), BUTTON_STYLE_MENU, false)) {
+      sub_menu = MENU_BEAT_BOTS;
+    }
     if(Component_Button(CLAY_STRING("PLAY MATCH"), BUTTON_STYLE_MENU, false)) {
       sub_menu = MENU_PLAY_MATCH;
     }
@@ -392,6 +474,14 @@ void MenuDraw() {
       }
       PlayMatchView();
       break;
+    case MENU_BEAT_BOTS:
+      // initialize if empty
+      for (unsigned id = 0; configs->players.count < 2; id++) {
+        const Player empty_player = {.type = PLAYER_BOT, .id = id};
+        nob_da_append(&configs->players, empty_player);
+      }
+      PlayBeatBotsView();
+      break;
     }
     // clang-format off
   }
@@ -410,6 +500,7 @@ void MenuInit() {
       .time_scale = 0.3,
       .seed = 28,
   });
+  Clay_SetDebugModeEnabled(true);
 }
 
 void MenuDestroy() {
