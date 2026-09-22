@@ -52,7 +52,7 @@ struct ButtonStyleConfig {
             .sizing = {.width = CLAY_SIZING_GROW(0)},
             .cornerRadius = CLAY_CORNER_RADIUS_MAX(),
             .border = {.color = C_WHITE, .width = CLAY_BORDER_OUTSIDE(2)},
-            .fontId = RaylibDefault,
+            .fontId = Cousine_Regular,
             .fontSize = 24,
 
             .backgroundColor = C_BLANK,
@@ -69,7 +69,7 @@ struct ButtonStyleConfig {
             .sizing = {.width = CLAY_SIZING_FIT(0)},
             .cornerRadius = CLAY_CORNER_RADIUS_MAX(),
             .border = {.color = C_WHITE, .width = CLAY_BORDER_OUTSIDE(2)},
-            .fontId = RaylibDefault,
+            .fontId = FiraCode_Bold,
             .fontSize = 24,
 
             .backgroundColor = C_BLANK,
@@ -86,7 +86,7 @@ struct ButtonStyleConfig {
             .sizing = {.width = CLAY_SIZING_FIT(0)},
             .cornerRadius = CLAY_CORNER_RADIUS_MAX(),
             .border = {.color = C_GRAY, .width = CLAY_BORDER_OUTSIDE(1)},
-            .fontId = RaylibDefault,
+            .fontId = Cousine_Regular,
             .fontSize = 16,
 
             .backgroundColor = C_BLANK,
@@ -103,7 +103,7 @@ struct ButtonStyleConfig {
             .sizing = {.width = CLAY_SIZING_FIT(0)},
             .cornerRadius = CLAY_CORNER_RADIUS(8),
             .border = {.color = C_WHITE, .width = CLAY_BORDER_OUTSIDE(1)},
-            .fontId = RaylibDefault,
+            .fontId = FiraCode_Bold,
             .fontSize = 16,
 
             .backgroundColor = C_BLANK,
@@ -119,7 +119,7 @@ struct ButtonStyleConfig {
             .padding = {16, 16, 8, 8},
             .sizing = {.width = CLAY_SIZING_FIT(0)},
             .cornerRadius = CLAY_CORNER_RADIUS_MAX(),
-            .fontId = RaylibDefault,
+            .fontId = FiraCode_Bold,
             .fontSize = 16,
 
             .backgroundColor = C_BLANK,

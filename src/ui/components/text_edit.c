@@ -49,7 +49,7 @@ Clay_String DrawTextEdit(Nob_String_Builder sb, unsigned *caret_pos,
   };
   const int inner_padding = 8;
   Clay_TextElementConfig text_conf = {
-      .fontId = CLAY_FONT(RaylibDefault, 16),
+      .fontId = CLAY_FONT(Cousine_Regular, 18),
       .textColor = TEXT_COLOR,
   };
   // This will always work for monotone fonts, but at best will be a good

@@ -54,7 +54,7 @@ unsigned GetFontId(enum Fonts font_id, unsigned size) {
 
   FontInfo new_font = {
       .font = LoadFontFromMemory(".ttf", font_lut[font_id],
-                                 font_size_lut[font_id], 64, NULL, 0),
+                                 font_size_lut[font_id], size, NULL, 0),
       .font_id = font_id,
       .font_size = size,
   };

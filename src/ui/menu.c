@@ -40,7 +40,7 @@ struct {
        {.layout = {.sizing = {.width = CLAY_SIZING_GROW(0)},                   \
                    .layoutDirection = CLAY_TOP_TO_BOTTOM}}) {                  \
     CLAY_TEXT(CLAY_STRING(label),                                              \
-              {.fontId = CLAY_FONT(RaylibDefault, 16), .textColor = C_GRAY});  \
+              {.fontId = CLAY_FONT(FiraCode_Bold, 16), .textColor = C_GRAY});  \
     Component_TextEdit(                                                        \
         sb, &inputs_data.input_states[inputs_data.current_input].cursor,       \
         &inputs_data.input_states[inputs_data.current_input].focused);         \
@@ -149,7 +149,7 @@ void ReplayView() {
   inputs_data.current_input = 0;
   // clang-format off
   SubMenuContainer("ReplayContainer") {
-    CLAY_TEXT(CLAY_STRING("REPLAY SETUP"), { .fontId = CLAY_FONT(RaylibDefault, 16), .textColor = C_WHITE});
+    CLAY_TEXT(CLAY_STRING("REPLAY SETUP"), { .fontId = CLAY_FONT(FiraCode_Bold, 32), .textColor = C_WHITE});
     HorizontalSeperatorComponent("HorizontalSeperator");
 
     CLAY(CLAY_ID("FormContainer"), {
@@ -195,22 +195,22 @@ void ReplayView() {
              .cornerRadius = CLAY_CORNER_RADIUS(5),
            }) {
          CLAY_TEXT(CLAY_STRING("REPLAY INFO"), {
-                   .fontId = CLAY_FONT(RaylibDefault, 16),
+                   .fontId = CLAY_FONT(FiraCode_Bold, 16),
                    .textColor = (Clay_Color){160,160,160, 255}
                  });
 
          SpacerFixedComponent("Spacer", 16);
 
          CLAY_TEXT(CLAY_STRING("Players: TBD"), {
-                   .fontId = CLAY_FONT(RaylibDefault, 16),
+                   .fontId = CLAY_FONT(Cousine_Regular, 16),
                    .textColor = C_WHITE
                  });
          CLAY_TEXT(CLAY_STRING("Winner: TBD"), {
-                   .fontId = CLAY_FONT(RaylibDefault, 16),
+                   .fontId = CLAY_FONT(Cousine_Regular, 16),
                    .textColor = C_WHITE
                  });
          CLAY_TEXT(CLAY_STRING("Turn Count: TBD"), {
-                   .fontId = CLAY_FONT(RaylibDefault, 16),
+                   .fontId = CLAY_FONT(Cousine_Regular, 16),
                    .textColor = C_WHITE
                  });
        }
@@ -275,7 +275,7 @@ void PlayMatchView() {
 
   // clang-format off
   SubMenuContainer("PlayMatchContainer") {
-    CLAY_TEXT(CLAY_STRING("MATCH SETUP"), { .fontId = CLAY_FONT(RaylibDefault, 16), .textColor = C_WHITE});
+    CLAY_TEXT(CLAY_STRING("MATCH SETUP"), { .fontId = CLAY_FONT(FiraCode_Bold, 32), .textColor = C_WHITE});
     HorizontalSeperatorComponent("HorizontalSeperator");
 
     CLAY(CLAY_ID("FormContainer"), {
@@ -336,8 +336,8 @@ void MainMenuView() {
         .childGap = 0,
       } 
      }) {
-    CLAY_TEXT(CLAY_STRING("PLANET WARS"), { .fontId = CLAY_FONT(RaylibDefault, 16), .textColor = C_WHITE});
-    CLAY_TEXT(CLAY_STRING("Conquering galaxies since 1972!"), { .fontId = CLAY_FONT(RaylibDefault, 24), .textColor = C_GRAY});
+    CLAY_TEXT(CLAY_STRING("PLANET WARS"), { .fontId = CLAY_FONT(Cousine_Regular, 64), .textColor = C_WHITE});
+    CLAY_TEXT(CLAY_STRING("Conquering galaxies since 1972!"), { .fontId = CLAY_FONT(FiraCode_Regular, 24), .textColor = C_GRAY});
   }
   CLAY(CLAY_ID("OptionsContainer"), {
     .layout = {
