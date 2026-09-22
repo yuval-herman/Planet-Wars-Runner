@@ -546,10 +546,7 @@ static bool embed_files_walker(Nob_Walk_Entry entry) {
     fprintf(header_file, "extern const unsigned char %.*s_source[];\n",
             (int)sv.count, sv.data);
 
-    fprintf(header_file, "extern const unsigned %.*s_size;\n", (int)sv.count,
-            sv.data);
-
-    fprintf(source_file, "const unsigned %.*s_size = %zu;\n", (int)sv.count,
+    fprintf(header_file, "#define %.*s_size %zu\n", (int)sv.count,
             sv.data, sb.count + (data->append_null));
 
     fprintf(source_file, "const unsigned char %.*s_source[] = {\n",
