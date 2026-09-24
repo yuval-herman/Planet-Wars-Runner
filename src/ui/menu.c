@@ -51,6 +51,33 @@ const struct {
         .source = (const char *)Greedy_source,
         .source_length = Greedy_size,
     },
+    {
+        .name = CLAY_STRING("Expander"),
+        .descriptions =
+            CLAY_STRING("Slow, steady, and utterly inevitable.\n"
+                        "It'll gobble up every neutral planet before turning "
+                        "its eyes on you."),
+        .source = (const char *)Expander_source,
+        .source_length = Expander_size,
+    },
+    {
+        .name = CLAY_STRING("Berserker"),
+        .descriptions =
+            CLAY_STRING("No plans. No retreat. No survivors.\n"
+                        "Every ship it has is heading straight for your "
+                        "doorstep, right now."),
+        .source = (const char *)Berserker_source,
+        .source_length = Berserker_size,
+    },
+    {
+        .name = CLAY_STRING("Defender"),
+        .descriptions =
+            CLAY_STRING("Patient, disciplined, and impossible to rush.\n"
+                        "It watches every fleet you send and walls up "
+                        "before you can blink."),
+        .source = (const char *)Defender_source,
+        .source_length = Defender_size,
+    },
 };
 
 #undef STRING_AND_LENGTH
@@ -394,7 +421,8 @@ void PlayBeatBotsView() {
            .childAlignment = {CLAY_ALIGN_X_LEFT, CLAY_ALIGN_Y_CENTER},
            .layoutDirection = CLAY_TOP_TO_BOTTOM,
            .childGap = 24
-         }
+         },
+         .clip = { .vertical = true, .childOffset = Clay_GetScrollOffset() }, 
        }) {
       InputComponent("PlayerName", "PLAYER NAME", &configs->players.items[0].name);
 
@@ -404,7 +432,8 @@ void PlayBeatBotsView() {
         CLAY(CLAY_IDI("BotContainer", i), {
              .layout = {
                .sizing = {
-                 .width = CLAY_SIZING_GROW(0)
+                 .width = CLAY_SIZING_GROW(0),
+                 .height = CLAY_SIZING_FIT(0),
                },
                .childGap = 16,
                .childAlignment = { .y = CLAY_ALIGN_Y_CENTER },
