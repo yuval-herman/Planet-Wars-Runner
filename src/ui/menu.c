@@ -43,6 +43,14 @@ const struct {
         .source = (const char *)DemoBot_source,
         .source_length = DemoBot_size,
     },
+    {
+        .name = CLAY_STRING("Greedy"),
+        .descriptions =
+            CLAY_STRING("This greedy fella doesn't know when to stop!\nHe "
+                        "won't stop attacking, be ready!"),
+        .source = (const char *)Greedy_source,
+        .source_length = Greedy_size,
+    },
 };
 
 #undef STRING_AND_LENGTH
