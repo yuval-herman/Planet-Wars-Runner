@@ -5,6 +5,7 @@
 #include "../configs.h"
 #include "../game.h"
 #include "../game_log.h"
+#include "../lua_scripts.h"
 #include "../runner.h"
 #include "nob.h"
 
@@ -22,6 +23,29 @@ enum SubMenu {
   MENU_PLAY_MATCH,
   MENU_BEAT_BOTS,
 };
+
+#define STRING_AND_LENGTH(field, string)                                       \
+  STRING_AND_LENGTH_INNER(field, string, _length)
+#define STRING_AND_LENGTH_INNER(field, string, length_name)                    \
+  .field = string, .field##length_name = NOB_ARRAY_LEN(string)
+
+const struct {
+  const Clay_String name;
+  const Clay_String descriptions;
+  const char *source;
+  const unsigned source_length;
+} embedded_bots[] = {
+    {
+        .name = CLAY_STRING("Demo bot"),
+        .descriptions = CLAY_STRING(
+            "A simple bot that can only attack one planet at a time.\n"
+            "Made as an example of how to make bots."),
+        .source = (const char *)DemoBot_source,
+        .source_length = DemoBot_size,
+    },
+};
+
+#undef STRING_AND_LENGTH
 
 static Configs *configs = NULL;
 static enum SubMenu sub_menu = MENU_MAIN;
@@ -328,8 +352,28 @@ void PlayMatchView() {
   // clang-format on
 }
 
+void StartBeatBotsMatch() {
+  GameLog game_log = {0};
+  GameState state = {0};
+  configs->players.items[0].type = PLAYER_HUMAN;
+  EnsureNullTerminated(&configs->map_file);
+  if (MakeGame(&state, configs->map_file.items, configs->players.count)) {
+    SetGameState(state);
+    SetPlayers(configs->players);
+    ChangeScreen(SCREEN_HUMAN_GAME);
+  } else {
+    // TODO We need a way to know why the match failed and report a more
+    // meaningful error.
+    ShowErrorPopup("Failed starting the game.");
+  }
+
+  FreeInnerGameState(state);
+  FreeInnerGameLog(game_log);
+}
+
 void PlayBeatBotsView() {
   inputs_data.current_input = 0;
+  static unsigned selected_bot = 0;
 
   // clang-format off
   SubMenuContainer("PlayMatchContainer") {
@@ -348,8 +392,7 @@ void PlayBeatBotsView() {
 
       CLAY_TEXT(CLAY_STRING("SELECT OPPONENT"), {.fontId = CLAY_FONT(FiraCode_Bold, 16),
                                        .textColor = C_GRAY});
-      unsigned selected = 1;
-      for (unsigned i = 0; i < 3; i++) {
+      for (unsigned i = 0; i < NOB_ARRAY_LEN(embedded_bots); i++) {
         CLAY(CLAY_IDI("BotContainer", i), {
              .layout = {
                .sizing = {
@@ -362,11 +405,16 @@ void PlayBeatBotsView() {
              .cornerRadius = CLAY_CORNER_RADIUS(8),
              .backgroundColor = (Clay_Color){255,255,255,20},
              .border = {
-               .color = (Clay_Color){255,255,255,i==selected ? 220 : 30},
-               .width = CLAY_BORDER_OUTSIDE(i==selected ? 2 : 1),
+               .color = (Clay_Color){255,255,255,i==selected_bot ? 220 : 30},
+               .width = CLAY_BORDER_OUTSIDE(i==selected_bot ? 2 : 1),
              }
            }) {
-          CLAY(CLAY_ID_LOCAL("radio"), {
+          // clang-format on
+          if (Clay_Hovered() && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+            selected_bot = i;
+          }
+          // clang-format off
+          CLAY(CLAY_IDI("radio", i), {
                .layout = {
                  .sizing = {.height = CLAY_SIZING_PERCENT(0.5)}
                },
@@ -374,17 +422,17 @@ void PlayBeatBotsView() {
                .cornerRadius = CLAY_CORNER_RADIUS_MAX(),
                .border = {
                  .color = C_WHITE,
-                 .width = CLAY_BORDER_OUTSIDE(i==selected ? 5 : 1),
+                 .width = CLAY_BORDER_OUTSIDE(i==selected_bot ? 5 : 1),
                }
              });
-          CLAY(CLAY_ID_LOCAL("BotInfoCOntainer"), {
+          CLAY(CLAY_IDI("BotInfoCOntainer", i), {
                .layout = { .layoutDirection = CLAY_TOP_TO_BOTTOM }
              }) {
-            CLAY_TEXT(CLAY_STRING("Test Name"), {
+            CLAY_TEXT(embedded_bots[i].name, {
                       .fontId = CLAY_FONT(FiraCode_Bold, 24),
                       .textColor = C_WHITE
                     });
-            CLAY_TEXT(CLAY_STRING("Lorem ipsum dolor sit ammet"), {
+            CLAY_TEXT(embedded_bots[i].descriptions, {
                       .fontId = CLAY_FONT(FiraCode_Regular, 16),
                       .textColor = C_GRAY
                     });
@@ -398,9 +446,21 @@ void PlayBeatBotsView() {
          }) {
       if (Component_Button(CLAY_STRING("Back"), BUTTON_STYLE_SUB_MENU, false)) sub_menu = MENU_MAIN;
       SpacerComponent("Spacer");
-      if (Component_Button(CLAY_STRING("Start match"), BUTTON_STYLE_SUB_MENU, false)) {
-        StartMatch();
+      // clang-format on
+      if (Component_Button(CLAY_STRING("Start match"), BUTTON_STYLE_SUB_MENU,
+                           false)) {
+        configs->players.items[1].type = PLAYER_LUA_BOT;
+        configs->players.items[1].name.count = 0;
+        nob_sb_append_buf(&configs->players.items[1].name,
+                          embedded_bots[selected_bot].name.chars,
+                          embedded_bots[selected_bot].name.length);
+        configs->players.items[1].as.lua_bot = (LuaBot){0};
+        nob_sb_append_buf(&configs->players.items[1].as.lua_bot.script_code,
+                          embedded_bots[selected_bot].source,
+                          embedded_bots[selected_bot].source_length);
+        StartBeatBotsMatch();
       }
+      // clang-format off
     }
   }
   // clang-format on
@@ -500,7 +560,7 @@ void MenuInit() {
       .time_scale = 0.3,
       .seed = 28,
   });
-  Clay_SetDebugModeEnabled(true);
+  // Clay_SetDebugModeEnabled(true);
 }
 
 void MenuDestroy() {
