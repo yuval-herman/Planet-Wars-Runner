@@ -422,57 +422,66 @@ void PlayBeatBotsView() {
            .layoutDirection = CLAY_TOP_TO_BOTTOM,
            .childGap = 24
          },
-         .clip = { .vertical = true, .childOffset = Clay_GetScrollOffset() }, 
        }) {
       InputComponent("PlayerName", "PLAYER NAME", &configs->players.items[0].name);
 
       CLAY_TEXT(CLAY_STRING("SELECT OPPONENT"), {.fontId = CLAY_FONT(FiraCode_Bold, 16),
                                        .textColor = C_GRAY});
-      for (unsigned i = 0; i < NOB_ARRAY_LEN(embedded_bots); i++) {
-        CLAY(CLAY_IDI("BotContainer", i), {
-             .layout = {
-               .sizing = {
-                 .width = CLAY_SIZING_GROW(0),
-                 .height = CLAY_SIZING_FIT(0),
-               },
-               .childGap = 16,
-               .childAlignment = { .y = CLAY_ALIGN_Y_CENTER },
-               .padding = {16,16,8,8},
-             },
-             .cornerRadius = CLAY_CORNER_RADIUS(8),
-             .backgroundColor = (Clay_Color){255,255,255,20},
-             .border = {
-               .color = (Clay_Color){255,255,255,i==selected_bot ? 220 : 30},
-               .width = CLAY_BORDER_OUTSIDE(i==selected_bot ? 2 : 1),
-             }
+      CLAY(CLAY_ID("BotsContainer"), {
+           .layout = {
+             .sizing = {CLAY_SIZING_GROW(0),CLAY_SIZING_GROW(0)},
+             .childAlignment = {CLAY_ALIGN_X_LEFT, CLAY_ALIGN_Y_CENTER},
+             .layoutDirection = CLAY_TOP_TO_BOTTOM,
+             .childGap = 24
+           },
+           .clip = { .vertical = true, .childOffset = Clay_GetScrollOffset() }, 
            }) {
-          // clang-format on
-          if (Clay_Hovered() && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-            selected_bot = i;
-          }
-          // clang-format off
-          CLAY(CLAY_IDI("radio", i), {
+        for (unsigned i = 0; i < NOB_ARRAY_LEN(embedded_bots); i++) {
+          CLAY(CLAY_IDI("Bot", i), {
                .layout = {
-                 .sizing = {.height = CLAY_SIZING_PERCENT(0.5)}
+                 .sizing = {
+                   .width = CLAY_SIZING_GROW(0),
+                   .height = CLAY_SIZING_FIT(0),
+                 },
+                 .childGap = 16,
+                 .childAlignment = { .y = CLAY_ALIGN_Y_CENTER },
+                 .padding = {16,16,8,8},
                },
-               .aspectRatio = { 1 },
-               .cornerRadius = CLAY_CORNER_RADIUS_MAX(),
+               .cornerRadius = CLAY_CORNER_RADIUS(8),
+               .backgroundColor = (Clay_Color){255,255,255,20},
                .border = {
-                 .color = C_WHITE,
-                 .width = CLAY_BORDER_OUTSIDE(i==selected_bot ? 5 : 1),
+                 .color = (Clay_Color){255,255,255,i==selected_bot ? 220 : 30},
+                 .width = CLAY_BORDER_OUTSIDE(i==selected_bot ? 2 : 1),
                }
-             });
-          CLAY(CLAY_IDI("BotInfoCOntainer", i), {
-               .layout = { .layoutDirection = CLAY_TOP_TO_BOTTOM }
              }) {
-            CLAY_TEXT(embedded_bots[i].name, {
-                      .fontId = CLAY_FONT(FiraCode_Bold, 24),
-                      .textColor = C_WHITE
-                    });
-            CLAY_TEXT(embedded_bots[i].descriptions, {
-                      .fontId = CLAY_FONT(FiraCode_Regular, 16),
-                      .textColor = C_GRAY
-                    });
+            // clang-format on
+            if (Clay_Hovered() && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+              selected_bot = i;
+            }
+            // clang-format off
+            CLAY(CLAY_IDI("radio", i), {
+                 .layout = {
+                   .sizing = {.height = CLAY_SIZING_PERCENT(0.5)}
+                 },
+                 .aspectRatio = { 1 },
+                 .cornerRadius = CLAY_CORNER_RADIUS_MAX(),
+                 .border = {
+                   .color = C_WHITE,
+                   .width = CLAY_BORDER_OUTSIDE(i==selected_bot ? 5 : 1),
+                 }
+               });
+            CLAY(CLAY_IDI("BotInfoCOntainer", i), {
+                 .layout = { .layoutDirection = CLAY_TOP_TO_BOTTOM }
+               }) {
+              CLAY_TEXT(embedded_bots[i].name, {
+                        .fontId = CLAY_FONT(FiraCode_Bold, 24),
+                        .textColor = C_WHITE
+                      });
+              CLAY_TEXT(embedded_bots[i].descriptions, {
+                        .fontId = CLAY_FONT(FiraCode_Regular, 16),
+                        .textColor = C_GRAY
+                      });
+            }
           }
         }
       }
