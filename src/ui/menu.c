@@ -5,6 +5,7 @@
 #include "../configs.h"
 #include "../game.h"
 #include "../game_log.h"
+#include "../lua_scripts.h"
 #include "../runner.h"
 #include "nob.h"
 
@@ -20,7 +21,66 @@ enum SubMenu {
   MENU_MAIN,
   MENU_REPLAY,
   MENU_PLAY_MATCH,
+  MENU_BEAT_BOTS,
 };
+
+#define STRING_AND_LENGTH(field, string)                                       \
+  STRING_AND_LENGTH_INNER(field, string, _length)
+#define STRING_AND_LENGTH_INNER(field, string, length_name)                    \
+  .field = string, .field##length_name = NOB_ARRAY_LEN(string)
+
+const struct {
+  const Clay_String name;
+  const Clay_String descriptions;
+  const char *source;
+  const unsigned source_length;
+} embedded_bots[] = {
+    {
+        .name = CLAY_STRING("Demo bot"),
+        .descriptions = CLAY_STRING(
+            "A simple bot that can only attack one planet at a time.\n"
+            "Made as an example of how to make bots."),
+        .source = (const char *)DemoBot_source,
+        .source_length = DemoBot_size,
+    },
+    {
+        .name = CLAY_STRING("Greedy"),
+        .descriptions =
+            CLAY_STRING("This greedy fella doesn't know when to stop!\nHe "
+                        "won't stop attacking, be ready!"),
+        .source = (const char *)Greedy_source,
+        .source_length = Greedy_size,
+    },
+    {
+        .name = CLAY_STRING("Expander"),
+        .descriptions =
+            CLAY_STRING("Slow, steady, and utterly inevitable.\n"
+                        "It'll gobble up every neutral planet before turning "
+                        "its eyes on you."),
+        .source = (const char *)Expander_source,
+        .source_length = Expander_size,
+    },
+    {
+        .name = CLAY_STRING("Berserker"),
+        .descriptions =
+            CLAY_STRING("No plans. No retreat. No survivors.\n"
+                        "Every ship it has is heading straight for your "
+                        "doorstep, right now."),
+        .source = (const char *)Berserker_source,
+        .source_length = Berserker_size,
+    },
+    {
+        .name = CLAY_STRING("Defender"),
+        .descriptions =
+            CLAY_STRING("Patient, disciplined, and impossible to rush.\n"
+                        "It watches every fleet you send and walls up "
+                        "before you can blink."),
+        .source = (const char *)Defender_source,
+        .source_length = Defender_size,
+    },
+};
+
+#undef STRING_AND_LENGTH
 
 static Configs *configs = NULL;
 static enum SubMenu sub_menu = MENU_MAIN;
@@ -327,6 +387,131 @@ void PlayMatchView() {
   // clang-format on
 }
 
+void StartBeatBotsMatch() {
+  GameLog game_log = {0};
+  GameState state = {0};
+  configs->players.items[0].type = PLAYER_HUMAN;
+  EnsureNullTerminated(&configs->map_file);
+  if (MakeGame(&state, configs->map_file.items, configs->players.count)) {
+    SetGameState(state);
+    SetPlayers(configs->players);
+    ChangeScreen(SCREEN_HUMAN_GAME);
+  } else {
+    // TODO We need a way to know why the match failed and report a more
+    // meaningful error.
+    ShowErrorPopup("Failed starting the game.");
+  }
+
+  FreeInnerGameState(state);
+  FreeInnerGameLog(game_log);
+}
+
+void PlayBeatBotsView() {
+  inputs_data.current_input = 0;
+  static unsigned selected_bot = 0;
+
+  // clang-format off
+  SubMenuContainer("PlayMatchContainer") {
+    CLAY_TEXT(CLAY_STRING("BEAT BOTS"), { .fontId = CLAY_FONT(FiraCode_Bold, 32), .textColor = C_WHITE});
+    HorizontalSeperatorComponent("HorizontalSeperator");
+
+    CLAY(CLAY_ID("FormContainer"), {
+         .layout = {
+           .sizing = {CLAY_SIZING_GROW(0),CLAY_SIZING_GROW(0)},
+           .childAlignment = {CLAY_ALIGN_X_LEFT, CLAY_ALIGN_Y_CENTER},
+           .layoutDirection = CLAY_TOP_TO_BOTTOM,
+           .childGap = 24
+         },
+       }) {
+      InputComponent("PlayerName", "PLAYER NAME", &configs->players.items[0].name);
+
+      CLAY_TEXT(CLAY_STRING("SELECT OPPONENT"), {.fontId = CLAY_FONT(FiraCode_Bold, 16),
+                                       .textColor = C_GRAY});
+      CLAY(CLAY_ID("BotsContainer"), {
+           .layout = {
+             .sizing = {CLAY_SIZING_GROW(0),CLAY_SIZING_GROW(0)},
+             .childAlignment = {CLAY_ALIGN_X_LEFT, CLAY_ALIGN_Y_CENTER},
+             .layoutDirection = CLAY_TOP_TO_BOTTOM,
+             .childGap = 24
+           },
+           .clip = { .vertical = true, .childOffset = Clay_GetScrollOffset() }, 
+           }) {
+        for (unsigned i = 0; i < NOB_ARRAY_LEN(embedded_bots); i++) {
+          CLAY(CLAY_IDI("Bot", i), {
+               .layout = {
+                 .sizing = {
+                   .width = CLAY_SIZING_GROW(0),
+                   .height = CLAY_SIZING_FIT(0),
+                 },
+                 .childGap = 16,
+                 .childAlignment = { .y = CLAY_ALIGN_Y_CENTER },
+                 .padding = {16,16,8,8},
+               },
+               .cornerRadius = CLAY_CORNER_RADIUS(8),
+               .backgroundColor = (Clay_Color){255,255,255,20},
+               .border = {
+                 .color = (Clay_Color){255,255,255,i==selected_bot ? 220 : 30},
+                 .width = CLAY_BORDER_OUTSIDE(i==selected_bot ? 2 : 1),
+               }
+             }) {
+            // clang-format on
+            if (Clay_Hovered() && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+              selected_bot = i;
+            }
+            // clang-format off
+            CLAY(CLAY_IDI("radio", i), {
+                 .layout = {
+                   .sizing = {.height = CLAY_SIZING_PERCENT(0.5)}
+                 },
+                 .aspectRatio = { 1 },
+                 .cornerRadius = CLAY_CORNER_RADIUS_MAX(),
+                 .border = {
+                   .color = C_WHITE,
+                   .width = CLAY_BORDER_OUTSIDE(i==selected_bot ? 5 : 1),
+                 }
+               });
+            CLAY(CLAY_IDI("BotInfoCOntainer", i), {
+                 .layout = { .layoutDirection = CLAY_TOP_TO_BOTTOM }
+               }) {
+              CLAY_TEXT(embedded_bots[i].name, {
+                        .fontId = CLAY_FONT(FiraCode_Bold, 24),
+                        .textColor = C_WHITE
+                      });
+              CLAY_TEXT(embedded_bots[i].descriptions, {
+                        .fontId = CLAY_FONT(FiraCode_Regular, 16),
+                        .textColor = C_GRAY
+                      });
+            }
+          }
+        }
+      }
+    }
+
+    CLAY(CLAY_ID("StateButtonsContainer"), {
+           .layout = { .sizing = { .width = CLAY_SIZING_GROW(0) }}
+         }) {
+      if (Component_Button(CLAY_STRING("Back"), BUTTON_STYLE_SUB_MENU, false)) sub_menu = MENU_MAIN;
+      SpacerComponent("Spacer");
+      // clang-format on
+      if (Component_Button(CLAY_STRING("Start match"), BUTTON_STYLE_SUB_MENU,
+                           false)) {
+        configs->players.items[1].type = PLAYER_LUA_BOT;
+        configs->players.items[1].name.count = 0;
+        nob_sb_append_buf(&configs->players.items[1].name,
+                          embedded_bots[selected_bot].name.chars,
+                          embedded_bots[selected_bot].name.length);
+        configs->players.items[1].as.lua_bot = (LuaBot){0};
+        nob_sb_append_buf(&configs->players.items[1].as.lua_bot.script_code,
+                          embedded_bots[selected_bot].source,
+                          embedded_bots[selected_bot].source_length);
+        StartBeatBotsMatch();
+      }
+      // clang-format off
+    }
+  }
+  // clang-format on
+}
+
 void MainMenuView() {
   // clang-format off
   CLAY(CLAY_ID("TitleContainer"), {
@@ -348,6 +533,9 @@ void MainMenuView() {
       .layoutDirection = CLAY_TOP_TO_BOTTOM,
      },
   }) {
+    if(Component_Button(CLAY_STRING("BEAT BOTS"), BUTTON_STYLE_MENU, false)) {
+      sub_menu = MENU_BEAT_BOTS;
+    }
     if(Component_Button(CLAY_STRING("PLAY MATCH"), BUTTON_STYLE_MENU, false)) {
       sub_menu = MENU_PLAY_MATCH;
     }
@@ -392,6 +580,14 @@ void MenuDraw() {
       }
       PlayMatchView();
       break;
+    case MENU_BEAT_BOTS:
+      // initialize if empty
+      for (unsigned id = 0; configs->players.count < 2; id++) {
+        const Player empty_player = {.type = PLAYER_BOT, .id = id};
+        nob_da_append(&configs->players, empty_player);
+      }
+      PlayBeatBotsView();
+      break;
     }
     // clang-format off
   }
@@ -410,6 +606,7 @@ void MenuInit() {
       .time_scale = 0.3,
       .seed = 28,
   });
+  // Clay_SetDebugModeEnabled(true);
 }
 
 void MenuDestroy() {

@@ -1,4 +1,3 @@
--- DemoBot in Lua: ports the logic from DemoBot.py
 function do_turn(pw)
   if #pw:my_fleets() >= 1 then
     return
